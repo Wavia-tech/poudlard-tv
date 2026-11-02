@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Palette de base.css, pour les quelques vues natives (fond de fenêtre, écran de secours). -->
+<resources>
+    <color name="night">#FF070B14</color>
+    <color name="stone">#FF1C2230</color>
+    <color name="ivory">#FFF1EBDD</color>
+    <color name="gold">#FFC9A24A</color>
+    <color name="gold_light">#FFF1D58A</color>
+</resources>

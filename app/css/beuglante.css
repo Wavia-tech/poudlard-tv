@@ -1,0 +1,50 @@
+/* Beuglante : enveloppe rouge qui glisse du bas, tremble quatre fois, délivre un message en IM Fell et se consume.
+   La seule chose rouge vif de l'interface. Mouvement : transform et opacité seulement. */
+
+.beuglante { position: absolute; left: 50%; bottom: 4.2cqw; z-index: 70; width: 46cqw; pointer-events: none;
+  transform: translate(-50%, 140%); opacity: 1;
+  transition: transform calc(var(--k) * 450ms) cubic-bezier(.2, .8, .2, 1), opacity calc(var(--k) * 700ms) ease; }
+.beuglante.is-in { transform: translate(-50%, 0); }
+.beuglante.is-burn { opacity: 0; transform: translate(-50%, -2.6cqw); transition-timing-function: ease-in, ease; }
+
+/* L'enveloppe : rouge cire, bords droits, rabat sombre et sceau. Le tremblement vit sur ce calque (rotate seul). */
+.beuglante-env { position: relative; padding: 2.4cqw 1.3cqw 1.3cqw; background: #B5121B; border-radius: .35cqw; transform-origin: 50% 100%;
+  box-shadow: inset 0 .1cqw 0 #ff5a5a66, inset 0 -.12cqw 0 #5a0608, 0 1.2cqw 2.4cqw #000c; }
+.beuglante.is-shake .beuglante-env { animation: beuglante-shake calc(var(--k) * 640ms) ease-in-out 1; }
+@keyframes beuglante-shake {
+  0%, 100% { transform: rotate(0deg); }
+  12.5% { transform: rotate(1.5deg); }
+  37.5% { transform: rotate(-1.5deg); }
+  62.5% { transform: rotate(1.5deg); }
+  87.5% { transform: rotate(-1.5deg); }
+}
+
+/* Rabat triangulaire (clip-path statique) et sceau de cire noire à liseré d'or. */
+.beuglante-flap { position: absolute; left: 0; right: 0; top: 0; height: 2.6cqw; background: #8C0B12;
+  clip-path: polygon(0 0, 100% 0, 50% 100%); }
+.beuglante-seal { position: absolute; left: 50%; top: 1.5cqw; width: 2.2cqw; height: 2.2cqw; transform: translateX(-50%); border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #ffffff2e, transparent 45%), #2a0608;
+  box-shadow: inset 0 0 0 .18cqw #00000055, 0 0 0 .12cqw var(--gold-dark), 0 .2cqw .4cqw #0009; }
+
+/* La lettre elle-même : parchemin, encre, IM Fell. */
+.beuglante-paper { position: relative; background: var(--parchment); color: var(--ink); padding: 1.3cqw 1.8cqw; border-radius: .15cqw;
+  box-shadow: inset 0 0 2.4cqw #6b4a1a33, 0 .3cqw .6cqw #0007; }
+.beuglante-msg { font-family: var(--fell); font-size: 2cqw; line-height: 1.3; text-align: center; }
+
+/* L'action (au plus une) : OK la choisit, Retour ignore. Sur le rouge, en ivoire. */
+.beuglante-act { display: flex; align-items: baseline; justify-content: center; gap: .8cqw; margin-top: 1cqw; white-space: nowrap;
+  font-family: var(--body); font-size: 1.6cqw; color: var(--ivory); }
+.beuglante-act b { font-family: var(--display); font-weight: 600; font-size: 1.5cqw; letter-spacing: .2em; color: var(--gold-light); }
+.beuglante-act i { font-style: normal; font-size: 1.5cqw; opacity: .6; margin-left: 1.4cqw; }
+
+/* Mouvement réduit : fondu 200 ms, pas de montée, pas de tremblement. */
+.beuglante.is-reduced { transform: translate(-50%, 0); opacity: 0; transition: opacity calc(var(--k) * 200ms) ease; }
+.beuglante.is-reduced.is-in { opacity: 1; }
+.beuglante.is-reduced.is-burn { opacity: 0; transform: translate(-50%, 0); }
+.beuglante.is-reduced .beuglante-env { animation: none; }
+@media (prefers-reduced-motion: reduce) {
+  .beuglante { transition: opacity calc(var(--k) * 200ms) ease; transform: translate(-50%, 0); opacity: 0; }
+  .beuglante.is-in { opacity: 1; }
+  .beuglante.is-burn { transform: translate(-50%, 0); }
+  .beuglante .beuglante-env { animation: none; }
+}

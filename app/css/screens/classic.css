@@ -1,0 +1,93 @@
+/* Mode classique (« le lundi matin ») : fond Nuit uni (le grain est posé par main.js), horloge Cinzel,
+   grille 6 par ligne de tuiles de pierre 16:9. Focus = cadre ivoire + scale 1.06 en 150 ms, rien d'autre : voulu.
+   Mouvement : transform et opacité seulement. Tout en cqw. Préfixe de classe : .cls-
+   Ivoire à 90 % maximum partout (burn-in) : le cadre de focus est l'élément fixe le plus longtemps. */
+
+.screen-classic { background: var(--night); --cls-focus-ms: 150ms; }
+
+/* ---- Horloge (5.8 cqw : seuil du contrat) ---- */
+.cls-clock { position: absolute; top: 2.6cqw; left: 4.5cqw; color: var(--ivory); }
+.cls-time { font-family: var(--display); font-weight: 600; font-size: 5.8cqw; line-height: 1; letter-spacing: .06em; font-variant-numeric: tabular-nums;
+  opacity: .9; text-shadow: 0 -.05cqw 0 #ffffff26, 0 .1cqw .15cqw #000000cc; }
+.cls-date { margin-top: .5cqw; font-family: var(--body); font-style: italic; font-size: 1.7cqw; color: var(--moon); opacity: .8; font-variant-numeric: tabular-nums; }
+.cls-date::first-letter { text-transform: uppercase; }
+
+/* ---- Fenêtre de défilement : les lignes glissent en translateY, la fenêtre coupe. ---- */
+.cls-scroll { position: absolute; left: 4.5cqw; right: 4.5cqw; top: 12cqw; bottom: 3.8cqw; overflow: hidden; }
+/* Fondu bas de 2.4 cqw : classic.js garde la ligne en focus au-dessus (marge `fade` dans focus()). */
+.cls-scroll::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 2.4cqw; pointer-events: none;
+  background: linear-gradient(to bottom, #070B1400, var(--night)); }
+.cls-rows { padding: .6cqw 0 2.4cqw; transition: transform calc(var(--k) * 350ms) cubic-bezier(.3, .7, .2, 1); will-change: transform; }
+
+.cls-row { margin: 0 0 1.1cqw; }
+/* Titres de catégorie : 2.1 cqw (seuil « titres » du contrat), Cinzel capitales espacées. */
+.cls-row-title { margin: 0 0 .5cqw .3cqw; font-family: var(--display); font-weight: 600; font-size: 2.1cqw; letter-spacing: .22em; text-transform: uppercase;
+  color: var(--mist); opacity: .7; }
+.cls-row-tail .cls-row-title { color: var(--gold); opacity: .75; }
+/* Ligne de continuation (catégorie de plus de 6 applis) : pas de titre, collée à la ligne précédente au pas de la grille (1.4 cqw). */
+.cls-row-cont { margin-top: -.3cqw; }
+.cls-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 1.4cqw; padding: .3cqw .4cqw; }
+
+/* ---- Tuile ---- */
+.cls-tile { position: relative; min-width: 0; }
+.cls-plate { position: relative; aspect-ratio: 16 / 9; border-radius: .7cqw; display: flex; align-items: center; justify-content: center;
+  background: linear-gradient(160deg, #242c3c 0%, var(--stone) 55%, #171c28 100%);
+  box-shadow: inset 0 .08cqw 0 #ffffff14, inset 0 -.1cqw 0 #00000080;
+  transform: scale(1); transition: transform calc(var(--k) * var(--cls-focus-ms)) ease-out; }
+/* Le cadre ivoire : un calque dont seule l'opacité change (pas de bordure animée). */
+.cls-plate::after { content: ""; position: absolute; inset: 0; border-radius: .7cqw; border: .15cqw solid var(--ivory); opacity: 0; pointer-events: none;
+  transition: opacity calc(var(--k) * var(--cls-focus-ms)) ease-out; }
+.cls-tile.is-focus .cls-plate { transform: scale(1.06); }
+.cls-tile.is-focus .cls-plate::after { opacity: .9; }
+
+/* Logo ivoire centré, à plat : seule la couche .l-base, à 90 % (burn-in). Le focus ne la change pas (on neutralise l'or de shared.css) :
+   exception assumée du mode classique (blueprint : « focus = cadre + scale, rien d'autre »). */
+.cls-icon { position: relative; }
+.cls-icon .app-logo .l-base { background: var(--ivory); opacity: .9; }
+.cls-tile.is-focus .cls-icon .app-logo .l-base { background: var(--ivory); opacity: .9; }
+.cls-glyph { font-family: var(--display); font-weight: 600; font-size: 3.2cqw; color: var(--ivory); opacity: .9; line-height: 1; }
+.cls-svg { width: 3.6cqw; height: 3.6cqw; }
+.cls-svg svg { width: 100%; height: 100%; fill: none; stroke: var(--ivory); stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; opacity: .9; }
+
+.cls-name { margin-top: .55cqw; text-align: center; font-family: var(--body); font-weight: 500; font-size: 1.65cqw; line-height: 1.2; color: var(--ivory); opacity: .78;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; transition: opacity calc(var(--k) * var(--cls-focus-ms)); }
+.cls-tile.is-focus .cls-name { opacity: .9; }
+
+/* Appli que la TV dit désinstallée : le contenu pâlit, pas la plaque (le cadre de focus reste entier), OK ouvre une Beuglante. */
+.cls-tile.is-absent .cls-plate { background: linear-gradient(160deg, #1a2030, #141a26); }
+.cls-tile.is-absent .cls-icon, .cls-tile.is-absent .cls-glyph { opacity: .4; }
+.cls-tile.is-absent .cls-name { opacity: .5; }
+
+/* Catalogue vide : jamais d'écran noir. */
+.cls-empty { margin: 1cqw .3cqw 2.4cqw; font-family: var(--fell); font-style: italic; font-size: 2.2cqw; color: var(--mist); opacity: .85; }
+
+/* ---- Bascule Poudlard → classique : calque de nuit, braise de bougie, volutes. Animé en WAAPI par classic.js (transform + opacité). ---- */
+.cls-smoke { position: absolute; inset: 0; z-index: 40; background: var(--night); pointer-events: none; overflow: hidden; }
+/* La braise : la dernière lueur de la bougie du parapet, en bas au centre. */
+.cls-ember { position: absolute; left: 50%; bottom: 8cqw; width: 14cqw; height: 7cqw; border-radius: 50%; transform: translate(-50%, 0);
+  background: radial-gradient(ellipse at 50% 60%, #FFB457cc 0%, #FFB45755 30%, #FFB45700 70%); }
+/* Les volutes : ellipses ivoire très diluées, la douceur vient du dégradé radial (aucun blur). */
+.cls-puff { position: absolute; bottom: 6cqw; border-radius: 50%; transform: translate(-50%, 0); opacity: 0;
+  background: radial-gradient(ellipse at 50% 50%, #F1EBDD 0%, #F1EBDDaa 35%, #F1EBDD00 70%); }
+
+/* ---- Bandeau « Ouverture de X » (maquette) ---- */
+.cls-banner { position: absolute; left: 50%; bottom: 5.2cqw; z-index: 30; transform: translate(-50%, 1.6cqw); opacity: 0; pointer-events: none; white-space: nowrap;
+  padding: .9cqw 2.8cqw; border-radius: .4cqw; background: var(--stone); box-shadow: inset 0 .08cqw 0 #ffffff14, inset 0 0 0 .1cqw #ffffff14, 0 .6cqw 1.6cqw #000b;
+  font-family: var(--display); font-weight: 600; font-size: 1.8cqw; letter-spacing: .22em; text-transform: uppercase; color: var(--ivory);
+  transition: opacity calc(var(--k) * 250ms) ease, transform calc(var(--k) * 250ms) cubic-bezier(.2, .8, .2, 1); }
+.cls-banner.is-in { opacity: 1; transform: translate(-50%, 0); }
+
+/* ---- Mouvement réduit (réglage ou système) : fondus 200 ms, pas de scale, pas de glissement, pas de fumée. ---- */
+html:not([data-motion="auto"]) .screen-classic .cls-plate,
+html:not([data-motion="auto"]) .screen-classic .cls-tile.is-focus .cls-plate { transform: none; transition: none; }
+html:not([data-motion="auto"]) .screen-classic .cls-plate::after { transition-duration: calc(var(--k) * 200ms); }
+html:not([data-motion="auto"]) .screen-classic .cls-rows { transition: none; }
+html:not([data-motion="auto"]) .screen-classic .cls-banner { transform: translate(-50%, 0); transition: opacity calc(var(--k) * 200ms) ease; }
+html:not([data-motion="auto"]) .screen-classic .cls-smoke { display: none; }
+@media (prefers-reduced-motion: reduce) {
+  .screen-classic .cls-plate, .screen-classic .cls-tile.is-focus .cls-plate { transform: none; transition: none; }
+  .screen-classic .cls-plate::after { transition-duration: calc(var(--k) * 200ms); }
+  .screen-classic .cls-rows { transition: none; }
+  .screen-classic .cls-banner { transform: translate(-50%, 0); transition: opacity calc(var(--k) * 200ms) ease; }
+  .screen-classic .cls-smoke { display: none; }
+}

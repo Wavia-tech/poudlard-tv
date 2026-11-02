@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Bannière Leanback (320 x 180 dp obligatoire pour apparaître dans la liste des applis TV).
+     Dessinée en XML pour que le dépôt n'embarque aucun binaire : nuit, liseré or, un « P » gravé.
+     À remplacer par res/drawable-nodpi/banner.png (320x180) quand un visuel original sera prêt :
+     il suffit de supprimer ce fichier, le nom de ressource reste @drawable/banner. -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item>
+        <shape android:shape="rectangle">
+            <size android:width="320dp" android:height="180dp" />
+            <solid android:color="@color/night" />
+            <stroke android:width="2dp" android:color="@color/gold" />
+        </shape>
+    </item>
+    <item android:gravity="center">
+        <vector
+            android:width="120dp"
+            android:height="120dp"
+            android:viewportWidth="100"
+            android:viewportHeight="100">
+            <!-- Cercle or -->
+            <path
+                android:strokeColor="@color/gold_light"
+                android:strokeWidth="3"
+                android:fillColor="#00000000"
+                android:pathData="M50,8 A42,42 0 1,1 49.9,8 Z" />
+            <!-- Un P à empattements, tracé à la main -->
+            <path
+                android:fillColor="@color/ivory"
+                android:pathData="M34,26 H58 C70,26 76,33 76,43 C76,53 70,60 58,60 H44 V72 H52 V76 H30 V72 H36 V30 H30 V26 Z M44,30 V56 H57 C64,56 68,51 68,43 C68,35 64,30 57,30 Z" />
+        </vector>
+    </item>
+</layer-list>

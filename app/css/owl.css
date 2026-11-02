@@ -1,0 +1,15 @@
+/* Hedwige : poses photo fondues, profondeur, ombre. --owl-size = hauteur posée (px). */
+.owl { position: absolute; top: 0; left: 0; width: var(--owl-size); height: var(--owl-size); pointer-events: none; z-index: 30; will-change: transform; transition: opacity calc(var(--k) * 300ms); }
+.owl-dir, .owl-depth { position: absolute; inset: 0; transform-origin: 50% 100%; }
+.owl-poses { position: absolute; left: 50%; bottom: 0; width: calc(var(--owl-size) * 1.9); height: calc(var(--owl-size) * 1.3); transform: translateX(-50%); }
+.owl-pose { position: absolute; left: 50%; bottom: 0; height: 100%; width: auto; transform: translateX(-50%); display: block; opacity: 0;
+  transition-property: opacity; transition-timing-function: ease; transition-duration: 60ms; will-change: opacity;
+  filter: drop-shadow(0 0 .35cqw #ffffff55); }
+.owl-pose-perch, .owl-pose-look, .owl-pose-sleep { height: 82%; }       /* posée : plus petite que les ailes déployées */
+.owl-shadow { position: absolute; left: 50%; bottom: -.5cqw; width: calc(var(--owl-size) * .9); height: calc(var(--owl-size) * .22); margin-left: calc(var(--owl-size) * -.45);
+  border-radius: 50%; background: radial-gradient(closest-side, #00000099, #00000000); opacity: .55; transform-origin: 50% 50%; }
+.owl[data-state="idle"] .owl-depth { animation: owl-breathe calc(var(--k) * 3.4s) ease-in-out infinite; }
+@keyframes owl-breathe { 0%, 100% { transform: scale(1, 1); } 50% { transform: scale(1.01, 1.015); } }
+.owl[data-state="sleep"] .owl-shadow { opacity: .4; }
+html[data-motion="reduit"] .owl[data-state="idle"] .owl-depth, html[data-motion="economie"] .owl[data-state="idle"] .owl-depth { animation: none; }
+@media (prefers-reduced-motion: reduce) { .owl[data-state="idle"] .owl-depth { animation: none; } }

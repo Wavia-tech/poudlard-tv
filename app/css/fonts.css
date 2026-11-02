@@ -1,0 +1,11 @@
+/* Polices embarquées pour la télévision (aucun accès réseau). Déposez les fichiers OFL dans assets/fonts/ :
+   Cinzel-VariableFont_wght.ttf, CinzelDecorative-Bold.ttf, EBGaramond-VariableFont_wght.ttf, EBGaramond-Italic-VariableFont_wght.ttf,
+   IMFellEnglish-Regular.ttf, IMFellEnglish-Italic.ttf, IMFellEnglishSC-Regular.ttf (Google Fonts → Download family), avec leur OFL.txt.
+   Sans ces fichiers, le navigateur retombe sur les polices système : rien ne casse. */
+@font-face { font-family: "Cinzel"; src: url("../assets/fonts/Cinzel-VariableFont_wght.ttf") format("truetype"); font-weight: 400 900; font-display: swap; }
+@font-face { font-family: "Cinzel Decorative"; src: url("../assets/fonts/CinzelDecorative-Bold.ttf") format("truetype"); font-weight: 700; font-display: swap; }
+@font-face { font-family: "EB Garamond"; src: url("../assets/fonts/EBGaramond-VariableFont_wght.ttf") format("truetype"); font-weight: 400 800; font-style: normal; font-display: swap; }
+@font-face { font-family: "EB Garamond"; src: url("../assets/fonts/EBGaramond-Italic-VariableFont_wght.ttf") format("truetype"); font-weight: 400 800; font-style: italic; font-display: swap; }
+@font-face { font-family: "IM Fell English"; src: url("../assets/fonts/IMFellEnglish-Regular.ttf") format("truetype"); font-style: normal; font-display: swap; }
+@font-face { font-family: "IM Fell English"; src: url("../assets/fonts/IMFellEnglish-Italic.ttf") format("truetype"); font-style: italic; font-display: swap; }
+@font-face { font-family: "IM Fell English SC"; src: url("../assets/fonts/IMFellEnglishSC-Regular.ttf") format("truetype"); font-display: swap; }

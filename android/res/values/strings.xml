@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Les seuls textes natifs : tout le reste est dans la maquette web. Registre : vouvoiement, comme docs/INSTALLATION.md.
+     Les libellés de réglages cités ici sont ceux de l'écran Réglages → À propos de la maquette (settings.js) :
+     « Faire de Poudlard l'accueil » et « Rendre l'accueil Google ». -->
+<resources>
+    <string name="app_name">Poudlard TV</string>
+    <!-- Écran de secours du garde-fou (Watchdog) : affiché à la place de la WebView après 3 plantages en 5 minutes. -->
+    <string name="crashed_title">Poudlard TV s\'est éteint trois fois de suite.</string>
+    <string name="crashed_body">L\'accueil d\'origine de la télé a repris la touche Home. Rien d\'autre n\'a été modifié.\n« Réessayer » rouvre Poudlard TV tout de suite ; pour lui rendre la touche Home, ouvrez ensuite Réglages → À propos → « Faire de Poudlard l\'accueil », puis appuyez sur Home et choisissez Poudlard TV.</string>
+    <string name="crashed_button">Ouvrir l\'accueil d\'origine</string>
+    <string name="crashed_retry">Réessayer Poudlard TV</string>
+    <!-- Page manquante dans l'APK (assets/web vide) : jamais d'écran noir. -->
+    <string name="missing_web">Les fichiers de l\'interface manquent dans l\'application (assets/web). L\'APK doit être reconstruit.</string>
+</resources>

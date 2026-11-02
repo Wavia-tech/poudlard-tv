@@ -1,0 +1,66 @@
+/* Socle : jetons, banc d'essai, scène TV, transitions d'écrans, effets partagés.
+   L'interface TV elle-même vit dans `.stage` et se mesure en cqw (1 cqw = 1 % de la largeur de l'écran). */
+:root {
+  /* Banc d'essai */
+  --bg: #090e19; --panel: #111a2c; --line: #24324f; --fg: #e7ebf3; --muted: #8e9bb4;
+  /* Palette de l'interface (blueprint) */
+  --night: #070B14; --stone: #1C2230; --moon: #C9D9EA; --mist: #8FB3D9; --ivory: #F1EBDD;
+  --gold-light: #F1D58A; --gold: #C9A24A; --gold-dark: #6E4C14; --candle: #FFB457; --parchment: #E8D9B5; --ink: #1B1510;
+  --wax: #7a1f1f; --house-glow: #ffb457;
+  /* Trois familles, trois rôles */
+  --display: "Cinzel", "Trajan Pro", Georgia, serif;        /* gravé : heure, noms, plaques, titres */
+  --body: "EB Garamond", Garamond, Georgia, serif;           /* lu : date, états, réglages */
+  --fell: "IM Fell English", "EB Garamond", Georgia, serif;  /* écrit par un sorcier : Carte, Bibliothèque, Lettre */
+  --title: var(--display); --serif: var(--body); --book: var(--fell);
+  --ui: "Segoe UI", system-ui, sans-serif;
+  --k: 1;                      /* facteur de temps : 3 en ralenti */
+  color-scheme: dark;
+}
+:root[data-slow="1"] { --k: 3; }
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--bg); color: var(--fg); font-family: var(--ui); font-size: 15px; line-height: 1.5; }
+
+/* ---- Banc d'essai (hors TV) ---- */
+.bench { max-width: 1360px; margin: 0 auto; padding: 24px max(16px, env(safe-area-inset-left)) 48px; display: grid; gap: 20px; }
+.bench-head h1 { font-family: var(--title); font-weight: 600; letter-spacing: .08em; font-size: clamp(22px, 3vw, 30px); color: var(--gold); margin: 0; }
+.bench-head p { margin: 6px 0 0; color: var(--muted); max-width: 76ch; }
+.bench-main { display: grid; grid-template-columns: minmax(0, 1fr) 280px; gap: 20px; align-items: start; }
+@media (max-width: 920px) { .bench-main { grid-template-columns: minmax(0, 1fr); } }
+.tv-frame { background: #03050a; border-radius: 14px; padding: 10px; box-shadow: 0 24px 60px #000a, inset 0 0 0 1px #1c2740; }
+.bench-side { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 18px; display: grid; gap: 22px; min-width: 0; }
+.bench-side h2 { font-family: var(--title); font-size: 12.5px; letter-spacing: .16em; text-transform: uppercase; color: var(--gold); margin: 0 0 10px; font-weight: 600; }
+.bench-side .hint { margin: 10px 0 0; color: var(--muted); font-size: 13px; }
+.remote { display: grid; grid-template-columns: repeat(3, 54px); grid-template-rows: repeat(3, 54px); gap: 6px; justify-content: center; }
+.remote-row { display: flex; justify-content: center; gap: 6px; margin-top: 10px; flex-wrap: wrap; }
+.rb { background: #1a2540; border: 1px solid var(--line); color: var(--fg); border-radius: 12px; font: 600 17px var(--ui); cursor: pointer; }
+.rb:hover { border-color: #9fd4ff; }
+.rb:focus-visible, .toggle input:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+.rb.ok { border-radius: 50%; font-family: var(--title); font-size: 13px; letter-spacing: .08em; }
+.rb.wide { padding: 0 14px; height: 38px; font-size: 13.5px; font-weight: 500; }
+.toggle { display: flex; align-items: center; gap: 10px; font-size: 14px; cursor: pointer; margin-bottom: 10px; }
+.toggle input { width: 17px; height: 17px; accent-color: var(--gold); margin: 0; }
+
+/* ---- Scène TV ---- */
+.stage { position: relative; width: 100%; aspect-ratio: 16 / 9; overflow: hidden; border-radius: 6px; background: #000; outline: none;
+  container-type: inline-size; cursor: default; font-size: 1cqw; }
+.stage:fullscreen { border-radius: 0; width: 100vw; height: 100vh; aspect-ratio: auto; }
+.stage:focus-visible { box-shadow: 0 0 0 2px var(--gold); }
+.screen { position: absolute; inset: 0; overflow: hidden; transition: transform calc(var(--k) * 700ms) cubic-bezier(.65, 0, .25, 1), opacity calc(var(--k) * 600ms) ease; }
+.screen.enter-fade { opacity: 0; }
+.screen.leave-fade { opacity: 0; }
+.screen.enter-up { transform: translateY(100%); }     /* le nouvel écran monte depuis le bas */
+.screen.leave-up { transform: translateY(-100%); }
+.screen.enter-down { transform: translateY(-100%); }
+.screen.leave-down { transform: translateY(100%); }
+.screen.enter-iris { clip-path: circle(0% at 50% 60%); }
+.screen.leave-iris { opacity: 0; }
+.screen { clip-path: circle(150% at 50% 60%); transition-property: transform, opacity, clip-path; }
+
+.fx-dust { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 40; }
+.fx-lumos { position: absolute; top: 0; left: 0; width: 6cqw; height: 6cqw; margin: -3cqw 0 0 -3cqw; border-radius: 50%; pointer-events: none; z-index: 45;
+  background: radial-gradient(closest-side, #fffef4, #ffe39acc 40%, #ffd06a00); }
+
+.screen-error { position: absolute; inset: 0; display: grid; place-content: center; gap: 1cqw; text-align: center; background: var(--night); }
+.screen-error .engraved { font-size: 2.4cqw; }
+
+@media (prefers-reduced-motion: reduce) { .screen { transition-duration: 1ms; } }

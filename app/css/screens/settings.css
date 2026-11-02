@@ -1,0 +1,185 @@
+/* La Salle sur Demande (réglages) : un grand registre ouvert en double page sur une table de pierre, à la bougie.
+   Préfixe .set- ; tout en cqw ; transform et opacity seulement (plus un clip-path pour l'écriture à la plume). */
+.screen-settings { background: var(--night); }
+.set-room { position: absolute; inset: 0; overflow: hidden; perspective: 160cqw; }
+
+/* Fond de repli : nuit et quelques étoiles fixes (aucune image nécessaire). */
+.set-stars { position: absolute; inset: 0; background:
+  radial-gradient(circle at 12% 18%, #ffffffb0 0 .08cqw, transparent .2cqw), radial-gradient(circle at 27% 9%, #ffffff80 0 .06cqw, transparent .18cqw),
+  radial-gradient(circle at 48% 22%, #ffffff90 0 .07cqw, transparent .2cqw), radial-gradient(circle at 66% 7%, #ffffff70 0 .06cqw, transparent .18cqw),
+  radial-gradient(circle at 81% 16%, #ffffffa0 0 .08cqw, transparent .2cqw), radial-gradient(circle at 92% 31%, #ffffff70 0 .06cqw, transparent .18cqw),
+  radial-gradient(circle at 5% 42%, #ffffff60 0 .06cqw, transparent .18cqw), radial-gradient(circle at 38% 4%, #ffffff60 0 .05cqw, transparent .16cqw),
+  radial-gradient(ellipse at 50% 120%, #1C2230 0%, var(--night) 60%); }
+/* La bougie : une nappe chaude fixe en bas à droite, teintée par la maison. Jamais animée. */
+.set-candle { position: absolute; right: -10cqw; bottom: -14cqw; width: 60cqw; height: 40cqw; pointer-events: none;
+  background: radial-gradient(ellipse at 60% 70%, var(--house-glow) 0%, transparent 60%); opacity: .14; }
+
+/* ---- Le registre ---- */
+.set-book { position: absolute; left: 6cqw; right: 6cqw; top: 3.6cqw; bottom: 6.4cqw; display: grid; grid-template-columns: 31cqw .9cqw 1fr; transform-style: preserve-3d; }
+.set-page { position: relative; overflow: hidden; }
+.set-page::before { content: ""; position: absolute; inset: 0; pointer-events: none; z-index: 1;
+  background: linear-gradient(to right, #00000000 94%, #3a260e22 100%), linear-gradient(to bottom, #3a260e14, transparent 8%, transparent 92%, #3a260e18); }
+.set-left { border-radius: .6cqw 0 0 .6cqw; transform-origin: 100% 50%; transform: rotateY(-38deg); opacity: 0;
+  transition: transform calc(var(--k) * 650ms) cubic-bezier(.33, 0, .2, 1), opacity calc(var(--k) * 350ms) ease; }
+.set-right { border-radius: 0 .6cqw .6cqw 0; transform-origin: 0 50%; transform: rotateY(22deg); opacity: 0;
+  transition: transform calc(var(--k) * 650ms) cubic-bezier(.33, 0, .2, 1) 80ms, opacity calc(var(--k) * 350ms) ease 80ms; }
+.is-open .set-left, .is-open .set-right { transform: rotateY(0); opacity: 1; }
+.set-spine { position: relative; z-index: 2; background: linear-gradient(to right, #2a1a0a66, #0e0804cc 50%, #2a1a0a66); transform: scaleY(1.01); }
+
+/* Page de gauche : le titre gravé (2.1 cqw, peut tenir sur deux lignes) et les rubriques. */
+.set-title { position: absolute; top: 2.2cqw; left: 3cqw; right: 2cqw; font-size: 2.1cqw; line-height: 1.15; letter-spacing: .14em; color: var(--gold-dark); text-shadow: 0 .05cqw 0 #fff6cf66; }
+.set-rubs { position: absolute; top: 7.6cqw; left: 3cqw; right: 2.4cqw; margin: 0; padding: 0; list-style: none; }
+.set-rub { position: relative; padding: .9cqw 0 .9cqw 2.2cqw; font-family: var(--body); font-weight: 500; font-size: 2.15cqw; line-height: 1.15; color: var(--ink); opacity: .72;
+  transition: opacity calc(var(--k) * 200ms), transform calc(var(--k) * 250ms) cubic-bezier(.3, .7, .2, 1); }
+.set-rub::before { content: "✦"; position: absolute; left: .2cqw; top: 1cqw; font-size: 1.1cqw; color: var(--wax); opacity: 0; transform: scale(.6); transition: opacity calc(var(--k) * 200ms), transform calc(var(--k) * 250ms); }
+.set-rub.is-active { opacity: 1; }
+.set-rub.is-active::before { opacity: 1; transform: scale(1); }
+.set-rub.is-focus { opacity: 1; font-weight: 600; transform: translateX(.35cqw); }
+/* Le trait de plume : une ligne d'encre qui se tire de gauche à droite sous la rubrique en focus. */
+.set-quill { position: absolute; left: 2.2cqw; right: 1cqw; bottom: .45cqw; height: .14cqw; background: linear-gradient(to right, var(--ink) 0%, var(--ink) 70%, transparent 100%); border-radius: .1cqw;
+  transform: scaleX(0); transform-origin: 0 50%; opacity: .85; transition: transform calc(var(--k) * 300ms) cubic-bezier(.2, .8, .2, 1); }
+.set-rub.is-focus .set-quill { transform: scaleX(1); }
+.set-folio { position: absolute; left: 3cqw; bottom: 2cqw; font-family: var(--fell); font-style: italic; font-size: 1.5cqw; color: var(--ink); opacity: .5; }
+
+/* Page de droite : titre, sous-titre, corps, message, aperçu. */
+.set-rtitle { position: absolute; top: 2.4cqw; left: 3.4cqw; right: 3cqw; font-family: var(--display); font-weight: 600; font-size: 2.5cqw; letter-spacing: .14em; text-transform: uppercase; color: var(--ink); line-height: 1.1; }
+.set-rsub { position: absolute; top: 5.6cqw; left: 3.4cqw; right: 3cqw; font-family: var(--fell); font-style: italic; font-size: 1.55cqw; color: var(--ink); opacity: .7; }
+.set-body { position: absolute; top: 8.6cqw; left: 3.4cqw; right: 3cqw; bottom: 9.6cqw; overflow: hidden; }
+/* Le message de refus ou de confirmation : hors de la liste qui glisse, posé sur le bas du corps, toujours visible.
+   Un voile parchemin le détache des lignes qui passent dessous ; invisible tant qu'il est vide. */
+.set-msg { position: absolute; left: 3.4cqw; right: 3cqw; bottom: 9.6cqw; z-index: 2; min-height: 2.6cqw; padding: .6cqw .9cqw .2cqw;
+  font-family: var(--fell); font-style: italic; font-size: 1.55cqw; line-height: 1.25; color: var(--wax);
+  background: linear-gradient(to bottom, #e8d9b500 0%, #e8d9b5e6 45%, #e8d9b5 100%); transition: opacity calc(var(--k) * 200ms); }
+.set-msg:empty { opacity: 0; }
+
+/* Ligne de réglage énuméré : libellé, valeur entre chevrons, sceau à droite. */
+.set-row { position: relative; display: flex; align-items: center; justify-content: space-between; padding: .9cqw 3.2cqw .9cqw .9cqw; margin-bottom: .2cqw; border-radius: .3cqw;
+  font-family: var(--body); font-size: 2.05cqw; color: var(--ink); transition: transform calc(var(--k) * 200ms), background-color calc(var(--k) * 200ms); }
+.set-row.is-focus { background: #1b151012; transform: translateX(.2cqw); }
+.set-row-label { font-weight: 500; }
+.set-row-val { display: flex; align-items: center; gap: .7cqw; font-weight: 600; font-variant-numeric: tabular-nums; }
+.set-row-value { font-weight: 600; min-width: 7cqw; text-align: center; }
+.set-arrow { font-style: normal; font-size: 2.2cqw; line-height: 1; opacity: 0; transform: scale(.8); transition: opacity calc(var(--k) * 200ms), transform calc(var(--k) * 200ms); }
+.set-row.is-focus .set-arrow { opacity: .75; transform: scale(1); }
+.set-row.is-focus .set-arrow.is-off { opacity: .18; }
+.set-note { margin: .2cqw 0 1.2cqw .9cqw; font-family: var(--fell); font-style: italic; font-size: 1.55cqw; line-height: 1.3; color: var(--ink); opacity: .72; }
+.set-note-dim { opacity: .5; }
+.set-text { margin: 0 0 1.2cqw .9cqw; font-family: var(--body); font-size: 1.85cqw; line-height: 1.35; color: var(--ink); max-width: 46cqw; }
+.set-ask { font-family: var(--fell); font-size: 2.2cqw; margin-top: 1.6cqw; }
+
+/* Sceau de cire d'une ligne : invisible tant qu'on n'a rien changé, puis pressé (scale 1.3 → 1, 200 ms) et conservé. */
+.set-rowseal { position: absolute; right: .6cqw; top: 50%; width: 1.9cqw; height: 1.9cqw; margin-top: -.95cqw; opacity: 0; transform: scale(1.3); }
+.set-rowseal.is-sealed { opacity: 1; transform: scale(1); }
+.set-rowseal.is-press { animation: set-press calc(var(--k) * 200ms) cubic-bezier(.2, .9, .3, 1.2) both; }
+@keyframes set-press { from { transform: scale(1.3); opacity: 0; } 35% { opacity: 1; } to { transform: scale(1); opacity: 1; } }
+.set-seal-corner { right: 1cqw; top: auto; bottom: .4cqw; margin-top: 0; }
+
+/* Écriture à la plume : la valeur se révèle de gauche à droite en 250 ms ; --i décale les lignes écrites à la suite.
+   `backwards` : l'état de départ tient pendant le délai, et à la fin le clip-path retombe à `none` (rien n'est rogné après). */
+.set-write { animation: set-write calc(var(--k) * 250ms) ease-out backwards; animation-delay: calc(var(--k) * var(--i, 0) * 90ms); }
+@keyframes set-write { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0 0 0 0); } }
+
+/* Boutons dessinés à la plume. */
+.set-btns { display: flex; gap: 1.6cqw; margin-left: .9cqw; }
+.set-acts { display: grid; gap: .5cqw; margin-top: .8cqw; }
+.set-btn { position: relative; display: inline-flex; align-items: center; padding: .7cqw 2cqw; font-family: var(--body); font-weight: 600; font-size: 1.9cqw; color: var(--ink);
+  border: .14cqw solid #1b151088; border-radius: .35cqw; width: max-content; max-width: 100%; transition: transform calc(var(--k) * 200ms), background-color calc(var(--k) * 200ms), color calc(var(--k) * 200ms); }
+.set-btn::after { content: ""; position: absolute; inset: .22cqw; border: .06cqw solid #1b151055; border-radius: .2cqw; pointer-events: none; }
+.set-btn.is-focus { background: var(--ink); color: var(--parchment); transform: scale(1.04); }
+.set-btn.is-focus::after { border-color: #e8d9b566; }
+.set-btn-nox.is-focus { background: var(--wax); color: var(--ivory); }
+
+/* À propos. */
+.set-facts { display: grid; gap: .35cqw; margin: 0 0 1.2cqw .9cqw; }
+.set-fact { display: grid; grid-template-columns: 10.5cqw 1fr; gap: 1cqw; font-family: var(--body); font-size: 1.7cqw; line-height: 1.3; color: var(--ink); }
+.set-fact-k { font-family: var(--display); font-size: 1.5cqw; letter-spacing: .14em; text-transform: uppercase; opacity: .65; padding-top: .15cqw; }
+.set-anote { margin: .8cqw 0 0 .9cqw; min-height: 2cqw; font-family: var(--fell); font-style: italic; font-size: 1.55cqw; color: var(--wax); }
+
+/* ---- Parapet et applis : liste ordonnée, sablier, rang ---- */
+.set-list { transition: transform calc(var(--k) * 300ms) cubic-bezier(.3, .7, .2, 1); will-change: transform; }
+.set-list-head { display: flex; justify-content: space-between; align-items: baseline; margin: .3cqw 0 .3cqw .9cqw; font-family: var(--display); font-size: 1.5cqw; letter-spacing: .16em; text-transform: uppercase; color: var(--ink); opacity: .65; }
+.set-count { font-family: var(--body); font-size: 1.6cqw; letter-spacing: 0; text-transform: none; font-variant-numeric: tabular-nums; }
+.set-empty { margin: .2cqw 0 .6cqw .9cqw; font-family: var(--fell); font-style: italic; font-size: 1.55cqw; color: var(--ink); opacity: .7; }
+.set-app { position: relative; display: flex; align-items: center; gap: 1cqw; height: 3cqw; padding: 0 3.2cqw 0 .6cqw; border-radius: .3cqw; color: var(--ink); opacity: .78;
+  transition: opacity calc(var(--k) * 200ms), transform calc(var(--k) * 200ms), background-color calc(var(--k) * 200ms); }
+.set-app.is-on { opacity: 1; }
+.set-app.is-focus { background: #1b151012; opacity: 1; transform: translateX(.2cqw); }
+.set-app-rank { width: 1.7cqw; font-family: var(--display); font-weight: 600; font-size: 1.5cqw; text-align: center; opacity: .6; font-variant-numeric: tabular-nums; }
+.set-app-name { flex: 1; font-family: var(--body); font-weight: 500; font-size: 1.9cqw; }
+.set-app.is-focus .set-app-name { font-weight: 600; }
+/* Appli cachée de la Carte : encre pâlie à 35 % et la mention « caché » à la plume. */
+.set-app-hidden { flex: none; font-family: var(--fell); font-style: italic; font-size: 1.5cqw; color: var(--ink); opacity: .6; }
+.set-app.is-hidden .set-inklogo, .set-app.is-hidden .set-app-name { opacity: .35; }
+/* Logo à l'encre : un seul calque masqué, 85 % d'encre, comme sur la Carte. */
+.set-inklogo { position: relative; display: inline-block; flex: none; transition: opacity calc(var(--k) * 200ms); }
+.set-inklogo i { position: absolute; inset: 0; background: var(--ink); opacity: .85; -webkit-mask: var(--m) center / contain no-repeat; mask: var(--m) center / contain no-repeat; }
+.set-inklogo i.luma { mask-mode: luminance; }
+.set-inklogo.is-text { font-family: var(--display); font-weight: 600; font-size: 1.1cqw; letter-spacing: .1em; text-align: center; line-height: 1.5cqw; border: .08cqw solid #1b151066; border-radius: .2cqw; }
+/* Sablier : le sable tombe (scaleY depuis le fond) quand l'appli est posée, et se vide quand elle est retirée. */
+.set-app-glass { flex: none; width: 1.7cqw; height: 2.3cqw; }
+.set-glass { width: 100%; height: 100%; overflow: visible; }
+.set-glass .g-frame { fill: none; stroke: var(--ink); stroke-width: 1.6; stroke-linecap: round; opacity: .55; transition: opacity calc(var(--k) * 300ms); }
+.set-glass .g-top, .set-glass .g-bot { fill: var(--gold); transform-box: fill-box; transition: transform calc(var(--k) * 300ms) cubic-bezier(.4, 0, .6, 1), opacity calc(var(--k) * 300ms); }
+.set-glass .g-top { transform-origin: 50% 100%; transform: scaleY(0); opacity: 0; }
+.set-glass .g-bot { transform-origin: 50% 100%; transform: scaleY(0); opacity: 0; }
+.set-app.is-on .set-glass .g-bot { transform: scaleY(1); opacity: 1; }
+.set-app.is-on .set-glass .g-top { transform: scaleY(.35); opacity: .6; }
+.set-app.is-on .set-glass .g-frame { opacity: .85; }
+
+/* ---- Maison : quatre sceaux de cire ---- */
+.set-houses { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1.2cqw; margin: 1cqw .4cqw 1.4cqw; }
+.set-house { position: relative; display: grid; justify-items: center; gap: .7cqw; padding: 1.4cqw .4cqw 1.1cqw; border-radius: .5cqw; border: .1cqw solid transparent; opacity: .72;
+  transition: transform calc(var(--k) * 250ms) cubic-bezier(.3, .7, .2, 1), opacity calc(var(--k) * 200ms), border-color calc(var(--k) * 200ms); }
+.set-house.is-on { opacity: 1; }
+.set-house.is-focus { opacity: 1; transform: translateY(-.3cqw) scale(1.05); border-color: #1b151055; }
+.set-house-seal { width: 6.2cqw; height: 6.2cqw; display: grid; place-items: center; transition: transform calc(var(--k) * 250ms); }
+.set-house.is-on .set-house-seal { transform: scale(1.06); }
+.set-house-seal.is-press { animation: set-press-seal calc(var(--k) * 200ms) cubic-bezier(.2, .9, .3, 1.2) both; }
+@keyframes set-press-seal { from { transform: scale(1.3); } to { transform: scale(1.06); } }
+.set-house-letter { font-family: var(--display); font-weight: 700; font-size: 2.6cqw; color: #f1ebddcc; text-shadow: 0 .05cqw .1cqw #00000080; }
+.set-house-name { font-family: var(--body); font-weight: 600; font-size: 1.85cqw; color: var(--ink); }
+.set-house-state { height: 1.6cqw; font-family: var(--fell); font-style: italic; font-size: 1.5cqw; color: var(--ink); opacity: .7; }
+
+/* ---- Aperçu miniature du parapet : une bande de pierre sous un ciel de nuit, brume, bougie de maison ---- */
+.set-preview { position: absolute; left: 3.4cqw; right: 3cqw; bottom: 1.6cqw; height: 7.8cqw; z-index: 1; }
+.set-pv-label { font-family: var(--display); font-size: 1.3cqw; letter-spacing: .2em; text-transform: uppercase; color: var(--ink); opacity: .6; margin-bottom: .4cqw; font-variant-numeric: tabular-nums; }
+.set-pv-stone { position: relative; height: 5.6cqw; border-radius: .35cqw; overflow: hidden; border-bottom: .14cqw solid var(--wax);
+  background: radial-gradient(ellipse 30% 60% at 18% 0%, #c9d9ea22, transparent 70%),            /* la lune, à gauche */
+    linear-gradient(to bottom, #070b14 0%, #0f1627 42%, #1C2230 62%, #0d121c 100%);                  /* ciel, puis la pierre */
+  box-shadow: inset 0 .1cqw 0 #ffffff14; }
+/* Un filet de brume au pied du parapet (dégradé fixe, jamais animé ici). */
+.set-pv-mist { position: absolute; left: 0; right: 0; bottom: 0; height: 2.4cqw; pointer-events: none; mix-blend-mode: screen; opacity: .5;
+  background: radial-gradient(ellipse 18% 70% at 12% 100%, #c8daf030, transparent 70%), radial-gradient(ellipse 22% 60% at 46% 100%, #c8daf024, transparent 70%),
+    radial-gradient(ellipse 18% 70% at 82% 100%, #c8daf02c, transparent 70%); }
+/* La bougie de l'aperçu : une nappe à la couleur de la maison sous l'appli allumée (translateX + opacity). */
+.set-pv-glow { position: absolute; left: 1.2cqw; bottom: -1.2cqw; width: 9cqw; height: 4.6cqw; pointer-events: none; mix-blend-mode: screen; opacity: 0;
+  background: radial-gradient(closest-side, var(--house-glow) 0%, transparent 70%); transition: opacity calc(var(--k) * 250ms), transform calc(var(--k) * 300ms) cubic-bezier(.3, .7, .2, 1); }
+.set-pv-glow.is-on { opacity: .22; }
+.set-pv-row { position: absolute; left: 1.2cqw; right: 1.2cqw; bottom: .7cqw; height: 2.1cqw; display: flex; align-items: center; gap: 1.5cqw; }
+.set-pv-app { position: relative; flex: none; height: 100%; transition: transform calc(var(--k) * 250ms); }
+.set-pv-app.is-lit { transform: scale(1.18); }
+.set-pv-app.is-lit .app-logo .l-base { opacity: 1; background: linear-gradient(165deg, #FFF6CF 0%, #F3D27A 22%, #C08F35 46%, #F6DD8F 62%, #A26F24 82%, #F1CF7C 100%); }
+.set-pv-text { font-family: var(--display); font-size: 1cqw; letter-spacing: .1em; color: var(--ivory); opacity: .7; line-height: 2.1cqw; }
+.set-pv-empty { font-family: var(--fell); font-style: italic; font-size: 1.5cqw; color: var(--mist); opacity: .8; }
+/* La chouette miniature glisse (translateX) au-dessus de l'appli concernée. */
+.set-pv-owl { position: absolute; left: 1.2cqw; top: .45cqw; width: 1.6cqw; height: 1.9cqw; transition: transform calc(var(--k) * 300ms) cubic-bezier(.3, .7, .2, 1), opacity calc(var(--k) * 200ms); }
+.set-pv-owl svg { width: 100%; height: 100%; fill: none; stroke: var(--ivory); stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; opacity: .85; }
+.set-pv-owl circle { fill: var(--ivory); stroke: none; }
+.set-pv-owl.is-gone { opacity: 0; }
+
+/* ---- Mouvement réduit : fondus de 200 ms et rien de plus ---- */
+.screen-settings.is-reduced .set-left, .screen-settings.is-reduced .set-right { transform: none; transition: opacity 200ms ease; }
+.screen-settings.is-reduced .set-rub, .screen-settings.is-reduced .set-row, .screen-settings.is-reduced .set-app, .screen-settings.is-reduced .set-house, .screen-settings.is-reduced .set-btn,
+.screen-settings.is-reduced .set-arrow, .screen-settings.is-reduced .set-house-seal, .screen-settings.is-reduced .set-pv-app, .screen-settings.is-reduced .set-rowseal { transition: opacity 200ms ease, background-color 200ms ease, color 200ms ease, border-color 200ms ease; transform: none !important; }
+.screen-settings.is-reduced .set-rub::before { transition: opacity 200ms ease; transform: none; }
+.screen-settings.is-reduced .set-write { animation: set-fade 200ms ease backwards; animation-delay: 0ms; }
+.screen-settings.is-reduced .set-rowseal.is-press, .screen-settings.is-reduced .set-house-seal.is-press { animation: set-fade 200ms ease both; }
+/* Le trait de plume n'est plus tiré : il apparaît en fondu sous la rubrique en focus. */
+.screen-settings.is-reduced .set-quill { transform: none; opacity: 0; transition: opacity 200ms ease; }
+.screen-settings.is-reduced .set-rub.is-focus .set-quill { opacity: .85; }
+/* La liste glisse toujours (nécessaire pour voir la ligne en focus), mais sans transition ; la chouette et la bougie se téléportent en fondu. */
+.screen-settings.is-reduced .set-list { transition: none; }
+.screen-settings.is-reduced .set-pv-owl, .screen-settings.is-reduced .set-pv-glow { transition: opacity 200ms ease; }
+/* Le sable n'est plus versé : il apparaît en fondu. */
+.screen-settings.is-reduced .set-glass .g-top, .screen-settings.is-reduced .set-glass .g-bot { transition: opacity 200ms ease; transform: none !important; }
+@keyframes set-fade { from { opacity: 0; } to { opacity: 1; } }

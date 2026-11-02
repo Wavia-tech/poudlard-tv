@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Icône carrée (pour les menus système qui n'utilisent pas la bannière). Même motif que banner.xml. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="100"
+    android:viewportHeight="100">
+    <path android:fillColor="@color/night" android:pathData="M0,0 H100 V100 H0 Z" />
+    <path
+        android:strokeColor="@color/gold_light"
+        android:strokeWidth="3"
+        android:fillColor="#00000000"
+        android:pathData="M50,8 A42,42 0 1,1 49.9,8 Z" />
+    <path
+        android:fillColor="@color/ivory"
+        android:pathData="M34,26 H58 C70,26 76,33 76,43 C76,53 70,60 58,60 H44 V72 H52 V76 H30 V72 H36 V30 H30 V26 Z M44,30 V56 H57 C64,56 68,51 68,43 C68,35 64,30 57,30 Z" />
+</vector>

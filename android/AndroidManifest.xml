@@ -1,0 +1,121 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Poudlard TV : launcher Android TV qui héberge la maquette web (assets/web/) dans une WebView.
+
+  Règles (voir android/README.md) :
+  - AUCUNE permission. Ni INTERNET, ni ACCESS_NETWORK_STATE, ni RECEIVE_BOOT_COMPLETED. Vérifiable avec
+    `aapt dump permissions PoudlardTV.apk` : la liste doit être vide.
+  - Pas de QUERY_ALL_PACKAGES : le bloc <queries> ne déclare que les intents dont on a besoin.
+  - Deux portes d'entrée sur la même activité :
+      .Home  : catégorie HOME (l'accueil). C'est un activity-alias pour pouvoir la DÉSACTIVER seule
+               (HomeMode.giveBackHome) : le système retombe alors sur l'accueil Google, sans rien désactiver chez lui.
+      .Start : catégorie LEANBACK_LAUNCHER (l'icône « Poudlard TV » dans la liste des applis), toujours active,
+               pour revenir en arrière même quand .Home est désactivée.
+  Inspiré du manifeste de Free My TV (io.freemytv), réduit au strict nécessaire.
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="fr.wavia.poudlardtv"
+    android:versionCode="1"
+    android:versionName="0.1">
+
+    <!-- Une TV n'a pas forcément d'écran tactile ni de Leanback déclaré (projecteurs, box) : rien d'obligatoire. -->
+    <uses-feature android:name="android.software.leanback" android:required="false" />
+    <uses-feature android:name="android.hardware.touchscreen" android:required="false" />
+
+    <!-- Ce que le launcher a le droit de VOIR (Android 11+ filtre la visibilité des packages).
+         Même esprit que Free My TV, sans sa liste de packages nommés : nos applis sont toutes Leanback. -->
+    <queries>
+        <!-- Applis TV (liste des installées, bannières, lancement) -->
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
+        </intent>
+        <!-- Applis « téléphone » installées en side-load (repli de getLaunchIntentForPackage) -->
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.LAUNCHER" />
+        </intent>
+        <!-- Les autres accueils : pour retrouver l'accueil d'origine (HomeMode.originalHome) -->
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.HOME" />
+        </intent>
+        <!-- Entrées HDMI : l'intent standard de passage d'entrée (TvContract passthrough). L'appli TV du système
+             filtre souvent sur le type MIME résolu par le TvProvider plutôt que sur le schéma : on déclare les deux
+             formes pour être vus d'elle sous Android 11+. Apps.switchInput ne dépend pas de resolveActivity() :
+             l'intent est lancé dans un try (à vérifier sur la télé cible). -->
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="content" android:host="android.media.tv" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:mimeType="vnd.android.cursor.item/channel" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:mimeType="vnd.android.cursor.item/passthrough" />
+        </intent>
+        <!-- Liens de contenu https (liste blanche dans Apps.openUrl), ouverts dans l'appli qui les possède -->
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="https" />
+        </intent>
+    </queries>
+
+    <application
+        android:label="@string/app_name"
+        android:icon="@drawable/icon"
+        android:banner="@drawable/banner"
+        android:allowBackup="false"
+        android:hardwareAccelerated="true"
+        android:supportsRtl="false"
+        android:theme="@style/PoudlardTV">
+
+        <!-- L'activité unique. Attributs repris de HomeActivity de Free My TV :
+             singleTask + taskAffinity vide : une seule instance, jamais empilée derrière une appli ;
+             stateNotNeeded : le système peut la tuer et la recréer sans état (c'est un accueil) ;
+             clearTaskOnLaunch + excludeFromRecents : jamais dans les récents ;
+             configChanges large : pas de recréation à chaque changement d'affichage. -->
+        <activity
+            android:name=".HomeActivity"
+            android:exported="false"
+            android:launchMode="singleTask"
+            android:taskAffinity=""
+            android:stateNotNeeded="true"
+            android:clearTaskOnLaunch="true"
+            android:excludeFromRecents="true"
+            android:resumeWhilePausing="true"
+            android:screenOrientation="landscape"
+            android:configChanges="keyboard|keyboardHidden|navigation|orientation|screenSize|screenLayout|smallestScreenSize|uiMode|density|fontScale|locale|layoutDirection" />
+
+        <!-- Porte HOME : celle que la télé propose à côté de Google TV quand on appuie sur Home. Désactivable seule.
+             Pas d'android:priority : le système plafonne à 0 la priorité d'une appli non privilégiée, et c'est de
+             toute façon la personne qui choisit, jamais le launcher qui se place devant. -->
+        <activity-alias
+            android:name=".Home"
+            android:targetActivity=".HomeActivity"
+            android:exported="true"
+            android:label="@string/app_name"
+            android:enabled="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.HOME" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity-alias>
+
+        <!-- Porte « liste des applis » : toujours disponible, c'est le chemin de retour. -->
+        <activity-alias
+            android:name=".Start"
+            android:targetActivity=".HomeActivity"
+            android:exported="true"
+            android:label="@string/app_name">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+    </application>
+</manifest>

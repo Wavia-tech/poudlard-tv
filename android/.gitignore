@@ -1,0 +1,5 @@
+# Sorties de build.sh
+out/
+*.apk
+# Clé de signature locale : jamais dans le dépôt
+*.keystore

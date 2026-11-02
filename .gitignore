@@ -1,0 +1,48 @@
+# ---------------------------------------------------------------------------
+# Poudlard TV — ce qui ne doit jamais entrer dans le dépôt public
+# ---------------------------------------------------------------------------
+
+# Logos officiels des applications (marques), fichier privé reconstruit avec
+# tools/logos-build.mjs. Le dépôt fournit app/assets/logos.example.js.
+app/assets/logos.js
+/logos.js
+
+# Musique de fond : fichier personnel, jamais distribué (docs/MUSIQUE.md).
+# Tout le dossier est ignoré, y compris une note de licence qu'on y mettrait.
+app/assets/music/*
+!app/assets/music/.gitkeep
+
+# Polices embarquées pour l'APK (OFL) : à ajouter avec leur licence si on les
+# versionne ; ignorées par défaut pour garder le dépôt léger.
+app/assets/fonts/
+
+# Page d'hébergement de la maquette (variante d'index.html pour une publication
+# en artefact) : fichier de travail, pas une page du launcher.
+app/artifact.html
+
+# Portage Android (android/, sans Gradle) : sorties de build.sh, paquets, clés.
+android/out/
+android/*.keystore
+android/*.jks
+*.apk
+*.aab
+
+# Scripts de génération des décors liés au poste d'origine (chemins locaux) :
+# la méthode est décrite dans tools/README.md, les scripts restent privés.
+tools/*.ps1
+
+# Dossiers de travail (rendus intermédiaires, images brutes, écrans écartés).
+_ecarte/
+outputs/
+output/
+rig/
+
+# Système et éditeurs.
+.DS_Store
+Thumbs.db
+desktop.ini
+*.log
+*.tmp
+.vscode/
+.idea/
+node_modules/

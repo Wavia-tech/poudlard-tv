@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Poudlard TV</title>
+<!-- Page d'entrée sur la télévision : la scène seule, plein écran, sans banc d'essai.
+     Les polices : fichiers OFL placés dans assets/fonts/ (voir docs/INSTALLATION.md) ; sans eux, polices système. -->
+<link rel="stylesheet" href="css/fonts.css">
+<link rel="stylesheet" href="css/base.css">
+<link rel="stylesheet" href="css/shared.css">
+<link rel="stylesheet" href="css/owl.css">
+<link rel="stylesheet" href="css/rappeltout.css">
+<link rel="stylesheet" href="css/beuglante.css">
+<link rel="stylesheet" href="css/screens/sorting.css">
+<link rel="stylesheet" href="css/screens/home.css">
+<link rel="stylesheet" href="css/screens/map.css">
+<link rel="stylesheet" href="css/screens/ollivanders.css">
+<link rel="stylesheet" href="css/screens/settings.css">
+<link rel="stylesheet" href="css/screens/classic.css">
+<style>
+  html, body { height: 100%; overflow: hidden; background: #000; cursor: none; }
+  body { margin: 0; padding: 0; }
+  .stage { position: fixed; inset: 0; width: 100vw; height: 100vh; aspect-ratio: auto; border-radius: 0; }
+</style>
+</head>
+<body>
+<div id="stage" class="stage" tabindex="0" aria-label="Poudlard TV"></div>
+<script type="module" src="js/main.js"></script>
+</body>
+</html>
