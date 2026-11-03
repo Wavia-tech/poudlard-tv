@@ -11,7 +11,7 @@ import { createOwl } from '../owl.js';
 
 const FOCUS_SCALE = 1.28;
 const LOGO_H = 3.6;            // cqw: logo height at rest (3 m floor)
-const LOGO_W_MAX = 9.5;        // cqw
+const LOGO_W_MAX = 12;         // cqw: a wide wordmark (prime video, Canal+) keeps enough height to weigh like the marks
 const PER_ROW = 8;             // beyond this: a second row
 const NOX_WANDER_MS = 20 * 60 * 1000;   // one lap of the clock's wander during Nox
 const BAR = ['sound', 'map', 'settings'];
