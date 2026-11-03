@@ -6,35 +6,42 @@ import android.content.ActivityNotFoundException;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 import android.os.Build;
 import android.provider.Settings;
 
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 /**
  * Which home the TV uses: Poudlard or the original. REVERSIBLE, adb-FREE version of Free My TV's HomeMode
- * (only the originalHome() method below is taken from its stockHome(); MIT license in android/README.md).
+ * (only the idea of originalHome() is taken from its stockHome(); MIT license in android/README.md).
  *
  * Free My TV goes through an internal adb client for `cmd package set-home-activity` and disables the Google home
  * (`pm disable-user`). We do neither: a socket requires the INTERNET permission, and disabling the Google home
  * is forbidden by the project rules. Instead:
  *
- *  - setHome("poudlard") = requestHome(activity): re-enables our HOME entry point (the `.Home` alias), clears the
- *    safeguard counter, then ASKS the system for the HOME role (Android 10+: RoleManager.createRequestRoleIntent,
- *    the system shows its own confirmation dialog; no permission needed, the person confirms with OK). The hint
- *    returned tells the mock-up what to show: "held" (already ours), "role" (the dialog is on screen), "fire"
- *    (Fire TV never hands the Home key over), and on older sets "settings" (the system's "Home app" screen
- *    opened) or "press-home" (press Home, the TV offers both homes, choose "Always"). Never a failure for an
- *    absent screen: the choice belongs to the system and to the person.
+ *  - The `.Home` alias (HOME category) is DISABLED in the manifest: installing the APK never takes the Home key
+ *    and never makes the TV show its "which home app?" chooser.
+ *  - setHome("poudlard") = requestHome(activity): FIRST records the home that currently answers the Home key
+ *    (files/original-home.txt: Free My TV, the Google TV home, any launcher), THEN enables our `.Home` alias, clears
+ *    the safeguard counter, and asks the system for the HOME role (Android 10+: RoleManager.createRequestRoleIntent,
+ *    the system shows its own confirmation dialog; no permission needed). If the person declines the role, the
+ *    alias is disabled again (cancelRequest, from HomeActivity.onActivityResult): Home stays with the original.
+ *    The hint returned tells the mock-up what to show: "held", "role", "fire", "settings" or "press-home".
  *  - setHome("original") = giveBackHome(): disables our `.Home` alias (allowed without permission on one's own
- *    components). The system then has only one candidate for the Home key: the original home. Then we launch it.
- *    The `.Start` alias (app list) stays enabled: Poudlard TV is still there to go back.
+ *    components), then launches the recorded original home EXPLICITLY (its component), or failing that another
+ *    home of the TV (originalHome). The `.Start` alias (app list) stays enabled: Poudlard TV is still there.
  *
  * No other app is ever touched. Uninstalling the APK puts everything back.
- * Status: written from the Android documentation, NOT TESTED on a device (see android/README.md, "Test status").
  */
 final class HomeMode {
     static final String POUDLARD = "poudlard";
@@ -53,6 +60,16 @@ final class HomeMode {
     static final String HINT_FIRE = "fire";
     /** Request code of the role dialog (HomeActivity.onActivityResult). */
     static final int REQUEST_ROLE = 1;
+
+    /** Where the home that answered the Home key before Poudlard is kept ("package/class", one line). */
+    private static final String ORIGINAL_FILE = "original-home.txt";
+
+    /** The system TV homes, in order of preference, when no recorded home is usable. */
+    private static final List<String> SYSTEM_TV_HOMES = Arrays.asList(
+            "com.google.android.apps.tv.launcherx",   // Google TV
+            "com.google.android.tvlauncher",          // Android TV (9 to 12)
+            "com.google.android.leanbacklauncher",    // Android TV (5 to 8)
+            "com.amazon.tv.launcher");                // Fire TV
 
     private HomeMode() {}
 
@@ -83,18 +100,24 @@ final class HomeMode {
 
     /**
      * Asks the system for the Home key, from the activity (the role dialog needs one). Returns the hint for the
-     * person, or null if our HOME entry point could not be re-enabled (the only real failure).
+     * person, or null if our HOME entry point could not be enabled (the only real failure).
+     * Order matters: the current home is recorded BEFORE our alias exists as a candidate.
      * Must run on the UI thread.
      */
     static String requestHome(Activity a) {
+        recordOriginalHome(a);
+        if (fireTv()) {
+            // Fire TV never hands the Home key over: the alias stays closed, nothing changes on the Amazon side.
+            Watchdog.clear(a);
+            return HINT_FIRE;
+        }
         try {
             setHomeAlias(a, true);
         } catch (RuntimeException e) {
-            Log.w("could not re-enable the HOME entry point", e);
+            Log.w("could not enable the HOME entry point", e);
             return null;
         }
         Watchdog.clear(a);
-        if (fireTv()) return HINT_FIRE;
         RoleManager rm = roleManager(a);
         if (rm != null) {
             Boolean held = roleHeld(a);
@@ -117,6 +140,20 @@ final class HomeMode {
         return HINT_PRESS_HOME;
     }
 
+    /**
+     * The role dialog answered (HomeActivity.onActivityResult). If the person did not give the role, the alias is
+     * closed again: otherwise the TV would show its "which home app?" chooser on every Home press.
+     * Returns true when Poudlard now holds the Home key.
+     */
+    static boolean afterRoleDialog(Context c) {
+        boolean held = Boolean.TRUE.equals(roleHeld(c));
+        if (!held) {
+            disableAliasQuietly(c);
+            Log.i("HOME role declined: HOME entry point closed again, the original home keeps the Home key");
+        }
+        return held;
+    }
+
     private static ComponentName homeAlias(Context c) {
         return new ComponentName(c.getPackageName(), c.getPackageName() + ".Home");
     }
@@ -124,9 +161,8 @@ final class HomeMode {
     /** Is our HOME entry point enabled? (Component state, not the person's choice in the settings.) */
     static boolean homeAliasEnabled(Context c) {
         int state = c.getPackageManager().getComponentEnabledSetting(homeAlias(c));
-        // ENABLED by default in the manifest: DEFAULT therefore means "enabled".
-        return state == PackageManager.COMPONENT_ENABLED_STATE_ENABLED
-                || state == PackageManager.COMPONENT_ENABLED_STATE_DEFAULT;
+        // DISABLED by default in the manifest: DEFAULT therefore means "disabled". Only an explicit ENABLED counts.
+        return state == PackageManager.COMPONENT_ENABLED_STATE_ENABLED;
     }
 
     private static void setHomeAlias(Context c, boolean enabled) {
@@ -135,15 +171,86 @@ final class HomeMode {
                 PackageManager.DONT_KILL_APP);
     }
 
-    /** The package currently answering the Home key (system resolution of MAIN + HOME). */
-    static String currentHomePackage(Context c) {
+    private static void disableAliasQuietly(Context c) {
+        try {
+            setHomeAlias(c, false);
+        } catch (RuntimeException e) {
+            Log.w("could not disable the HOME entry point", e);
+        }
+    }
+
+    /** The component currently answering the Home key, or null when there is none or it is ambiguous (the chooser). */
+    static ComponentName currentHome(Context c) {
         try {
             Intent home = new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME);
             ResolveInfo ri = c.getPackageManager().resolveActivity(home, PackageManager.MATCH_DEFAULT_ONLY);
-            return ri == null || ri.activityInfo == null ? null : ri.activityInfo.packageName;
+            if (ri == null || ri.activityInfo == null) return null;
+            return new ComponentName(ri.activityInfo.packageName, ri.activityInfo.name);
         } catch (RuntimeException e) {
             return null;
         }
+    }
+
+    /** The package currently answering the Home key (system resolution of MAIN + HOME). */
+    static String currentHomePackage(Context c) {
+        ComponentName cn = currentHome(c);
+        return cn == null ? null : cn.getPackageName();
+    }
+
+    /** Not a real home: ourselves, the system's chooser (ResolverActivity), the "Android is starting" screen. */
+    private static boolean notAHome(Context c, String pkg, String cls) {
+        if (pkg == null || cls == null) return true;
+        if (c.getPackageName().equals(pkg)) return true;
+        if ("android".equals(pkg)) return true;                                  // com.android.internal.app.ResolverActivity
+        if (cls.endsWith("ResolverActivity") || cls.endsWith("ChooserActivity")) return true;
+        return cls.endsWith("FallbackHome");
+    }
+
+    /**
+     * Records the home that answers the Home key right now, if it is a real one (not us, not the chooser).
+     * Called before our alias is enabled, and each time Poudlard opens while its alias is closed (so the record
+     * follows the person if they switch launchers in between). An ambiguous answer never erases a good record.
+     */
+    static void recordOriginalHome(Context c) {
+        ComponentName cn = currentHome(c);
+        if (cn == null || notAHome(c, cn.getPackageName(), cn.getClassName())) return;
+        String line = cn.flattenToString();
+        if (line.equals(readOriginal(c))) return;
+        File target = new File(c.getFilesDir(), ORIGINAL_FILE);
+        File tmp = new File(target.getPath() + ".tmp");
+        try (FileOutputStream out = new FileOutputStream(tmp)) {
+            out.write((line + '\n').getBytes(StandardCharsets.UTF_8));
+            out.getFD().sync();
+        } catch (IOException e) {
+            Log.w("could not record the original home: " + e.getMessage());
+            return;
+        }
+        if (!tmp.renameTo(target)) {
+            Log.w("could not rename " + tmp.getName());
+            return;
+        }
+        Log.i("original home recorded: " + line);
+    }
+
+    /** The recorded original home ("package/class"), or null. */
+    private static String readOriginal(Context c) {
+        File f = new File(c.getFilesDir(), ORIGINAL_FILE);
+        if (!f.exists()) return null;
+        byte[] buf = new byte[512];
+        int n;
+        try (FileInputStream in = new FileInputStream(f)) {
+            n = in.read(buf);
+        } catch (IOException e) {
+            return null;
+        }
+        if (n <= 0) return null;
+        String s = new String(buf, 0, n, StandardCharsets.UTF_8).trim();
+        return s.isEmpty() ? null : s;
+    }
+
+    static ComponentName recordedOriginal(Context c) {
+        String s = readOriginal(c);
+        return s == null ? null : ComponentName.unflattenFromString(s);
     }
 
     /** What the JavaScript shows in the settings: "poudlard" if we are the current home, "original" otherwise. */
@@ -157,14 +264,14 @@ final class HomeMode {
 
     /**
      * Gives the home back to the original. Called by the safeguard (3 crashes) and by setHome("original").
-     * Never throws: as a last resort, the system will choose by itself on the next Home key press.
+     * Never throws. Returns true when a home screen was launched.
      */
-    static void giveBackHome(Context c) {
-        giveBackHome(c, false);
+    static boolean giveBackHome(Context c) {
+        return giveBackHome(c, false);
     }
 
     /** `byWatchdog`: the guard fired; the revert is then sticky (Watchdog.markReverted) until the key is asked again. */
-    static void giveBackHome(Context c, boolean byWatchdog) {
+    static boolean giveBackHome(Context c, boolean byWatchdog) {
         if (byWatchdog) Watchdog.markReverted(c);
         try {
             setHomeAlias(c, false);
@@ -172,39 +279,58 @@ final class HomeMode {
         } catch (RuntimeException e) {
             Log.w("could not disable the HOME entry point", e);
         }
+        return launchOriginalHome(c);
+    }
+
+    /**
+     * Launches the original home: the recorded component, else another home of the TV (originalHome), else the bare
+     * HOME intent (the system resolves it; our alias is closed so it cannot come back to us). Returns false only
+     * when nothing at all could be started.
+     */
+    static boolean launchOriginalHome(Context c) {
         Intent original = originalHome(c);
-        if (original == null) {
-            Log.w("original home not found or ambiguous: the system will choose on the next Home key press");
-            return;
+        if (original != null) {
+            try {
+                c.startActivity(original.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK));
+                Log.i("original home launched: " + original.getComponent());
+                return true;
+            } catch (ActivityNotFoundException | SecurityException e) {
+                Log.w("could not launch " + original.getComponent(), e);
+            }
         }
+        if (homeAliasEnabled(c)) return false;   // the bare HOME intent could lead back to us
         try {
-            c.startActivity(original.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK));
+            c.startActivity(new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME)
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+            Log.i("original home: bare HOME intent, the system chooses");
+            return true;
         } catch (ActivityNotFoundException | SecurityException e) {
-            Log.w("could not launch the original home", e);
+            Log.w("no home screen could be launched", e);
+            return false;
         }
     }
 
     /**
-     * Restores our HOME entry point and clears the crashes. Returns the hint for the person (HINT_SETTINGS if the
-     * system's chooser screen could be opened, HINT_PRESS_HOME otherwise), or null if the HOME entry point could not
-     * be re-enabled (the only real failure).
+     * Restores our HOME entry point and clears the crashes, without an activity (no role dialog). Returns the hint
+     * (HINT_SETTINGS if the system's chooser screen could be opened, HINT_PRESS_HOME otherwise), or null if the
+     * HOME entry point could not be enabled.
      */
     static String takeHome(Context c) {
+        recordOriginalHome(c);
         try {
             setHomeAlias(c, true);
         } catch (RuntimeException e) {
-            Log.w("could not re-enable the HOME entry point", e);
+            Log.w("could not enable the HOME entry point", e);
             return null;
         }
         Watchdog.clear(c);
-        Log.i("HOME entry point re-enabled: the TV will offer Poudlard TV on the next Home key press");
+        Log.i("HOME entry point enabled: the TV will offer Poudlard TV on the next Home key press");
         return openHomeSettings(c) ? HINT_SETTINGS : HINT_PRESS_HOME;
     }
 
     /**
      * The system's "Home app" screen, if it exists (phones, a few boxes). On Android TV / Google TV
-     * there is generally no recipient: we return false without opening anything else (the general settings
-     * would lead nowhere).
+     * there is generally no recipient: we return false without opening anything else.
      */
     static boolean openHomeSettings(Context c) {
         try {
@@ -217,9 +343,12 @@ final class HomeMode {
     }
 
     /**
-     * The original home, in the manner of stockHome() in Free My TV: the HOME activities of SYSTEM apps,
-     * without us, without FallbackHome (the "Android is starting" screen), and we do not guess if several candidates
-     * remain (we then take the one the system prefers, if it is not us).
+     * The original home, as an explicit intent:
+     *  1. the recorded component (files/original-home.txt), if it still answers HOME (Free My TV, any launcher);
+     *  2. the current default home, if it is not us and not the chooser;
+     *  3. another HOME activity of the TV: the recorded PACKAGE first (its home class may have changed), then the
+     *     system TV homes (SYSTEM_TV_HOMES order), then any system home, then any other home.
+     * Null only when the TV has no other home at all.
      */
     static Intent originalHome(Context c) {
         PackageManager pm = c.getPackageManager();
@@ -228,28 +357,58 @@ final class HomeMode {
         try {
             all = pm.queryIntentActivities(home, 0);
         } catch (RuntimeException e) {
-            return null;
+            all = new ArrayList<>();
         }
+        if (all == null) all = new ArrayList<>();
         List<ComponentName> candidates = new ArrayList<>();
+        List<Boolean> system = new ArrayList<>();
         for (ResolveInfo ri : all) {
             if (ri.activityInfo == null) continue;
             String pkg = ri.activityInfo.packageName;
             String cls = ri.activityInfo.name;
-            if (c.getPackageName().equals(pkg)) continue;
-            if (cls != null && cls.endsWith("FallbackHome")) continue;
-            boolean system = (ri.activityInfo.applicationInfo.flags & android.content.pm.ApplicationInfo.FLAG_SYSTEM) != 0;
-            if (!system) continue;
+            if (notAHome(c, pkg, cls)) continue;
             candidates.add(new ComponentName(pkg, cls));
+            ApplicationInfo ai = ri.activityInfo.applicationInfo;
+            system.add(ai != null && (ai.flags & ApplicationInfo.FLAG_SYSTEM) != 0);
         }
         ComponentName target = null;
-        if (candidates.size() == 1) {
-            target = candidates.get(0);
-        } else if (candidates.size() > 1) {
-            String preferred = currentHomePackage(c);
-            for (ComponentName cn : candidates) if (cn.getPackageName().equals(preferred)) target = cn;
-            if (target == null) Log.w(candidates.size() + " system home screens: not guessing");
+        ComponentName recorded = recordedOriginal(c);
+        if (recorded != null && candidates.contains(recorded)) target = recorded;
+        if (target == null) {
+            ComponentName current = currentHome(c);
+            if (current != null && candidates.contains(current)) target = current;
+        }
+        if (target == null && recorded != null) {
+            for (ComponentName cn : candidates) if (cn.getPackageName().equals(recorded.getPackageName())) { target = cn; break; }
+        }
+        if (target == null) {
+            for (String pkg : SYSTEM_TV_HOMES) {
+                for (ComponentName cn : candidates) if (cn.getPackageName().equals(pkg)) { target = cn; break; }
+                if (target != null) break;
+            }
+        }
+        if (target == null) {
+            for (int i = 0; i < candidates.size(); i++) if (system.get(i)) { target = candidates.get(i); break; }
+        }
+        if (target == null && !candidates.isEmpty()) target = candidates.get(0);
+        if (target == null) {
+            // Not visible through the query (package visibility) but recorded: try it anyway, startActivity will tell.
+            target = recorded;
         }
         if (target == null) return null;
         return new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME).setComponent(target);
+    }
+
+    /** The label of the original home (« Free My TV », « Google TV »…), for the settings; null if unknown. */
+    static String originalHomeLabel(Context c) {
+        Intent i = originalHome(c);
+        if (i == null || i.getComponent() == null) return null;
+        try {
+            PackageManager pm = c.getPackageManager();
+            CharSequence l = pm.getApplicationInfo(i.getComponent().getPackageName(), 0).loadLabel(pm);
+            return l == null ? null : l.toString().trim();
+        } catch (PackageManager.NameNotFoundException | RuntimeException e) {
+            return null;
+        }
     }
 }

@@ -50,7 +50,7 @@ final class WebAssets {
         MIME.put("woff", "font/woff");
         MIME.put("ttf", "font/ttf");
         MIME.put("otf", "font/otf");
-        // Personal background music (app/assets/music/, outside the repo): <audio> needs the right type to play it.
+        // Background music (app/assets/music/): <audio> needs the right type to play it.
         MIME.put("mp3", "audio/mpeg");
         MIME.put("ogg", "audio/ogg");
         MIME.put("oga", "audio/ogg");
@@ -91,6 +91,10 @@ final class WebAssets {
         if (path.contains("..")) return notFound();
         String ext = path.contains(".") ? path.substring(path.lastIndexOf('.') + 1).toLowerCase(Locale.ROOT) : "";
         String mime = MIME.containsKey(ext) ? MIME.get(ext) : "application/octet-stream";
+        if (mime.startsWith("audio/") || mime.startsWith("video/")) {
+            WebResourceResponse media = media(path, mime, request.getRequestHeaders());
+            if (media != null) return media;
+        }
         try {
             InputStream in = assets.open(ASSET_DIR + "/" + path);
             boolean text = mime.startsWith("text/") || mime.endsWith("json") || mime.endsWith("xml");
@@ -101,6 +105,112 @@ final class WebAssets {
             return r;
         } catch (IOException e) {
             return notFound();
+        }
+    }
+
+    /**
+     * Audio and video with byte ranges (206 Partial Content): the media player reads the 28 MB music file in small
+     * pieces and can loop or seek without the whole file going through memory. Only possible for an asset stored
+     * uncompressed (build.sh adds assets with `jar -0`), whose length openFd() gives; otherwise null and the caller
+     * serves the whole file.
+     */
+    private WebResourceResponse media(String path, String mime, Map<String, String> requestHeaders) {
+        long length;
+        try (android.content.res.AssetFileDescriptor fd = assets.openFd(ASSET_DIR + "/" + path)) {
+            length = fd.getLength();
+        } catch (IOException | RuntimeException e) {
+            return null;
+        }
+        if (length <= 0) return null;
+        String range = null;
+        if (requestHeaders != null) {
+            for (Map.Entry<String, String> h : requestHeaders.entrySet()) {
+                if ("range".equalsIgnoreCase(h.getKey())) range = h.getValue();
+            }
+        }
+        long start = 0, end = length - 1;
+        boolean partial = false;
+        if (range != null && range.trim().toLowerCase(Locale.ROOT).startsWith("bytes=")) {
+            String spec = range.trim().substring(6).split(",")[0].trim();
+            int dash = spec.indexOf('-');
+            try {
+                if (dash > 0) {
+                    start = Long.parseLong(spec.substring(0, dash).trim());
+                    String e = spec.substring(dash + 1).trim();
+                    if (!e.isEmpty()) end = Math.min(Long.parseLong(e), length - 1);
+                    partial = true;
+                } else if (dash == 0) {                       // "bytes=-500": the last 500 bytes
+                    long n = Long.parseLong(spec.substring(1).trim());
+                    start = Math.max(0, length - n);
+                    partial = true;
+                }
+            } catch (NumberFormatException ignored) {
+                start = 0;
+                end = length - 1;
+                partial = false;
+            }
+        }
+        if (start < 0 || start >= length || end < start) {
+            Map<String, String> h = new HashMap<>();
+            h.put("Content-Range", "bytes */" + length);
+            return new WebResourceResponse(mime, null, 416, "Range Not Satisfiable", h, null);
+        }
+        InputStream in;
+        try {
+            in = assets.open(ASSET_DIR + "/" + path, AssetManager.ACCESS_RANDOM);
+            long skipped = 0;
+            while (skipped < start) {
+                long k = in.skip(start - skipped);
+                if (k <= 0) break;
+                skipped += k;
+            }
+        } catch (IOException e) {
+            return null;
+        }
+        Map<String, String> h = new HashMap<>();
+        h.put("Cache-Control", "no-store");
+        h.put("Accept-Ranges", "bytes");
+        h.put("Content-Length", String.valueOf(end - start + 1));
+        if (partial) h.put("Content-Range", "bytes " + start + "-" + end + "/" + length);
+        return new WebResourceResponse(mime, null, partial ? 206 : 200, partial ? "Partial Content" : "OK", h,
+                new Bounded(in, end - start + 1));
+    }
+
+    /** An InputStream that stops after `left` bytes (the end of the requested range). */
+    private static final class Bounded extends java.io.FilterInputStream {
+        private long left;
+
+        Bounded(InputStream in, long left) {
+            super(in);
+            this.left = left;
+        }
+
+        @Override
+        public int read() throws IOException {
+            if (left <= 0) return -1;
+            int b = super.read();
+            if (b >= 0) left--;
+            return b;
+        }
+
+        @Override
+        public int read(byte[] buf, int off, int len) throws IOException {
+            if (left <= 0) return -1;
+            int n = super.read(buf, off, (int) Math.min(len, left));
+            if (n > 0) left -= n;
+            return n;
+        }
+
+        @Override
+        public long skip(long n) throws IOException {
+            long k = super.skip(Math.min(n, left));
+            if (k > 0) left -= k;
+            return k;
+        }
+
+        @Override
+        public int available() throws IOException {
+            return (int) Math.min(super.available(), left);
         }
     }
 

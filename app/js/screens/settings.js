@@ -18,7 +18,7 @@ const RUBRIQUES = [
   { id: 'tv', label: 'Réglages de la télé', title: 'La télé elle-même', sub: 'Ses propres menus : image, son, réseau, télécommandes. Poudlard n’y change rien.' },
   { id: 'dock', label: 'Parapet et applis', title: 'Le Parapet', sub: 'OK pose ou retire une appli ; Gauche et Droite changent son rang ; OK maintenu la cache dans la Carte.' },
   { id: 'house', label: 'Maison', title: 'Votre maison', sub: 'La cire, la bougie et le liseré prennent sa couleur.' },
-  { id: 'owl', label: 'Chouette et sons', title: 'Hedwige', sub: 'Elle est le curseur du parapet. Les sons sont des clochettes, la musique une valse très basse.' },
+  { id: 'owl', label: 'Chouette et sons', title: 'Hedwige', sub: 'Elle est le curseur du parapet. Les sons sont des clochettes ; la musique joue en fond.' },
   { id: 'motion', label: 'Mouvement et énergie', title: 'Mouvement', sub: 'Pour une télé qui rame, ou pour les yeux fatigués.' },
   { id: 'idle', label: 'Veille', title: 'Nox', sub: 'Sans touche, le château s’endort et seule l’heure veille.' },
   { id: 'classic', label: 'Mode classique', title: 'Le lundi matin', sub: 'Un accueil ordinaire, même parapet, sans décor ni chouette.' },
@@ -37,10 +37,10 @@ const TEXT = [['normal', 'Normale'], ['grand', 'Grande']];
 // remote: never a file path on screen.
 const MUSIC = [['fichier', 'Ambiance Poudlard'], ['celesta', 'Célesta'], ['auto', 'Auto'], ['aucune', 'Aucune']];
 const MUSIC_NOX = [['pause', 'Se tait'], ['continue', 'Continue']];
-const MUSIC_NOTE = { fichier: 'Votre ambiance (assets/music/ambiance.mp3), en boucle, très bas. Si le fichier manque, la valse de célesta prend le relais.', auto: 'Votre ambiance si le fichier est là, sinon la valse de célesta.', celesta: 'Une valse lente de célesta, harpe et cordes, composée pour le parapet. Jamais un thème des films.', aucune: 'Les clochettes seulement, sans musique.' };
-const MOTION_NOTE = { auto: 'Vol de la chouette, parallaxe, grain, scintillement : tout.', reduit: 'Fondus de 200 ms, rien de plus. Aussi forcé par le système si demandé.', economie: 'Sans grain ni particules ; scintillement ralenti, parallaxe sur un plan.' };
+const MUSIC_NOTE = { fichier: 'L’ambiance du château, en boucle, en fond. Si elle manque, la valse de célesta prend le relais.', auto: 'L’ambiance du château si elle est là, sinon la valse de célesta.', celesta: 'Une valse lente de célesta, harpe et cordes, composée pour le parapet. Jamais un thème des films.', aucune: 'Les clochettes seulement, sans musique.' };
+const MOTION_NOTE = { auto: 'Vol de la chouette, fondus et lumières : tout ce qui bouge quand on appuie.', reduit: 'Fondus de 200 ms, rien de plus. Aussi forcé par le système si demandé.', economie: 'Le strict nécessaire, pour une télé qui rame : moins d’effets, aucune particule.' };
 const IDLE = [[90, '1,5 min'], [180, '3 min'], [300, '5 min'], [600, '10 min'], [0, 'Jamais']];
-const VERSION = 'Maquette 0.2 · novembre 2026';   // equals android:versionName (AndroidManifest.xml); CHANGELOG.md
+const VERSION = 'Maquette 0.3 · novembre 2026';   // equals android:versionName (AndroidManifest.xml); CHANGELOG.md
 // Home key: the two answers, and what the TV says back when Poudlard asks for the key (Bridge.setHome hints).
 export const HOME_MODES = [['poudlard', 'Poudlard TV'], ['original', 'Accueil d’origine']];
 export const HOME_HINT = {
@@ -58,6 +58,40 @@ export const TV_SCREENS = [
   ['update', 'Mise à jour'], ['about', 'À propos de la télé'],
 ];
 export const TV_ONLY = 'Sur la télé seulement.';
+// The arrow keys of the key hints, drawn as tiny inline SVG triangles. The embedded fonts have no ◀ ▶ ▲ ▼ glyph:
+// each one made the browser look for a system fallback font in the middle of the screen's first layout (on the
+// desktop it loaded Segoe UI Symbol, Georgia, Times New Roman: about 150 ms of a 4× throttled CPU, once). Shared
+// with the Map and classic mode. Sized in em, coloured by currentColor (the gold of .keyhint b).
+const tri = (deg) => `<svg viewBox="0 0 10 10" width=".62em" height=".62em" aria-hidden="true" style="fill:currentColor;vertical-align:.02em;transform:rotate(${deg}deg)"><path d="M2 1.2 9 5 2 8.8Z"/></svg>`;
+export const ARROW = { left: tri(180), right: tri(0), up: tri(-90), down: tri(90) };
+export const ARROWS_LR = `${ARROW.left} ${ARROW.right}`;
+export const ARROWS_ALL = `${ARROW.left} ${ARROW.right} ${ARROW.up} ${ARROW.down}`;
+// Test-bench slow motion (base.css: --k is 3 under :root[data-slow="1"], 1 otherwise), read from the attribute:
+// getComputedStyle() would force a style recalculation of the whole page at every timer.
+export const timeK = () => (document.documentElement.dataset.slow === '1' ? 3 : 1);
+// The router adds the `enter-…` class, then removes it in the next animation frame; a CSS transition only runs if
+// the new layer's style was computed once WITH that class. A screen whose mount() reads no layout (the point of
+// this round) must therefore ask for that style itself: a style-only read of the still empty layer, no layout.
+// (Better done once in router.js after appending the layer; until then each screen that mounts lazily calls it.)
+export const primeEnter = (root) => { void getComputedStyle(root).opacity; };
+// Resolves when these font faces are loaded (or after `ms`, whichever first): never blocks a screen on a missing
+// file. A screen builds its text once its fonts are there, so its first layout is done in them, not in a system
+// fallback that the browser must find, load, then throw away with a second layout (fonts.css: font-display block,
+// and only four faces are preloaded by tv.html).
+export function fontsReady(faces, ms) {
+  if (!document.fonts || !document.fonts.load) return Promise.resolve();
+  return Promise.race([Promise.all(faces.map((f) => document.fonts.load(f).catch(() => null))), new Promise((r) => setTimeout(r, ms))]);
+}
+// Resolves after `n` animation frames (or after `ms` if the page is hidden and frames do not come).
+export function frames(n, ms) {
+  return new Promise((resolve) => {
+    let done = false; const end = () => { if (!done) { done = true; resolve(); } };
+    const step = () => { if (--n <= 0) end(); else requestAnimationFrame(step); };
+    requestAnimationFrame(step); setTimeout(end, ms);
+  });
+}
+// The faces the Room of Requirement writes with.
+const SET_FACES = ['1em "IM Fell English"', 'italic 1em "IM Fell English"', '1em "EB Garamond"', 'italic 500 1em "EB Garamond"', '1em Cinzel'];
 const SAND_MS = 320;          // the sand falls through the hourglass before the list recomposes
 
 // Hourglass: full = on the parapet, empty = in the Map. The bottom sand "falls" (scaleY) when the app is set down.
@@ -72,14 +106,14 @@ const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls)
 
 export default {
   root: null, ctx: null, rub: 0, level: 'left', row: 0, items: [], axis: 'v', timers: [], reduced: false,
-  resetStep: 0, listOff: 0, scrollList: null, sealed: null, busy: false, lastPerch: null, homeAsk: false, onHomeEvent: null,
+  resetStep: 0, listOff: 0, scrollList: null, sealed: null, busy: false, lastPerch: null, homeAsk: false, onHomeEvent: null, built: false,
 
   async mount(root, ctx) {
     this.root = root; this.ctx = ctx; this.timers = [];
     this.rub = 0; this.level = 'left'; this.row = 0; this.resetStep = 0; this.listOff = 0; this.scrollList = null;
-    this.sealed = new Set(); this.busy = false; this.lastPerch = null; this.homeAsk = false;
+    this.sealed = new Set(); this.busy = false; this.lastPerch = null; this.homeAsk = false; this.built = false; this.items = [];
     // The TV answers the HOME role request later (system dialog): the row repaints without a key press.
-    this.onHomeEvent = () => { if (this.root && RUBRIQUES[this.rub].id === 'home' && !this.homeAsk) this.renderRight('Touche Home'); };
+    this.onHomeEvent = () => { if (this.root && this.built && RUBRIQUES[this.rub].id === 'home' && !this.homeAsk) this.renderRight('Touche Home'); };
     document.addEventListener('poudlard:home', this.onHomeEvent);
     this.reduced = isReduced();
     root.classList.toggle('is-reduced', this.reduced);
@@ -92,7 +126,7 @@ export default {
           <div class="set-page set-left parchment">
             <div class="set-title engraved">Salle sur Demande</div>
             <ul class="set-rubs"></ul>
-            <div class="set-folio">Registre des réglages</div>
+            <div class="set-folio"></div>
           </div>
           <div class="set-spine"></div>
           <div class="set-page set-right parchment">
@@ -111,15 +145,28 @@ export default {
             </div>
           </div>
         </div>
-        <div class="keyhint"><span><b>▲▼</b><em></em></span><span><b>OK</b><em></em></span><span><b>◀</b><em></em></span><span><b>Retour</b><em></em></span></div>
+        <div class="keyhint"><span><b>${ARROW.up}${ARROW.down}</b><em></em></span><span><b>OK</b><em></em></span><span><b>${ARROW.left}</b><em></em></span><span><b>Retour</b><em></em></span></div>
       </div>`;
-    this.renderRubs();
-    this.renderRight(undefined, true);
-    this.renderPreview();
-    this.updateHint();
+    // The router's transition and the pages' opening need the closed style of the layer and of its pages: a
+    // style-only read (no layout) of the skeleton, which holds no text to shape yet.
+    primeEnter(root);
     // The ledger opens: the left page folds over (rotateY), the right one fades in.
     requestAnimationFrame(() => root.classList.add('is-open'));
     if (getConfig().sounds) ctx.fx.initAudio();
+    // The writing comes once its fonts are there (a few milliseconds from the APK), while the pages open: one
+    // layout in the right fonts, no synchronous layout in mount(). Keys stay with the router until then.
+    await fontsReady(SET_FACES, 600);
+    if (this.root !== root) return;
+    root.querySelector('.set-folio').textContent = 'Registre des réglages';
+    this.renderRubs();
+    this.updateHint();
+    // The right page one frame later: the room's first layout is cut in two halves (each page's text to shape),
+    // so no single frame holds it all while the pages swing open.
+    await frames(1, 60);
+    if (this.root !== root) return;
+    this.renderRight(undefined, true);
+    this.renderPreview();
+    this.built = true;
   },
 
   unmount() {
@@ -130,7 +177,7 @@ export default {
   },
 
   // Test bench time multiplier (×3 slow motion).
-  k() { return Number(getComputedStyle(this.root).getPropertyValue('--k')) || 1; },
+  k() { return timeK(); },
   // `hold`: reading delay (a message that must stay legible), never shortened in reduced motion.
   later(fn, ms, hold) { const t = setTimeout(fn, ((this.reduced && !hold) ? Math.min(ms, 200) : ms) * this.k()); this.timers.push(t); return t; },
 
@@ -176,15 +223,24 @@ export default {
     const body = this.root.querySelector('.set-body');
     body.textContent = '';
     body.dataset.rub = r.id;
+    this.root.querySelector('.set-right').dataset.rub = r.id;     // long sections (TV screens, About) give the preview's room to their text
+    // Every section is laid in a sliding sheet (.set-flow): when it is taller than the page, the sheet slides
+    // (transform) to keep the focused line in view, never a scrollbar, never a line hidden under the preview.
+    const flow = el('div', 'set-flow');
+    body.appendChild(flow);
+    if (fresh) this.listOff = 0;
+    flow.style.transform = `translateY(${this.listOff}px)`;
+    this.scrollList = flow;
     this.items = []; this.axis = 'v';
-    const spec = this['rub_' + r.id](body);
+    const spec = this['rub_' + r.id](flow);
     this.items = spec.items; this.axis = spec.axis || 'v';
     // Restore the focus on an id (after a parapet change), otherwise on the requested position.
     let idx = typeof spec.start === 'number' ? spec.start : 0;
     if (keep != null) { const f = this.items.findIndex((it) => it.id === keep); if (f >= 0) idx = f; }
     this.row = Math.min(Math.max(0, idx), Math.max(0, this.items.length - 1));
     this.syncFocus();
-    if (fresh) { this.writeIn(title, 0); this.writeIn(sub, 1); this.writeIn(body.firstElementChild, 2); }
+    this.keepVisible(true);
+    if (fresh) { this.writeIn(title, 0); this.writeIn(sub, 1); this.writeIn(flow.firstElementChild, 2); }
   },
   syncFocus() {
     this.items.forEach((it, n) => it.el.classList.toggle('is-focus', this.level === 'right' && n === this.row));
@@ -293,7 +349,7 @@ export default {
     const row = this.enumRow(body, 'Touche Home', HOME_MODES, () => this.homePending || (mode === 'original' ? 'original' : 'poudlard'), (v) => {
       if (v === 'original') { this.homeAsk = true; this.renderRight(); return; }
       this.takeHome();
-    }, (v) => (mock ? HOME_NOTE_MOCK : this.homePending ? 'La télé décide : lisez le message en bas de page.' : v === 'poudlard' ? 'Poudlard répond à la touche Home.' : 'L’accueil d’origine répond à la touche Home. OK ou ▶ pour la rendre à Poudlard.'));
+    }, (v) => (mock ? HOME_NOTE_MOCK : this.homePending ? 'La télé décide : lisez le message en bas de page.' : v === 'poudlard' ? 'Poudlard répond à la touche Home.' : 'L’accueil d’origine répond à la touche Home. OK ou la flèche droite pour la rendre à Poudlard.'));
     if (mock) {
       row.el.classList.add('is-off');
       const nudge = () => { this.nudge(row.el); this.say(HOME_NOTE_MOCK); return true; };
@@ -336,7 +392,11 @@ export default {
   // ---- Section: Parapet and apps ----------------------------------------------------------------------------
   rub_dock(body) {
     const c = getConfig();
-    const apps = allApps();
+    // On the TV, the catalog apps it does not have are left out (the parapet's own entries always stay, so a
+    // slot held by an app the TV lacks can be freed here); the mock-up (installed() is null) lists the catalog.
+    const inst = Platform.installed();
+    const absent = (a) => Boolean(inst && a.pkg && !inst.has(a.pkg));
+    const apps = allApps().filter((a) => a.onDock || a.custom || !absent(a));
     const onDock = c.dock.map((id) => apps.find((a) => a.id === id)).filter(Boolean);
     const others = apps.filter((a) => !a.onDock);
     const items = [];
@@ -353,8 +413,8 @@ export default {
       row.appendChild(el('span', 'set-app-rank', a.onDock ? String(pos + 1) : ''));
       row.appendChild(this.inkLogo(a.id, 1.5));
       row.appendChild(el('span', 'set-app-name', a.name));
-      // Tag: "caché" (hidden, ink faded to 35%); a hand-added app (V4) also carries "perso".
-      row.appendChild(el('span', 'set-app-hidden', a.hidden ? (a.custom ? 'caché · perso' : 'caché') : a.custom ? 'perso' : ''));
+      // Tag: "absente" (the TV does not have it), "cachée" (ink faded to 35%); a hand-added app (V4) also carries "perso".
+      row.appendChild(el('span', 'set-app-hidden', [absent(a) ? 'absente' : a.hidden ? 'cachée' : '', a.custom ? 'perso' : ''].filter(Boolean).join(' · ')));
       const g = el('span', 'set-app-glass'); g.innerHTML = HOURGLASS; row.appendChild(g);
       const seal = el('i', 'set-rowseal wax-seal');
       if (this.sealed.has(a.id)) seal.classList.add('is-sealed');                   // kept seals survive the re-render
@@ -366,9 +426,6 @@ export default {
     head2.appendChild(el('span', null, 'Dans la Carte du Maraudeur'));
     list.appendChild(head2);
     others.forEach((a) => { const row = mk(a, -1); list.appendChild(row); items.push({ id: a.id, el: row, key: (k) => this.dockKey(a.id, k, row) }); });
-    // Keep the focused row visible: the list slides (transform), never a scrollbar.
-    this.scrollList = list;
-    list.style.transform = `translateY(${this.listOff}px)`;
     return { items, axis: 'v', start: 0 };
   },
   dockKey(id, action, row) {
@@ -438,7 +495,8 @@ export default {
   say(text) {
     const m = this.root.querySelector('.set-msg'); if (!m) return;
     m.textContent = text; this.writeIn(m);
-    this.later(() => { if (m.textContent === text) m.textContent = ''; }, 2600, true);
+    // Reading time grows with the sentence (the TV's own messages can be long): 2.6 s at least, 9 s at most.
+    this.later(() => { if (m.textContent === text) m.textContent = ''; }, Math.min(9000, Math.max(2600, 1200 + text.length * 55)), true);
   },
   // Stop: small sideways refusal, composited with the focus transform (the row does not "jump").
   nudge(row) {
@@ -590,7 +648,9 @@ export default {
         slot.style.width = Math.min(4.2, 1.9 * L.ratio) + 'cqw';
         const logo = el('div', 'app-logo ivory-logo' + (L.luma ? ' luma' : ''));
         logo.style.setProperty('--m', `url("${L.src}")`);
-        logo.innerHTML = '<i class="l-ext"></i><i class="l-rimD"></i><i class="l-rimL"></i><i class="l-base"></i><i class="l-shine"></i>';
+        // One masked layer, not the parapet's five (relief offsets of 0.1 cqw do not show at this size): each masked
+        // layer paints its SVG logo on the main thread, and thirty of them made the room's first paint ~2× longer.
+        logo.innerHTML = '<i class="l-base"></i>';
         slot.appendChild(logo);
       } else {
         slot.style.width = '3cqw';
@@ -625,10 +685,16 @@ export default {
 
   // ---- Signatures: quill writing, pressed seal --------------------------------------------------------------
   // `i`: writing rank (0, 1, 2...) to write several lines one after another.
+  // Played with the Web Animations API: restarting it needs no forced layout (the old remove-class / offsetWidth /
+  // add-class trick laid the whole page out synchronously, three times per section). Opacity and transform only;
+  // `backwards` fill, so nothing stays in effect once written.
   writeIn(node, i = 0) {
-    if (!node) return;
-    node.style.setProperty('--i', String(i));
-    node.classList.remove('set-write'); void node.offsetWidth; node.classList.add('set-write');
+    if (!node || !node.animate) return;
+    if (node._write) node._write.cancel();
+    const k = this.k();
+    node._write = this.reduced
+      ? node.animate([{ offset: 0, opacity: 0 }], { duration: 200 * k, easing: 'ease', fill: 'backwards' })
+      : node.animate([{ offset: 0, opacity: 0, transform: 'translateX(-.6cqw)' }], { duration: 260 * k, delay: i * 90 * k, easing: 'ease-out', fill: 'backwards' });
   },
   press(seal) {
     if (!seal) return;
@@ -642,25 +708,49 @@ export default {
     const spans = h.querySelectorAll('span');
     const [a, b, c, d] = h.querySelectorAll('em');
     spans[0].style.opacity = '';
-    if (this.level === 'left') { a.textContent = 'Rubrique'; b.textContent = 'Entrer'; c.textContent = 'Quitter'; d.textContent = 'Quitter'; return; }
+    const keyC = spans[2].querySelector('b');
+    if (this.level === 'left') { a.textContent = 'Rubrique'; b.textContent = 'Entrer'; keyC.innerHTML = ARROW.left; c.textContent = 'Quitter'; d.textContent = 'Quitter'; return; }
     const id = RUBRIQUES[this.rub].id;
     a.textContent = 'Ligne';
     if (this.axis === 'h') spans[0].style.opacity = '0';          // nothing to say for ▲▼: we clear it, we don't write "Nothing"
     b.textContent = id === 'dock' ? 'Poser · Retirer' : id === 'house' ? 'Choisir' : id === 'tv' ? 'Ouvrir' : (id === 'classic' || id === 'about') ? 'Valider' : 'Changer';
-    c.textContent = id === 'dock' ? 'Rang ◀▶' : this.axis === 'h' ? 'Choisir ◀▶' : 'Valeur ◀▶';
+    // Third key: what Left / Right do here. A list of buttons (TV screens, About) only goes back with Left.
+    const buttons = id === 'tv' || id === 'about';
+    keyC.innerHTML = buttons ? ARROW.left : ARROWS_LR;
+    c.textContent = buttons ? 'Rubriques' : id === 'dock' ? 'Rang' : this.axis === 'h' ? 'Choisir' : 'Valeur';
     d.textContent = 'Rubriques';
   },
 
   // Slide the parapet list to keep the focused row visible (transform, no scroll).
   // The message band, at the bottom of the page, is reserved: a focused row is never beneath it.
-  keepVisible() {
-    const list = this.scrollList; if (!list || !this.items[this.row] || RUBRIQUES[this.rub].id !== 'dock') return;
+  // Every section uses it (the eleven TV screens, the parapet list, the long notes of "À propos"). `instant`: no slide
+  // (a re-render). The offsets are read relative to the sliding sheet, so the slide in progress does not matter.
+  // Nothing is measured when nothing can slide (the sections' level, sheet at the top): opening the room and moving
+  // between sections never force a synchronous layout (at mount it cost about 250 ms of a 4× throttled CPU).
+  // `instant` is only passed by renderRight(), whose sheet is a fresh element: a transform written before its first
+  // style computation has nothing to transition from, so no style flush is needed to skip the slide.
+  keepVisible(instant) {
+    const list = this.scrollList; if (!list || !list.isConnected) return;
+    const focused = this.level === 'right' && this.items[this.row];
+    if (!focused && (this.listOff === 0 || !this.items[this.row])) {
+      this.listOff = 0;
+      list.style.transform = 'translateY(0px)';
+      return;
+    }
+    void instant;
     const body = list.parentElement; const msg = this.root.querySelector('.set-msg');
-    const H = body.clientHeight - (msg ? msg.offsetHeight : 0); const r = this.items[this.row].el;
-    const top = r.offsetTop, bottom = top + r.offsetHeight;
+    const H = body.clientHeight - (msg && msg.textContent ? msg.offsetHeight : 0);
+    const maxOff = Math.min(0, H - list.scrollHeight);              // never slide further than the last line
     let off = this.listOff;
-    if (bottom + off > H - 8) off = H - 8 - bottom; else if (top + off < 0) off = -top;
-    if (off > 0) off = 0;
+    const it = this.items[this.row];
+    if (it && this.level === 'right') {
+      const r = it.el;
+      let top = 0; for (let n = r; n && n !== list; n = n.offsetParent) top += n.offsetTop;   // offset inside the sheet
+      const bottom = top + r.offsetHeight;
+      const pad = Math.round(body.clientWidth * 0.01);
+      if (bottom + off > H - pad) off = H - pad - bottom; else if (top + off < pad) off = pad - top;
+    } else if (!it) off = 0;
+    off = Math.round(Math.max(Math.min(0, off), maxOff));
     this.listOff = off;
     list.style.transform = `translateY(${off}px)`;
   },

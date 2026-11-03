@@ -1,13 +1,16 @@
 // Hedwig (Hedwige): the home-screen cursor, and an animal. Real generated photos (cut out), cross-faded slowly,
 // never switched on a timer tick. She has weight (a crouch before take-off, a settle on landing), depth (she grows a
 // touch at the apex, her shadow thins while she is in the air), a hint of a bank into each turn, a flare with the
-// wings forward before the talons touch, two feathers after a long flight, and a quiet life at rest.
+// wings forward before the talons touch, two feathers after a long flight.
+// At rest she is STILL: no breathing loop, no idle timer. She only moves on an event (a flight, a glance toward the
+// bar, a nod at the edge, a startle, sleep and wake), so the Parapet costs nothing when nobody touches the remote.
 //
-// Poses come from ONE sprite sheet (assets/owl-sheet.webp, built by tools/cutout_owl.py --sheet): one row of
-// equal cells, in `cells` order, the ivory rim baked in (no CSS filter). Two layers show the current and the
-// previous cell and swap opacities: one texture, two elements, zero filter.
-//   createOwl(host, { sheet, cells: ['perch','look','sleep','up','down','glide','land'], feather?, size, reduced })
-// A missing sheet hides the owl (never a broken image); a missing pose falls back to the closest one.
+// Poses come from ONE sprite sheet (assets/owl-sheet.webp, built by tools/cutout_owl.py --sheet): a grid of equal
+// cells, `cols` per row, read left to right then top to bottom in `cells` order, the ivory rim baked in (no CSS
+// filter). Two layers show the current and the previous cell and swap opacities: one texture, two elements, zero filter.
+//   createOwl(host, { sheet, cells: ['perch','look','sleep','up','down','glide','land'], cols: 4, feather?, size, reduced })
+// `cols` defaults to the number of cells (the former one-row sheet). A missing sheet hides the owl (never a broken
+// image); a missing pose falls back to the closest one. stop() parks her (memory pressure).
 //
 // Flight model (flyTo): the path is a Catmull-Rom spline through a handful of waypoints, re-sampled by arc length so
 // the speed profile is a single ease (slow push-off, cruise, long deceleration). It plays as ONE Web Animation with
@@ -58,6 +61,8 @@ function alongPath(poly, cum, u) {
 
 export function createOwl(host, opts) {
   const { sheet, cells = [], feather = null, size = 110, reduced = () => false } = opts;
+  const cols = Math.max(1, Math.min(cells.length || 1, opts.cols || cells.length || 1));
+  const rows = Math.max(1, Math.ceil((cells.length || 1) / cols));
   const el = document.createElement('div');
   el.className = 'owl';
   el.style.setProperty('--owl-size', size + 'px');
@@ -66,14 +71,13 @@ export function createOwl(host, opts) {
   const layers = [...el.querySelectorAll('.owl-layer')];
   const feathersEl = el.querySelector('.owl-feathers');
   const index = Object.fromEntries(cells.map((n, i) => [n, i]));
-  const n = Math.max(1, cells.length);
   let ready = false;
   if (sheet) {
     const probe = new Image();
     probe.onload = () => { ready = true; el.classList.add('is-ready'); };
     probe.onerror = () => { el.classList.add('is-missing'); };
     probe.src = sheet;
-    layers.forEach((l) => { l.style.backgroundImage = `url("${sheet}")`; l.style.backgroundSize = `${n * 100}% 100%`; });
+    layers.forEach((l) => { l.style.backgroundImage = `url("${sheet}")`; l.style.backgroundSize = `${cols * 100}% ${rows * 100}%`; });
   } else {
     el.classList.add('is-missing');
   }
@@ -82,7 +86,7 @@ export function createOwl(host, opts) {
   let state = 'idle', pose = null, facing = 'right', front = 0;   // pose = null: the first showPose() really displays
   let pos = { x: 0, y: 0 };
   let flight = null, timers = [];
-  let idleTimer = 0, lastDir = 'right';
+  let lastDir = 'right';
 
   const later = (fn, ms) => { const t = setTimeout(fn, ms); timers.push(t); return t; };
   const clearTimers = () => { timers.forEach(clearTimeout); timers = []; };
@@ -95,7 +99,8 @@ export function createOwl(host, opts) {
     pose = p;
     const k = reduced() ? 1 : ms;
     const back = 1 - front;
-    layers[back].style.backgroundPosition = n > 1 ? `${(index[p] / (n - 1)) * 100}% 0` : '0 0';
+    const c = index[p] % cols, r = Math.floor(index[p] / cols);
+    layers[back].style.backgroundPosition = `${cols > 1 ? (c / (cols - 1)) * 100 : 0}% ${rows > 1 ? (r / (rows - 1)) * 100 : 0}%`;
     layers[back].style.transitionDuration = k + 'ms'; layers[front].style.transitionDuration = k + 'ms';
     layers[back].style.opacity = '1'; layers[front].style.opacity = '0';
     posesEl.style.transitionDuration = (reduced() ? 1 : Math.max(k, 200)) + 'ms';   // the cell box follows (owl.css .is-perched)
@@ -106,30 +111,6 @@ export function createOwl(host, opts) {
   function setFacing(f) { facing = f; dir.style.transform = f === 'left' ? 'scaleX(-1)' : ''; }
   function place(x, y) { pos = { x, y }; el.style.transform = `translate(${x}px, ${y}px)`; }
   function currentPos() { const m = new DOMMatrixReadOnly(getComputedStyle(el).transform); return { x: m.m41, y: m.m42 }; }
-
-  // ---- Life at rest: rare and soft. A glance (40 %), a blink (45 %), a ruffle (15 %), every 6 to 14 s. ----
-  function idleLife() {
-    clearTimeout(idleTimer);
-    if (reduced()) return;
-    const beat = () => {
-      if (state !== 'idle') return;
-      const r = Math.random();
-      if (r < 0.4) {                                    // a glance toward the last direction, held a moment
-        setFacing(lastDir);
-        showPose('look', 420);
-        idleTimer = setTimeout(() => { if (state === 'idle') showPose('perch', 420); idleTimer = setTimeout(beat, 5000 + Math.random() * 7000); }, 1600 + Math.random() * 2200);
-        return;
-      }
-      if (r < 0.85) {                                   // a blink: the lids close faster than they open
-        showPose('sleep', 110);
-        idleTimer = setTimeout(() => { if (state === 'idle') showPose('perch', 170); idleTimer = setTimeout(beat, 6000 + Math.random() * 8000); }, 120);
-        return;
-      }
-      depth.animate([{ transform: 'scale(1)' }, { transform: 'scale(1.015, .99)', offset: 0.45 }, { transform: 'scale(1)' }], { duration: 560, easing: 'cubic-bezier(.4,0,.3,1)' });
-      idleTimer = setTimeout(beat, 6000 + Math.random() * 8000);
-    };
-    idleTimer = setTimeout(beat, 2500 + Math.random() * 4000);
-  }
 
   // ---- Feathers: two small ones drift down and turn after a long flight ----
   function dropFeathers() {
@@ -163,7 +144,7 @@ export function createOwl(host, opts) {
     if (reduced()) {                                    // cross-fade: no flight
       el.style.transition = 'opacity 200ms';
       el.style.opacity = '0';
-      later(() => { place(x, y); el.style.opacity = '1'; later(() => { el.style.transition = ''; setState('idle'); idleLife(); }, 220); }, 200);
+      later(() => { place(x, y); el.style.opacity = '1'; later(() => { el.style.transition = ''; setState('idle'); }, 220); }, 200);
       return new Promise((r) => later(r, 450));
     }
     const k = o.timeScale || 1;
@@ -239,7 +220,7 @@ export function createOwl(host, opts) {
         if (!short) dropFeathers();
         if (o.onLand) o.onLand();
         later(() => { showPose('perch', FADE_SETTLE * k); }, 200 * k);
-        later(() => { setState('idle'); idleLife(); resolve(); }, (200 + FADE_SETTLE) * k);
+        later(() => { setState('idle'); resolve(); }, (200 + FADE_SETTLE) * k);
       };
     });
   }
@@ -247,7 +228,7 @@ export function createOwl(host, opts) {
   function teleport(x, y) {
     clearTimers();
     if (flight) { flight.cancel(); flight = null; }
-    place(x, y); showPose('perch', 1); setState('idle'); idleLife();
+    place(x, y); showPose('perch', 1); setState('idle');
   }
 
   // Hitting the edge: she does not move, just a small tilt of the head. Twice within 600 ms: a startled hop.
@@ -274,7 +255,7 @@ export function createOwl(host, opts) {
 
   // Lumos: she takes off vertically out of frame while the light rises. Two slow beats, then she is gone.
   function liftOff(ms = 500) {
-    clearTimers(); clearTimeout(idleTimer);
+    clearTimers();
     setState('fly');
     const from = currentPos();
     const k = reduced() ? 0.2 : 1;
@@ -296,18 +277,24 @@ export function createOwl(host, opts) {
     return flyTo(x, y, { arena: { h: 1200 }, onLand: o.onLand });
   }
 
-  // Nox: she tucks her head in and sleeps; on waking, she opens her eyes, then blinks once, slowly.
-  // The scale hands over to the CSS breathing of each state (owl.css) when the animation ends: no `fill`, so the
-  // breathing is never pinned under a forwards-filled transform.
-  function sleep() { clearTimeout(idleTimer); setState('sleep'); showPose('sleep', 600); depth.animate([{ transform: 'scale(1)' }, { transform: 'scale(.97)' }], { duration: 1200, easing: 'cubic-bezier(.4,0,.3,1)' }); }
-  function wake() { setState('idle'); depth.animate([{ transform: 'scale(.97)' }, { transform: 'scale(1)' }], { duration: 600, easing: 'cubic-bezier(.3,0,.2,1)' }); showPose('perch', 320); later(() => { showPose('sleep', 110); later(() => showPose('perch', 170), 120); }, 900); idleLife(); }
+  // Nox: she tucks her head in and sleeps (owl.css holds the .97 scale of the sleep state, static); on waking, she
+  // opens her eyes, then blinks once, slowly. No breathing loop in either state.
+  function sleep() { clearTimers(); setState('sleep'); showPose('sleep', 600); depth.animate([{ transform: 'scale(1)' }, { transform: 'scale(.97)' }], { duration: 1200, easing: 'cubic-bezier(.4,0,.3,1)' }); }
+  function wake() { setState('idle'); depth.animate([{ transform: 'scale(.97)' }, { transform: 'scale(1)' }], { duration: 600, easing: 'cubic-bezier(.3,0,.2,1)' }); showPose('perch', 320); later(() => { showPose('sleep', 110); later(() => showPose('perch', 170), 120); }, 900); }
 
+  // Parks her where she is, every animation and timer dropped (memory pressure): perched (or asleep), still.
+  function stop() {
+    clearTimers();
+    if (flight) { try { flight.commitStyles(); } catch (e) { /* not rendered */ } flight.cancel(); flight = null; }
+    el.getAnimations({ subtree: true }).forEach((a) => a.cancel());
+    feathersEl.textContent = '';
+    if (state !== 'sleep') { showPose('perch', 1); setState('idle'); }
+  }
   function hide() { el.style.opacity = '0'; }
   function show() { el.style.opacity = '1'; }
-  function destroy() { clearTimers(); clearTimeout(idleTimer); if (flight) flight.cancel(); el.remove(); }
+  function destroy() { clearTimers(); if (flight) flight.cancel(); el.remove(); }
 
   showPose('perch', 1);
   setState('idle');
-  idleLife();
-  return { el, flyTo, teleport, nod, startle, lookAt, liftOff, comeBack, sleep, wake, hide, show, destroy, setFacing, get state() { return state; }, get pos() { return pos; }, get ready() { return ready; }, size: () => ({ w: el.offsetWidth, h: el.offsetHeight }) };
+  return { el, flyTo, teleport, nod, startle, lookAt, liftOff, comeBack, sleep, wake, stop, hide, show, destroy, setFacing, get state() { return state; }, get pos() { return pos; }, get ready() { return ready; }, size: () => ({ w: el.offsetWidth, h: el.offsetHeight }) };
 }

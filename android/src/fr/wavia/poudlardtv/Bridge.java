@@ -21,12 +21,13 @@ import java.util.concurrent.TimeUnit;
  * The @JavascriptInterface methods run on a WebView thread, not on the main thread:
  * startActivity and PackageManager cope with that; nothing here touches a view. The one exception is the HOME
  * role request (setHome("poudlard")), which needs the activity: it is posted on the UI thread and this thread
- * waits for its hint (500 ms at most).
+ * waits for its hint (1.5 s at most).
  *
  * Contract (platform.js):
  *   launch(pkg)            → launches the app
  *   switchInput(input)     → "HDMI 1" or an input id
- *   openUrl(url, pkg)      → allow-listed https link, in the app `pkg` (otherwise on its home screen)
+ *   openUrl(url, pkg)      → allow-listed https link: in the app `pkg`, else in the site's own app (Netflix, Max,
+ *                            Canal+...), else that app's home screen, else the TV's https handler (Apps.openUrl)
  *   installedPackages()    → JSON array of packages (kept for compatibility)
  *   installedApps()        → JSON array of {pkg, label, system}
  *   appIcon(pkg)           → PNG data URI or null
@@ -35,14 +36,19 @@ import java.util.concurrent.TimeUnit;
  *                            dialog is on screen), "settings" (the system's chooser screen has opened),
  *                            "press-home" (press Home, the TV will offer both home screens, choose "Always"),
  *                            "fire" (Fire TV: the Home key stays with Amazon)
- *   homeMode()             → "poudlard" | "original" (current state, for the settings)
+ *   setHome("original")    → disables the HOME entry point and launches the recorded original home (Free My TV,
+ *                            Google TV...); `hint` "launched", or "press-home" when no home could be started
+ *   homeMode()             → "poudlard" | "original" | "reverted" (current state, for the settings)
+ *   originalHome()         → JSON {pkg, label} of the home given back by "original", or "null" (new in 0.3)
  *   openSystem(key, arg)   → one of the TV's own settings screens (Apps.SYSTEM), or "appinfo" + package
  *   inputs()               → JSON array of {id, port, label, connected} (HDMI ports)
  *   hasLiveTv()            → "true" | "false"; liveTv() → opens live television
  *   store()                → the TV's app store
  *   version()              → APK version (for the settings screen)
  *
- * The error messages returned to JavaScript are shown on the TV by the Howler, so they stay in French.
+ * The error messages returned to JavaScript are shown on the TV by the Howler, so they stay in French and say what
+ * happened: a missing app is always "<Nom> n'est pas installée sur cette télé." (platform.js reads "install" as
+ * `missing`), nothing else ever contains that word.
  */
 final class Bridge {
     private final Context app;
@@ -86,7 +92,7 @@ final class Bridge {
             return result(apps.launch(pkg));
         } catch (Throwable t) {
             Log.w("launch", t);
-            return fail("Lancement impossible.");
+            return fail("Poudlard TV n'a pas pu lancer " + apps.name(pkg) + " (erreur interne).");
         }
     }
 
@@ -96,7 +102,7 @@ final class Bridge {
             return result(apps.switchInput(input));
         } catch (Throwable t) {
             Log.w("switchInput", t);
-            return fail("Changement d'entrée impossible.");
+            return fail("Poudlard TV n'a pas pu passer sur l'entrée « " + input + " » (erreur interne).");
         }
     }
 
@@ -106,7 +112,7 @@ final class Bridge {
             return result(apps.openUrl(url, pkg));
         } catch (Throwable t) {
             Log.w("openUrl", t);
-            return fail("Ouverture du lien impossible.");
+            return fail("Poudlard TV n'a pas pu ouvrir ce lien (erreur interne).");
         }
     }
 
@@ -147,14 +153,15 @@ final class Bridge {
     public String setHome(String mode) {
         try {
             if (HomeMode.ORIGINAL.equals(mode)) {
-                HomeMode.giveBackHome(app);
-                return ok();
+                // The alias is closed in any case (the Home key goes back to the original); the hint says whether
+                // the original home could be put on screen right now.
+                return okHint(HomeMode.giveBackHome(app) ? "launched" : HomeMode.HINT_PRESS_HOME);
             }
             if (HomeMode.POUDLARD.equals(mode)) {
                 final HomeActivity a = activity.get();
                 if (a == null) {
                     String hint = HomeMode.takeHome(app);
-                    return hint == null ? fail("La porte d'accueil de Poudlard TV n'a pas pu être réactivée.") : okHint(hint);
+                    return hint == null ? fail("La télé a refusé d'activer l'entrée « accueil » de Poudlard TV.") : okHint(hint);
                 }
                 // The role request opens a system dialog: it must start from the activity, on the UI thread.
                 final String[] hint = new String[1];
@@ -171,14 +178,29 @@ final class Bridge {
                         done.countDown();
                     }
                 });
-                boolean answered = done.await(500, TimeUnit.MILLISECONDS);
+                boolean answered = done.await(1500, TimeUnit.MILLISECONDS);
                 if (!answered) return okHint(HomeMode.HINT_PRESS_HOME);
-                return hint[0] == null ? fail("La porte d'accueil de Poudlard TV n'a pas pu être réactivée.") : okHint(hint[0]);
+                return hint[0] == null ? fail("La télé a refusé d'activer l'entrée « accueil » de Poudlard TV.") : okHint(hint[0]);
             }
-            return fail("Mode inconnu.");
+            return fail("Mode d'accueil inconnu : « " + mode + " ».");
         } catch (Throwable t) {
             Log.w("setHome", t);
-            return fail("Changement d'accueil impossible.");
+            return fail("Poudlard TV n'a pas pu changer d'accueil (erreur interne).");
+        }
+    }
+
+    /** The home that « Accueil d'origine » gives the key back to: {pkg, label}, or "null" if the TV has none. */
+    @JavascriptInterface
+    public String originalHome() {
+        try {
+            android.content.Intent i = HomeMode.originalHome(app);
+            if (i == null || i.getComponent() == null) return "null";
+            String label = HomeMode.originalHomeLabel(app);
+            return new JSONObject().put("pkg", i.getComponent().getPackageName())
+                    .put("label", label == null ? "" : label).toString();
+        } catch (Throwable t) {
+            Log.w("originalHome", t);
+            return "null";
         }
     }
 
@@ -197,7 +219,7 @@ final class Bridge {
             return result(apps.openSystem(key, arg));
         } catch (Throwable t) {
             Log.w("openSystem", t);
-            return fail("Cette télé n'a pas cet écran.");
+            return fail("Poudlard TV n'a pas pu ouvrir cet écran de réglages (erreur interne).");
         }
     }
 
@@ -226,7 +248,7 @@ final class Bridge {
             return result(apps.liveTv());
         } catch (Throwable t) {
             Log.w("liveTv", t);
-            return fail("Cette télé n'ouvre pas ses chaînes depuis un launcher.");
+            return fail("Poudlard TV n'a pas pu ouvrir les chaînes (erreur interne).");
         }
     }
 
@@ -236,7 +258,7 @@ final class Bridge {
             return result(apps.store());
         } catch (Throwable t) {
             Log.w("store", t);
-            return fail("Pas de boutique sur cette télé.");
+            return fail("Poudlard TV n'a pas pu ouvrir la boutique d'applis (erreur interne).");
         }
     }
 
@@ -251,7 +273,7 @@ final class Bridge {
             if (Watchdog.record(app) >= Watchdog.LIMIT) HomeMode.giveBackHome(app, true);
             return ok();
         } catch (Throwable t) {
-            return fail("Erreur non comptée.");
+            return fail("Erreur de la page non comptée par la sécurité.");
         }
     }
 

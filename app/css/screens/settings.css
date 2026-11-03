@@ -1,5 +1,7 @@
 /* The Room of Requirement (settings): a large ledger open as a double page on a stone table, by candlelight.
-   Prefix .set-; everything in cqw; transform and opacity only (plus a clip-path for the pen writing). */
+   Prefix .set-; everything in cqw. Motion: transform and opacity only, event-driven (no loop, no clip-path, no
+   animated colour or shadow: a focus wash is a layer whose opacity changes). Animations use `backwards` fill only,
+   so at rest nothing of this screen is running and the base styles carry the final state. */
 .screen-settings { background: var(--night); }
 .set-room { position: absolute; inset: 0; overflow: hidden; perspective: 160cqw; }
 
@@ -14,112 +16,132 @@
 .set-candle { position: absolute; right: -10cqw; bottom: -14cqw; width: 60cqw; height: 40cqw; pointer-events: none;
   background: radial-gradient(ellipse at 60% 70%, var(--house-glow) 0%, transparent 60%); opacity: .14; }
 
-/* ---- The ledger ---- */
-.set-book { position: absolute; left: 6cqw; right: 6cqw; top: 3.6cqw; bottom: 6.4cqw; display: grid; grid-template-columns: 31cqw .9cqw 1fr; transform-style: preserve-3d; }
+/* ---- The ledger: inside the safe area, above the key hint's band ---- */
+.set-book { position: absolute; left: 5.5cqw; right: 5.5cqw; top: 3.2cqw; bottom: 5.8cqw; display: grid; grid-template-columns: 30cqw .9cqw minmax(0, 1fr); transform-style: preserve-3d; }
+/* minmax(0, 1fr), here and in the grids below: a plain 1fr track asks for its content's min-content width, i.e. one
+   more layout pass of the whole right page before the real one (the room's first layout was ~2× slower for it). */
 .set-page { position: relative; overflow: hidden; }
-.set-page::before { content: ""; position: absolute; inset: 0; pointer-events: none; z-index: 1;
+.set-page::before { content: ""; position: absolute; inset: 0; pointer-events: none; z-index: 3;
   background: linear-gradient(to right, #00000000 94%, #3a260e22 100%), linear-gradient(to bottom, #3a260e14, transparent 8%, transparent 92%, #3a260e18); }
 .set-left { border-radius: .6cqw 0 0 .6cqw; transform-origin: 100% 50%; transform: rotateY(-38deg); opacity: 0;
   transition: transform calc(var(--k) * 650ms) cubic-bezier(.33, 0, .2, 1), opacity calc(var(--k) * 350ms) ease; }
 .set-right { border-radius: 0 .6cqw .6cqw 0; transform-origin: 0 50%; transform: rotateY(22deg); opacity: 0;
   transition: transform calc(var(--k) * 650ms) cubic-bezier(.33, 0, .2, 1) 80ms, opacity calc(var(--k) * 350ms) ease 80ms; }
-.is-open .set-left, .is-open .set-right { transform: rotateY(0); opacity: 1; }
-.set-spine { position: relative; z-index: 2; background: linear-gradient(to right, #2a1a0a66, #0e0804cc 50%, #2a1a0a66); transform: scaleY(1.01); }
+.is-open .set-left, .is-open .set-right { transform: none; opacity: 1; }
+.set-spine { position: relative; z-index: 2; background: linear-gradient(to right, #2a1a0a66, #0e0804cc 50%, #2a1a0a66); }
 
-/* Left page: the engraved title (2.1 cqw, may run to two lines) and the sections. */
-.set-title { position: absolute; top: 2.2cqw; left: 3cqw; right: 2cqw; font-size: 2.1cqw; line-height: 1.15; letter-spacing: .14em; color: var(--gold-dark); text-shadow: 0 .05cqw 0 #fff6cf66; }
-.set-rubs { position: absolute; top: 7.6cqw; left: 3cqw; right: 2.4cqw; margin: 0; padding: 0; list-style: none; }
-/* Nine sections at .65cqw of padding each end at ~41.5cqw of the page (46.25cqw tall at 16:9): the folio below keeps its own line. */
-.set-rub { position: relative; padding: .65cqw 0 .65cqw 2.2cqw; font-family: var(--body); font-weight: 500; font-size: 2.15cqw; line-height: 1.15; color: var(--ink); opacity: .72;
-  transition: opacity calc(var(--k) * 200ms), transform calc(var(--k) * 250ms) cubic-bezier(.3, .7, .2, 1); }
-.set-rub::before { content: "✦"; position: absolute; left: .2cqw; top: .75cqw; font-size: var(--t-hint); color: var(--wax); opacity: 0; transform: scale(.6); transition: opacity calc(var(--k) * 200ms), transform calc(var(--k) * 250ms); }
+/* Left page: the engraved title (may run to two lines) and the nine sections. */
+.set-title { position: absolute; top: 2cqw; left: 3cqw; right: 2cqw; font-size: var(--t-label); line-height: 1.15; letter-spacing: .14em; color: var(--gold-dark); text-shadow: 0 .05cqw 0 #fff6cf66; }
+.set-rubs { position: absolute; top: 7.4cqw; left: 2.6cqw; right: 2cqw; margin: 0; padding: 0; list-style: none; }
+.set-rub { position: relative; padding: .6cqw 0 .6cqw 2.4cqw; font-family: var(--body); font-weight: 500; font-size: var(--t-body); line-height: 1.15; color: var(--ink); opacity: .72;
+  white-space: nowrap; transition: opacity calc(var(--k) * 200ms), transform calc(var(--k) * 250ms) cubic-bezier(.3, .7, .2, 1); }
+.set-rub::before { content: ""; position: absolute; left: .4cqw; top: calc(.6cqw + var(--t-body) * .575 - .55cqw); width: 1.1cqw; height: 1.1cqw; background: var(--wax);
+  clip-path: polygon(50% 0, 61% 39%, 100% 50%, 61% 61%, 50% 100%, 39% 61%, 0 50%, 39% 39%);   /* the four-point star, drawn: no glyph (none of the embedded fonts has ✦) */
+  opacity: 0; transform: scale(.6); transition: opacity calc(var(--k) * 200ms), transform calc(var(--k) * 250ms); }
 .set-rub.is-active { opacity: 1; }
-.set-rub.is-active::before { opacity: 1; transform: scale(1); }
-.set-rub.is-focus { opacity: 1; font-weight: 600; transform: translateX(.35cqw); }
-/* The pen stroke: an ink line drawn from left to right under the focused section. */
-.set-quill { position: absolute; left: 2.2cqw; right: 1cqw; bottom: .45cqw; height: .14cqw; background: linear-gradient(to right, var(--ink) 0%, var(--ink) 70%, transparent 100%); border-radius: .1cqw;
-  transform: scaleX(0); transform-origin: 0 50%; opacity: .85; transition: transform calc(var(--k) * 300ms) cubic-bezier(.2, .8, .2, 1); }
-.set-rub.is-focus .set-quill { transform: scaleX(1); }
-.set-folio { position: absolute; left: 3cqw; bottom: 1.4cqw; font-family: var(--fell); font-style: italic; font-size: var(--t-hint); color: var(--ink); opacity: .5; }
+.set-rub.is-active::before { opacity: 1; transform: none; }
+.set-rub.is-focus { opacity: 1; transform: translateX(.4cqw); }
+.set-rub.is-focus .set-rub-label { font-weight: 700; }
+/* The pen stroke: an ink line drawn from left to right under the focused section (scaleX). */
+.set-quill { position: absolute; left: 2.4cqw; right: 1cqw; bottom: .3cqw; height: .2cqw; background: linear-gradient(to right, var(--ink) 0%, var(--ink) 70%, transparent 100%); border-radius: .1cqw;
+  transform: scaleX(0); transform-origin: 0 50%; opacity: .9; transition: transform calc(var(--k) * 300ms) cubic-bezier(.2, .8, .2, 1); }
+.set-rub.is-focus .set-quill { transform: none; }
+.set-folio { position: absolute; left: 3cqw; bottom: 1.3cqw; font-family: var(--fell); font-style: italic; font-size: var(--t-hint); color: var(--ink); opacity: .55; }
 
-/* Right page: title, subtitle, body, message, preview. */
-.set-rtitle { position: absolute; top: 2.4cqw; left: 3.4cqw; right: 3cqw; font-family: var(--display); font-weight: 600; font-size: 2.5cqw; letter-spacing: .14em; text-transform: uppercase; color: var(--ink); line-height: 1.1; }
-.set-rsub { position: absolute; top: 5.6cqw; left: 3.4cqw; right: 3cqw; font-family: var(--fell); font-style: italic; font-size: var(--t-hint); color: var(--ink); opacity: .7; }
-.set-body { position: absolute; top: 8.6cqw; left: 3.4cqw; right: 3cqw; bottom: 9.6cqw; overflow: hidden; }
-/* The refusal or confirmation message: outside the sliding list, laid at the bottom of the body, always visible.
-   A parchment veil separates it from the lines passing underneath; invisible while empty. */
-.set-msg { position: absolute; left: 3.4cqw; right: 3cqw; bottom: 9.6cqw; z-index: 2; min-height: 2.6cqw; padding: .6cqw .9cqw .2cqw;
-  font-family: var(--fell); font-style: italic; font-size: var(--t-hint); line-height: 1.25; color: var(--wax);
-  background: linear-gradient(to bottom, #e8d9b500 0%, #e8d9b5e6 45%, #e8d9b5 100%); transition: opacity calc(var(--k) * 200ms); }
-.set-msg:empty { opacity: 0; }
+/* Right page: a column (title, subtitle, body that takes the rest, preview); the message band floats over the
+   bottom of the body. Nothing is placed at a fixed height: a two-line subtitle pushes the body down. */
+.set-right { display: flex; flex-direction: column; padding: 2.2cqw 2.8cqw 1.4cqw 3.2cqw; }
+.set-rtitle { flex: none; font-family: var(--display); font-weight: 600; font-size: var(--t-title); letter-spacing: .12em; text-transform: uppercase; color: var(--ink); line-height: 1.1; }
+.set-rsub { flex: none; margin-top: .5cqw; font-family: var(--fell); font-style: italic; font-size: var(--t-hint); line-height: 1.25; color: var(--ink); opacity: .75; }
+.set-body { position: relative; flex: 1; min-height: 0; margin-top: 1cqw; overflow: hidden; }
+.set-flow { position: relative; padding: .4cqw 0; transition: transform calc(var(--k) * 300ms) cubic-bezier(.3, .7, .2, 1); }
+/* The refusal or confirmation message: outside the sliding sheet, at the bottom of the body, always visible and
+   whole (as many lines as the sentence needs). A parchment veil separates it from the lines passing underneath. */
+.set-msg { position: absolute; left: 3.2cqw; right: 2.8cqw; bottom: 10cqw; z-index: 2; padding: 1cqw .9cqw .3cqw;
+  font-family: var(--fell); font-style: italic; font-size: var(--t-hint); line-height: 1.3; color: var(--wax);
+  background: linear-gradient(to bottom, #e8d9b500 0%, #e8d9b5f0 30%, #e8d9b5 100%); transition: opacity calc(var(--k) * 200ms); }
+.set-msg:empty { opacity: 0; padding: 0; }
+/* The TV's own screens and "À propos" are long lists with nothing to show on the parapet: the preview steps aside. */
+.set-right[data-rub="tv"] .set-preview, .set-right[data-rub="about"] .set-preview { display: none; }
+.set-right[data-rub="tv"] .set-msg, .set-right[data-rub="about"] .set-msg { bottom: 1.4cqw; }
+
+/* Focus marks shared by the rows: a wax bar on the left and an ink wash, both layers whose opacity changes. */
+.set-row::before, .set-app::before { content: ""; position: absolute; left: 0; top: .45cqw; bottom: .45cqw; width: .3cqw; border-radius: .15cqw; background: var(--wax); opacity: 0;
+  transition: opacity calc(var(--k) * 150ms); }
+.set-row::after, .set-app::after { content: ""; position: absolute; inset: 0; border-radius: .3cqw; background: #1b1510; opacity: 0; pointer-events: none;
+  transition: opacity calc(var(--k) * 150ms); }
+.set-row.is-focus::before, .set-app.is-focus::before { opacity: 1; }
+.set-row.is-focus::after, .set-app.is-focus::after { opacity: .08; }
 
 /* Enumerated setting row: label, value between chevrons, seal on the right. */
-.set-row { position: relative; display: flex; align-items: center; justify-content: space-between; padding: .9cqw 3.2cqw .9cqw .9cqw; margin-bottom: .2cqw; border-radius: .3cqw;
-  font-family: var(--body); font-size: 2.05cqw; color: var(--ink); transition: transform calc(var(--k) * 200ms), background-color calc(var(--k) * 200ms); }
-.set-row.is-focus { background: #1b151012; transform: translateX(.2cqw); }
-.set-row-label { font-weight: 500; }
-.set-row-val { display: flex; align-items: center; gap: .7cqw; font-weight: 600; font-variant-numeric: tabular-nums; }
-.set-row-value { font-weight: 600; min-width: 7cqw; text-align: center; }
-.set-arrow { font-style: normal; font-size: 2.2cqw; line-height: 1; opacity: 0; transform: scale(.8); transition: opacity calc(var(--k) * 200ms), transform calc(var(--k) * 200ms); }
-.set-row.is-focus .set-arrow { opacity: .75; transform: scale(1); }
+.set-row { position: relative; display: flex; align-items: center; justify-content: space-between; gap: 1.2cqw; padding: .8cqw 3.2cqw .8cqw 1.1cqw; margin-bottom: .2cqw; border-radius: .3cqw;
+  font-family: var(--body); font-size: var(--t-label); line-height: 1.2; color: var(--ink); transition: transform calc(var(--k) * 200ms); }
+.set-row.is-focus { transform: translateX(.2cqw); }
+.set-row-label { font-weight: 500; min-width: 0; }
+.set-row-val { flex: none; display: flex; align-items: center; gap: .7cqw; font-weight: 600; font-variant-numeric: tabular-nums; }
+.set-row-value { font-weight: 600; min-width: 7cqw; text-align: center; white-space: nowrap; }
+.set-arrow { font-style: normal; font-size: var(--t-label); line-height: 1; opacity: 0; transform: scale(.8); transition: opacity calc(var(--k) * 200ms), transform calc(var(--k) * 200ms); }
+.set-row.is-focus .set-arrow { opacity: .8; transform: none; }
 .set-row.is-focus .set-arrow.is-off { opacity: .18; }
-/* Read-only row (the Home key in the mock-up): pale value, no arrows; the focus frame stays. */
+/* Read-only row (the Home key in the mock-up): pale value, no arrows; the focus marks stay. */
 .set-row.is-off .set-row-value { opacity: .5; }
 .set-row.is-off .set-arrow { opacity: .12; }
-/* The TV's own screens: eleven quill buttons stacked, tighter than the action buttons of "À propos". */
-.set-body[data-rub="tv"] .set-btn { display: flex; width: 26cqw; margin: 0 0 .55cqw .9cqw; padding: .45cqw 1.6cqw; font-size: var(--t-body); }
-.set-note { margin: .2cqw 0 1.2cqw .9cqw; font-family: var(--fell); font-style: italic; font-size: var(--t-hint); line-height: 1.3; color: var(--ink); opacity: .72; }
-.set-note-dim { opacity: .5; }
-.set-text { margin: 0 0 1.2cqw .9cqw; font-family: var(--body); font-size: 1.85cqw; line-height: 1.35; color: var(--ink); max-width: 46cqw; }
-.set-ask { font-family: var(--fell); font-size: 2.2cqw; margin-top: 1.6cqw; }
+/* The TV's own screens: eleven quill buttons stacked; the sheet slides to the focused one. */
+.set-body[data-rub="tv"] .set-btn { display: flex; width: 36cqw; margin: 0 0 .5cqw .9cqw; padding: .45cqw 1.6cqw; font-size: var(--t-body); }
+.set-note { margin: .2cqw 0 1.1cqw 1.1cqw; font-family: var(--fell); font-style: italic; font-size: var(--t-hint); line-height: 1.3; color: var(--ink); opacity: .78; }
+.set-note-dim { opacity: .6; }
+.set-text { margin: 0 0 1.1cqw 1.1cqw; font-family: var(--body); font-size: var(--t-body); line-height: 1.35; color: var(--ink); max-width: 50cqw; }
+.set-ask { font-family: var(--fell); font-size: var(--t-label); margin-top: 1.2cqw; }
 
 /* A row's wax seal: invisible until something changes, then pressed (scale 1.3 → 1, 200 ms) and kept. */
-.set-rowseal { position: absolute; right: .6cqw; top: 50%; width: 1.9cqw; height: 1.9cqw; margin-top: -.95cqw; opacity: 0; transform: scale(1.3); }
-.set-rowseal.is-sealed { opacity: 1; transform: scale(1); }
-.set-rowseal.is-press { animation: set-press calc(var(--k) * 200ms) cubic-bezier(.2, .9, .3, 1.2) both; }
-@keyframes set-press { from { transform: scale(1.3); opacity: 0; } 35% { opacity: 1; } to { transform: scale(1); opacity: 1; } }
+.set-rowseal { position: absolute; right: .6cqw; top: 50%; width: 1.9cqw; height: 1.9cqw; margin-top: -.95cqw; opacity: 0; transform: scale(1.3); z-index: 1; }
+.set-rowseal.is-sealed { opacity: 1; transform: none; }
+.set-rowseal.is-press { animation: set-press calc(var(--k) * 200ms) cubic-bezier(.2, .9, .3, 1.2) backwards; }
+@keyframes set-press { from { transform: scale(1.3); opacity: 0; } 35% { opacity: 1; } to { transform: none; opacity: 1; } }
 .set-seal-corner { right: 1cqw; top: auto; bottom: .4cqw; margin-top: 0; }
 
-/* Pen writing: the value reveals itself from left to right in 250 ms; --i staggers lines written one after another.
-   `backwards`: the start state holds during the delay, and at the end the clip-path falls back to `none` (nothing is cropped afterwards). */
-.set-write { animation: set-write calc(var(--k) * 250ms) ease-out backwards; animation-delay: calc(var(--k) * var(--i, 0) * 90ms); }
-@keyframes set-write { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0 0 0 0); } }
+/* Pen writing (settings.js writeIn, Web Animations): the line inks in (opacity) while settling from the left, 260 ms,
+   staggered by 90 ms for lines written one after another. */
 
-/* Pen-drawn buttons. */
-.set-btns { display: flex; gap: 1.6cqw; margin-left: .9cqw; }
-.set-acts { display: grid; gap: .5cqw; margin-top: .8cqw; }
-.set-btn { position: relative; display: inline-flex; align-items: center; padding: .7cqw 2cqw; font-family: var(--body); font-weight: 600; font-size: 1.9cqw; color: var(--ink);
-  border: .14cqw solid #1b151088; border-radius: .35cqw; width: max-content; max-width: 100%; transition: transform calc(var(--k) * 200ms), background-color calc(var(--k) * 200ms), color calc(var(--k) * 200ms); }
+/* The key hint's labels sit in <em> (settings.js rewrites them): upright, like every other key hint. Cinzel has no italic,
+   so an <em> made the browser synthesise a slanted Cinzel instance, a new font to build on the screen's first layout. */
+.screen-settings .keyhint em { font-style: normal; }
+
+/* Pen-drawn buttons: the focus fills the button with ink at once (a single repaint), only the scale moves. */
+.set-btns { display: flex; flex-wrap: wrap; gap: 1.4cqw; margin-left: 1.1cqw; }
+.set-acts { display: grid; gap: .6cqw; margin-top: .8cqw; margin-left: .2cqw; }
+.set-btn { position: relative; display: inline-flex; align-items: center; padding: .6cqw 2cqw; font-family: var(--body); font-weight: 600; font-size: var(--t-body); line-height: 1.25; color: var(--ink);
+  border: .14cqw solid #1b151088; border-radius: .35cqw; width: max-content; max-width: 100%; box-sizing: border-box; transition: transform calc(var(--k) * 200ms); }
 .set-btn::after { content: ""; position: absolute; inset: .22cqw; border: .06cqw solid #1b151055; border-radius: .2cqw; pointer-events: none; }
-.set-btn.is-focus { background: var(--ink); color: var(--parchment); transform: scale(1.04); }
+.set-btn.is-focus { background: var(--ink); color: var(--parchment); transform: scale(1.03); }
 .set-btn.is-focus::after { border-color: #e8d9b566; }
 .set-btn-nox.is-focus { background: var(--wax); color: var(--ivory); }
 
 /* About. */
-.set-facts { display: grid; gap: .35cqw; margin: 0 0 1.2cqw .9cqw; }
-.set-fact { display: grid; grid-template-columns: 10.5cqw 1fr; gap: 1cqw; font-family: var(--body); font-size: var(--t-body); line-height: 1.3; color: var(--ink); }
-.set-fact-k { font-family: var(--display); font-size: var(--t-hint); letter-spacing: .14em; text-transform: uppercase; opacity: .65; padding-top: .15cqw; }
-.set-anote { margin: .8cqw 0 0 .9cqw; min-height: 2cqw; font-family: var(--fell); font-style: italic; font-size: var(--t-hint); color: var(--wax); }
+.set-facts { display: grid; gap: .3cqw; margin: 0 0 .8cqw 1.1cqw; }
+/* The facts in the reading size of the notes: the whole page (facts and three buttons) fits without sliding. */
+.set-fact { display: grid; grid-template-columns: 14cqw minmax(0, 1fr); gap: 1.2cqw; font-family: var(--body); font-size: var(--t-hint); line-height: 1.3; color: var(--ink); }
+.set-fact-k { font-family: var(--display); font-size: var(--t-hint); letter-spacing: .08em; text-transform: uppercase; opacity: .7; line-height: 1.3; }
+.set-anote { margin: .8cqw 0 0 1.1cqw; font-family: var(--fell); font-style: italic; font-size: var(--t-hint); line-height: 1.3; color: var(--wax); }
 
 /* ---- Parapet and apps: ordered list, hourglass, rank ---- */
-.set-list { transition: transform calc(var(--k) * 300ms) cubic-bezier(.3, .7, .2, 1); will-change: transform; }
-.set-list-head { display: flex; justify-content: space-between; align-items: baseline; margin: .3cqw 0 .3cqw .9cqw; font-family: var(--display); font-size: var(--t-hint); letter-spacing: .16em; text-transform: uppercase; color: var(--ink); opacity: .65; }
+.set-list-head { display: flex; justify-content: space-between; align-items: baseline; margin: .3cqw 0 .3cqw 1.1cqw; font-family: var(--display); font-size: var(--t-hint); letter-spacing: .14em; text-transform: uppercase; color: var(--ink); opacity: .7; }
 .set-count { font-family: var(--body); font-size: var(--t-hint); letter-spacing: 0; text-transform: none; font-variant-numeric: tabular-nums; }
-.set-empty { margin: .2cqw 0 .6cqw .9cqw; font-family: var(--fell); font-style: italic; font-size: var(--t-hint); color: var(--ink); opacity: .7; }
-.set-app { position: relative; display: flex; align-items: center; gap: 1cqw; height: 3cqw; padding: 0 3.2cqw 0 .6cqw; border-radius: .3cqw; color: var(--ink); opacity: .78;
-  transition: opacity calc(var(--k) * 200ms), transform calc(var(--k) * 200ms), background-color calc(var(--k) * 200ms); }
+.set-empty { margin: .2cqw 0 .6cqw 1.1cqw; font-family: var(--fell); font-style: italic; font-size: var(--t-hint); color: var(--ink); opacity: .75; }
+.set-app { position: relative; display: flex; align-items: center; gap: 1cqw; min-height: 3.4cqw; padding: .2cqw 3.2cqw .2cqw .8cqw; border-radius: .3cqw; color: var(--ink); opacity: .8;
+  transition: opacity calc(var(--k) * 200ms), transform calc(var(--k) * 200ms); }
 .set-app.is-on { opacity: 1; }
-.set-app.is-focus { background: #1b151012; opacity: 1; transform: translateX(.2cqw); }
-.set-app-rank { width: 1.7cqw; font-family: var(--display); font-weight: 600; font-size: var(--t-hint); text-align: center; opacity: .6; font-variant-numeric: tabular-nums; }
-.set-app-name { flex: 1; font-family: var(--body); font-weight: 500; font-size: 1.9cqw; }
-.set-app.is-focus .set-app-name { font-weight: 600; }
-/* App hidden from the Map: ink faded to 35% and the "caché" (hidden) mention in pen. */
-.set-app-hidden { flex: none; font-family: var(--fell); font-style: italic; font-size: var(--t-hint); color: var(--ink); opacity: .6; }
-.set-app.is-hidden .set-inklogo, .set-app.is-hidden .set-app-name { opacity: .35; }
-/* Logo in ink: a single masked layer, 85% ink, as on the Map. */
+.set-app.is-focus { opacity: 1; transform: translateX(.2cqw); }
+.set-app-rank { flex: none; width: 1.8cqw; font-family: var(--display); font-weight: 600; font-size: var(--t-hint); text-align: center; opacity: .65; font-variant-numeric: tabular-nums; }
+.set-app-name { flex: 1; min-width: 0; font-family: var(--body); font-weight: 500; font-size: var(--t-body); line-height: 1.15; }
+.set-app.is-focus .set-app-name { font-weight: 700; }
+/* State tag ("cachée", "absente", "perso") in pen. */
+.set-app-hidden { flex: none; font-family: var(--fell); font-style: italic; font-size: var(--t-hint); color: var(--ink); opacity: .7; white-space: nowrap; }
+.set-app.is-hidden .set-inklogo, .set-app.is-hidden .set-app-name { opacity: .4; }
+/* Logo in ink: a single masked layer (static mask), 85% ink, as on the Map. */
 .set-inklogo { position: relative; display: inline-block; flex: none; transition: opacity calc(var(--k) * 200ms); }
 .set-inklogo i { position: absolute; inset: 0; background: var(--ink); opacity: .85; -webkit-mask: var(--m) center / contain no-repeat; mask: var(--m) center / contain no-repeat; }
-.set-inklogo i.luma { mask-mode: luminance; }
+.set-inklogo i.luma { -webkit-mask-mode: luminance; mask-mode: luminance; }
 .set-inklogo.is-text { font-family: var(--display); font-weight: 600; font-size: var(--t-hint); letter-spacing: .1em; text-align: center; line-height: 1.5cqw; border: .08cqw solid #1b151066; border-radius: .2cqw; }
 /* Hourglass: the sand falls (scaleY from the bottom) when the app is placed, and empties when it is removed. */
 .set-app-glass { flex: none; width: 1.7cqw; height: 2.3cqw; }
@@ -128,28 +150,28 @@
 .set-glass .g-top, .set-glass .g-bot { fill: var(--gold); transform-box: fill-box; transition: transform calc(var(--k) * 300ms) cubic-bezier(.4, 0, .6, 1), opacity calc(var(--k) * 300ms); }
 .set-glass .g-top { transform-origin: 50% 100%; transform: scaleY(0); opacity: 0; }
 .set-glass .g-bot { transform-origin: 50% 100%; transform: scaleY(0); opacity: 0; }
-.set-app.is-on .set-glass .g-bot { transform: scaleY(1); opacity: 1; }
+.set-app.is-on .set-glass .g-bot { transform: none; opacity: 1; }
 .set-app.is-on .set-glass .g-top { transform: scaleY(.35); opacity: .6; }
 .set-app.is-on .set-glass .g-frame { opacity: .85; }
 
 /* ---- House: four wax seals ---- */
-.set-houses { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1.2cqw; margin: 1cqw .4cqw 1.4cqw; }
-.set-house { position: relative; display: grid; justify-items: center; gap: .7cqw; padding: 1.4cqw .4cqw 1.1cqw; border-radius: .5cqw; border: .1cqw solid transparent; opacity: .72;
-  transition: transform calc(var(--k) * 250ms) cubic-bezier(.3, .7, .2, 1), opacity calc(var(--k) * 200ms), border-color calc(var(--k) * 200ms); }
+.set-houses { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1.2cqw; margin: .8cqw .4cqw 1.2cqw; }
+.set-house { position: relative; display: grid; justify-items: center; gap: .6cqw; padding: 1.2cqw .4cqw 1cqw; border-radius: .5cqw; border: .14cqw solid transparent; opacity: .75;
+  transition: transform calc(var(--k) * 250ms) cubic-bezier(.3, .7, .2, 1), opacity calc(var(--k) * 200ms); }
 .set-house.is-on { opacity: 1; }
-.set-house.is-focus { opacity: 1; transform: translateY(-.3cqw) scale(1.05); border-color: #1b151055; }
-.set-house-seal { width: 6.2cqw; height: 6.2cqw; display: grid; place-items: center; transition: transform calc(var(--k) * 250ms); }
+.set-house.is-focus { opacity: 1; transform: translateY(-.3cqw) scale(1.05); border-color: #1b151099; }
+.set-house-seal { width: 6cqw; height: 6cqw; display: grid; place-items: center; transition: transform calc(var(--k) * 250ms); }
 .set-house.is-on .set-house-seal { transform: scale(1.06); }
-.set-house-seal.is-press { animation: set-press-seal calc(var(--k) * 200ms) cubic-bezier(.2, .9, .3, 1.2) both; }
+.set-house-seal.is-press { animation: set-press-seal calc(var(--k) * 200ms) cubic-bezier(.2, .9, .3, 1.2) backwards; }
 @keyframes set-press-seal { from { transform: scale(1.3); } to { transform: scale(1.06); } }
 .set-house-letter { font-family: var(--display); font-weight: 700; font-size: 2.6cqw; color: #f1ebddcc; text-shadow: 0 .05cqw .1cqw #00000080; }
-.set-house-name { font-family: var(--body); font-weight: 600; font-size: 1.85cqw; color: var(--ink); }
-.set-house-state { height: 1.6cqw; font-family: var(--fell); font-style: italic; font-size: var(--t-hint); color: var(--ink); opacity: .7; }
+.set-house-name { font-family: var(--body); font-weight: 600; font-size: var(--t-body); color: var(--ink); text-align: center; line-height: 1.1; }
+.set-house-state { min-height: 1.9cqw; font-family: var(--fell); font-style: italic; font-size: var(--t-hint); color: var(--ink); opacity: .75; }
 
 /* ---- Miniature preview of the parapet: a strip of stone under a night sky, mist, house candle ---- */
-.set-preview { position: absolute; left: 3.4cqw; right: 3cqw; bottom: 1.6cqw; height: 7.8cqw; z-index: 1; }
-.set-pv-label { font-family: var(--display); font-size: var(--t-hint); letter-spacing: var(--track-wide); text-transform: uppercase; color: var(--ink); opacity: .6; margin-bottom: .4cqw; font-variant-numeric: tabular-nums; }
-.set-pv-stone { position: relative; height: 5.6cqw; border-radius: .35cqw; overflow: hidden; border-bottom: .14cqw solid var(--wax);
+.set-preview { position: relative; flex: none; height: 7.6cqw; margin-top: 1cqw; z-index: 1; }
+.set-pv-label { font-family: var(--display); font-size: var(--t-hint); letter-spacing: var(--track-wide); text-transform: uppercase; color: var(--ink); opacity: .65; margin-bottom: .4cqw; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.set-pv-stone { position: relative; height: 5.2cqw; border-radius: .35cqw; overflow: hidden; border-bottom: .14cqw solid var(--wax);
   background: radial-gradient(ellipse 30% 60% at 18% 0%, #c9d9ea22, transparent 70%),            /* the moon, on the left */
     linear-gradient(to bottom, #070b14 0%, #0f1627 42%, #1C2230 62%, #0d121c 100%);                  /* sky, then the stone */
   box-shadow: inset 0 .1cqw 0 #ffffff14; }
@@ -161,14 +183,14 @@
 .set-pv-glow { position: absolute; left: 1.2cqw; bottom: -1.2cqw; width: 9cqw; height: 4.6cqw; pointer-events: none; opacity: 0;
   background: radial-gradient(closest-side, var(--house-glow) 0%, transparent 70%); transition: opacity calc(var(--k) * 250ms), transform calc(var(--k) * 300ms) cubic-bezier(.3, .7, .2, 1); }
 .set-pv-glow.is-on { opacity: .22; }
-.set-pv-row { position: absolute; left: 1.2cqw; right: 1.2cqw; bottom: .7cqw; height: 2.1cqw; display: flex; align-items: center; gap: 1.5cqw; }
+.set-pv-row { position: absolute; left: 1.2cqw; right: 1.2cqw; bottom: .6cqw; height: 2.1cqw; display: flex; align-items: center; gap: 1.5cqw; }
 .set-pv-app { position: relative; flex: none; height: 100%; transition: transform calc(var(--k) * 250ms); }
 .set-pv-app.is-lit { transform: scale(1.18); }
 .set-pv-app.is-lit .app-logo .l-base { opacity: 1; background: linear-gradient(165deg, #FFF6CF 0%, #F3D27A 22%, #C08F35 46%, #F6DD8F 62%, #A26F24 82%, #F1CF7C 100%); }
-.set-pv-text { font-family: var(--display); font-size: 1cqw; letter-spacing: .1em; color: var(--ivory); opacity: .7; line-height: 2.1cqw; }
+.set-pv-text { font-family: var(--display); font-size: var(--t-hint); letter-spacing: .06em; color: var(--ivory); opacity: .75; line-height: 2.1cqw; white-space: nowrap; }
 .set-pv-empty { font-family: var(--fell); font-style: italic; font-size: var(--t-hint); color: var(--mist); opacity: .8; }
 /* The miniature owl slides (translateX) above the app concerned. */
-.set-pv-owl { position: absolute; left: 1.2cqw; top: .45cqw; width: 1.6cqw; height: 1.9cqw; transition: transform calc(var(--k) * 300ms) cubic-bezier(.3, .7, .2, 1), opacity calc(var(--k) * 200ms); }
+.set-pv-owl { position: absolute; left: 1.2cqw; top: .35cqw; width: 1.6cqw; height: 1.9cqw; transition: transform calc(var(--k) * 300ms) cubic-bezier(.3, .7, .2, 1), opacity calc(var(--k) * 200ms); }
 .set-pv-owl svg { width: 100%; height: 100%; fill: none; stroke: var(--ivory); stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; opacity: .85; }
 .set-pv-owl circle { fill: var(--ivory); stroke: none; }
 .set-pv-owl.is-gone { opacity: 0; }
@@ -176,15 +198,14 @@
 /* ---- Reduced motion: 200 ms fades and nothing more ---- */
 .screen-settings.is-reduced .set-left, .screen-settings.is-reduced .set-right { transform: none; transition: opacity 200ms ease; }
 .screen-settings.is-reduced .set-rub, .screen-settings.is-reduced .set-row, .screen-settings.is-reduced .set-app, .screen-settings.is-reduced .set-house, .screen-settings.is-reduced .set-btn,
-.screen-settings.is-reduced .set-arrow, .screen-settings.is-reduced .set-house-seal, .screen-settings.is-reduced .set-pv-app, .screen-settings.is-reduced .set-rowseal { transition: opacity 200ms ease, background-color 200ms ease, color 200ms ease, border-color 200ms ease; transform: none !important; }
+.screen-settings.is-reduced .set-arrow, .screen-settings.is-reduced .set-house-seal, .screen-settings.is-reduced .set-pv-app, .screen-settings.is-reduced .set-rowseal { transition: opacity 200ms ease; transform: none !important; }
 .screen-settings.is-reduced .set-rub::before { transition: opacity 200ms ease; transform: none; }
-.screen-settings.is-reduced .set-write { animation: set-fade 200ms ease backwards; animation-delay: 0ms; }
-.screen-settings.is-reduced .set-rowseal.is-press, .screen-settings.is-reduced .set-house-seal.is-press { animation: set-fade 200ms ease both; }
+.screen-settings.is-reduced .set-rowseal.is-press, .screen-settings.is-reduced .set-house-seal.is-press { animation: set-fade 200ms ease backwards; }
 /* The pen stroke is no longer drawn: it fades in under the focused section. */
 .screen-settings.is-reduced .set-quill { transform: none; opacity: 0; transition: opacity 200ms ease; }
-.screen-settings.is-reduced .set-rub.is-focus .set-quill { opacity: .85; }
-/* The list still slides (needed to see the focused row), but without transition; the owl and the candle teleport with a fade. */
-.screen-settings.is-reduced .set-list { transition: none; }
+.screen-settings.is-reduced .set-rub.is-focus .set-quill { opacity: .9; }
+/* The sheet still slides (needed to see the focused row), but without transition; the owl and the candle teleport with a fade. */
+.screen-settings.is-reduced .set-flow { transition: none; }
 .screen-settings.is-reduced .set-pv-owl, .screen-settings.is-reduced .set-pv-glow { transition: opacity 200ms ease; }
 /* The sand is no longer poured: it fades in. */
 .screen-settings.is-reduced .set-glass .g-top, .screen-settings.is-reduced .set-glass .g-bot { transition: opacity 200ms ease; transform: none !important; }

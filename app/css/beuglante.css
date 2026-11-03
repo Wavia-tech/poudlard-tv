@@ -1,7 +1,8 @@
 /* Beuglante (Howler): a red envelope that slides up from the bottom, shakes four times, delivers a message in IM Fell and burns out.
-   The only bright red thing in the interface. Motion: transform and opacity only. */
+   The only bright red thing in the interface. Motion: transform and opacity only, on arrival and departure; nothing
+   runs while it waits. The message is never cut: it wraps on as many lines as it needs. */
 
-.beuglante { position: absolute; left: 50%; bottom: 4.2cqw; z-index: 70; width: 46cqw; pointer-events: none;
+.beuglante { position: absolute; left: 50%; bottom: 6cqw; z-index: 70; width: 52cqw; max-width: calc(100cqw - 2 * var(--safe-x)); pointer-events: none;
   transform: translate(-50%, 140%); opacity: 1;
   transition: transform calc(var(--k) * 450ms) cubic-bezier(.2, .8, .2, 1), opacity calc(var(--k) * 700ms) ease; }
 .beuglante.is-in { transform: translate(-50%, 0); }
@@ -29,10 +30,10 @@
 /* The letter itself: parchment, ink, IM Fell. */
 .beuglante-paper { position: relative; background: var(--parchment); color: var(--ink); padding: 1.3cqw 1.8cqw; border-radius: .15cqw;
   box-shadow: inset 0 0 2.4cqw #6b4a1a33, 0 .3cqw .6cqw #0007; }
-.beuglante-msg { font-family: var(--fell); font-size: 2cqw; line-height: 1.3; text-align: center; }
+.beuglante-msg { font-family: var(--fell); font-size: var(--t-label); line-height: 1.3; text-align: center; text-wrap: pretty; overflow-wrap: anywhere; }
 
 /* The action (one at most): OK picks it, Back ignores it. On the red, in ivory. */
-.beuglante-act { display: flex; align-items: baseline; justify-content: center; gap: .8cqw; margin-top: 1cqw; white-space: nowrap;
+.beuglante-act { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: center; gap: .4cqw .8cqw; margin-top: 1cqw;
   font-family: var(--body); font-size: var(--t-hint); color: var(--ivory); }
 .beuglante-act b { font-family: var(--display); font-weight: 600; font-size: var(--t-hint); letter-spacing: var(--track-wide); color: var(--gold-light); }
 .beuglante-act i { font-style: normal; font-size: var(--t-hint); opacity: .6; margin-left: 1.4cqw; }

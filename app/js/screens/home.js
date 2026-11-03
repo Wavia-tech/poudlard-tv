@@ -1,6 +1,12 @@
 // The Parapet (home): a single cinematic shot. The castle, the time with a drop cap, the apps engraved in gold
 // and centred over a night fade, Hedwig (Hedwige) landing on the chosen app, and a discreet bar in the top-right
 // corner (sound, Map, Settings). Lumos (launch), the boot sequence and Nox (idle) all live here.
+//
+// Nothing moves when nothing happens. At rest the Parapet runs no requestAnimationFrame, no CSS animation, no
+// interval: the castle is a still picture with its windows lit once on a static canvas, the mist is still, the owl
+// is still, the clock is rewritten once a minute by a timer aligned on the minute. Every movement is an answer to a
+// key (a flight, Lumos, the Nox fly-by, the wake) and stops by itself. Nox settled is still too: a static starfield
+// that exists only during Nox, the clock moving to a new spot once a minute (burn-in), nothing in between.
 import { dockApps, updateConfig, getConfig, isReduced, onConfigChange, HOUSES } from '../config.js';
 import { Platform } from '../platform.js';
 import { Input } from '../input.js';
@@ -9,35 +15,22 @@ import { monogram, logoBox } from '../monogram.js';
 import { mountCrest } from '../crests.js';
 import { createOwl } from '../owl.js';
 
-const FOCUS_SCALE = 1.28;
 const LOGO_H = 3.6;            // cqw: logo height at rest (3 m floor)
 const LOGO_W_MAX = 12;         // cqw: a wide wordmark (prime video, Canal+) keeps enough height to weigh like the marks
 const PER_ROW = 8;             // beyond this: a second row
-const NOX_WANDER_MS = 20 * 60 * 1000;   // one lap of the clock's wander during Nox
 const BAR = ['sound', 'map', 'settings'];
 const OWL_CELLS = ['perch', 'look', 'sleep', 'up', 'down', 'glide', 'land'];   // the order of tools/cutout_owl.py --sheet
+const OWL_COLS = 4;            // the sheet is a 4 x 2 grid of 320 x 248 cells
 const CANCEL_MS = 350;         // after OK, Back cancels the launch until the intent fires
+const NOX_CLOCK_SCALE = 1.45;  // the clock grows from --t-clock to about 9 cqw during Nox (a transform, never a font-size)
+const FLY_MS = 1400;           // the Nox fly-by: the rider's crossing
+
+const FMT = { time: null, date: null };
 
 const loadRappeltout = () => import('../rappeltout.js').then((m) => m.rappeltout).catch(() => null);
 const loadBeuglante = () => import('../beuglante.js').then((m) => m.beuglante).catch(() => null);
 const logoOf = (app) => LOGOS[app.id] || monogram(app.name);
-
-// Nox starfield: three 512 px tiles of ivory dots, drawn once per page, then drifted by CSS (home.css).
-let STAR_TILES = null;
-function starTiles() {
-  if (STAR_TILES) return STAR_TILES;
-  STAR_TILES = [12, 14, 16].map((count, n) => {
-    const c = document.createElement('canvas'); c.width = c.height = 512;
-    const g = c.getContext('2d');
-    for (let i = 0; i < count; i++) {
-      const x = Math.random() * 512, y = Math.random() * 512, r = 0.6 + Math.random() * (0.9 + n * 0.3);
-      g.globalAlpha = 0.35 + Math.random() * 0.5; g.fillStyle = Math.random() < 0.2 ? '#C9D9EA' : '#F1EBDD';
-      g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill();
-    }
-    return c.toDataURL();
-  });
-  return STAR_TILES;
-}
+const kOf = (el) => Number(getComputedStyle(el).getPropertyValue('--k')) || 1;
 
 // The sky by the hour (config.sky 'auto'): dusk 17-20, night, deep night 1-5, dawn 5-8.
 function skyState(hour) {
@@ -47,22 +40,83 @@ function skyState(hour) {
   return 'night';
 }
 
+// cubic-bezier(.55, 0, .45, 1) (the rider's momentum ease): progress at a fraction of the time, and its inverse.
+function momentum(x) {
+  if (x <= 0) return 0; if (x >= 1) return 1;
+  const X1 = 0.55, Y1 = 0, X2 = 0.45, Y2 = 1;
+  const bx = (t) => 3 * (1 - t) * (1 - t) * t * X1 + 3 * (1 - t) * t * t * X2 + t * t * t;
+  const by = (t) => 3 * (1 - t) * (1 - t) * t * Y1 + 3 * (1 - t) * t * t * Y2 + t * t * t;
+  let lo = 0, hi = 1, t = x;
+  for (let i = 0; i < 18; i++) { t = (lo + hi) / 2; if (bx(t) < x) lo = t; else hi = t; }
+  return by(t);
+}
+// ---- The lit windows of the castle (warm spots) and the moon (the brightest point of the upper third) ----
+// The analysis reads every pixel of a 480 px copy of the picture: about 50 ms on the TV's cores, more under load, and
+// it used to run on every Parapet mount, inside the boot. Now: the spots of the versioned assets/castle.jpg are a
+// constant (CASTLE_SPOTS, made by this same function, seed 1), and any other picture (a castle replaced by hand) is
+// analysed ONCE per page life and cached here. Replacing castle.jpg with a picture of the same size? Run
+// analyseCastle(img) in the console and paste its result into CASTLE_SPOTS, or empty CASTLE_SPOTS.pts.
+const CASTLE_SPOTS = { w: 1920, h: 1080, moon: [0.7167, 0.237], pts: [
+  0.3583, 0.4222, 0.228, 0.701, 0.4083, 0.4593, 0.214, 1.191, 0.3542, 0.4741, 0.276, 0.841, 0.2708, 0.4889, 0.226, 1.06,
+  0.3125, 0.4889, 0.2, 1.197, 0.35, 0.5037, 0.204, 0.944, 0.2333, 0.5111, 0.159, 0.902, 0.25, 0.5185, 0.175, 0.777,
+  0.2167, 0.5333, 0.208, 0.734, 0.2333, 0.5333, 0.195, 1.084, 0.25, 0.5333, 0.18, 0.795, 0.2542, 0.563, 0.146, 0.914,
+  0.5667, 0.5704, 0.223, 1.099, 0.6625, 0.5778, 0.181, 0.803, 0.5667, 0.6519, 0.232, 0.973, 0.5667, 0.6815, 0.246, 0.796,
+  0.6083, 0.6815, 0.241, 0.927, 0.8292, 0.9333, 0.248, 1.197, 0.5708, 0.9926, 0.174, 1.079,
+] };   // x, y (fractions of the picture), alpha, radius: 4 numbers per window
+let spotsCache = null;     // { key, spots }
+function seeded(seed) { let a = seed >>> 0; return () => { a = (a + 0x6D2B79F5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+export function analyseCastle(img) {
+  const iw = 480, ih = Math.round(iw * img.naturalHeight / img.naturalWidth);
+  const c = document.createElement('canvas'); c.width = iw; c.height = ih;
+  const x = c.getContext('2d', { willReadFrequently: true });
+  x.drawImage(img, 0, 0, iw, ih);
+  let d; try { d = x.getImageData(0, 0, iw, ih).data; } catch (e) { return null; }
+  const rnd = seeded(1), seen = new Set(), pts = [];
+  for (let y = 0; y < ih && pts.length < 560; y += 2) for (let xx = 0; xx < iw && pts.length < 560; xx += 2) {
+    const k = (y * iw + xx) * 4, r = d[k], g = d[k + 1], b = d[k + 2];
+    if (r > 175 && g > 115 && b < 130 && r - b > 80) {
+      const cell = `${xx >> 3}:${y >> 3}`;
+      if (seen.has(cell)) continue;
+      seen.add(cell);
+      pts.push(+(xx / iw).toFixed(4), +(y / ih).toFixed(4), +(0.14 + rnd() * 0.14).toFixed(3), +(0.7 + rnd() * 0.5).toFixed(3));
+    }
+  }
+  let best = 0, bx = 0.3, by = 0.2;
+  const top = Math.round(ih * 0.4);
+  for (let y = 0; y < top; y += 2) for (let xx = 0; xx < iw; xx += 2) { const k = (y * iw + xx) * 4, v = d[k] + d[k + 1] + d[k + 2]; if (v > best) { best = v; bx = xx / iw; by = y / ih; } }
+  c.width = c.height = 1;                                        // the analysis canvas is freed at once
+  return { w: img.naturalWidth, h: img.naturalHeight, moon: best > 600 ? [+bx.toFixed(4), +by.toFixed(4)] : null, pts };
+}
+function castleSpots(img) {
+  if (!img.naturalWidth) return null;
+  const src = img.currentSrc || img.src || '';
+  if (/assets\/castle\.jpg(\?|$)/.test(src) &&CASTLE_SPOTS.pts.length && img.naturalWidth === CASTLE_SPOTS.w && img.naturalHeight === CASTLE_SPOTS.h) return CASTLE_SPOTS;
+  const key = `${src}|${img.naturalWidth}x${img.naturalHeight}`;
+  if (!spotsCache || spotsCache.key !== key) spotsCache = { key, spots: analyseCastle(img) };
+  return spotsCache.spots;
+}
+
+function momentumInverse(p) {
+  let lo = 0, hi = 1;
+  for (let i = 0; i < 20; i++) { const m = (lo + hi) / 2; if (momentum(m) < p) lo = m; else hi = m; }
+  return (lo + hi) / 2;
+}
+
 export default {
   root: null, ctx: null, owl: null, apps: [], items: [], i: 0, bar: 0, zone: 'dock', busy: false, mode: 'normal',
-  windows: [], untick: null, timers: [], ro: null, hintTimer: 0, noxTimers: [], noxAnim: null, launchTimers: [], cancelUntil: 0, castleReady: null,
+  windows: [], timers: [], ro: null, hintTimer: 0, clockTimer: 0, noxTimers: [], launchTimers: [], cancelUntil: 0, castleReady: null,
+  wander: { x: 0, y: 0 },
 
   async mount(root, ctx) {
-    this.root = root; this.ctx = ctx; this.timers = []; this.mode = 'normal'; this.zone = 'dock'; this.launchTimers = []; this.cancelUntil = 0;
-    this.apps = dockApps();
+    this.root = root; this.ctx = ctx; this.timers = []; this.noxTimers = []; this.mode = 'normal'; this.zone = 'dock'; this.launchTimers = []; this.cancelUntil = 0; this.owlAway = false; this.owlNox = false;
+    this.apps = this.dockList();
     const last = getConfig().lastApp;
     this.i = Math.max(0, this.apps.findIndex((a) => a.id === last));
     root.innerHTML = `
-      <div class="home-plane"><img class="home-castle" alt=""><canvas class="home-lights"></canvas><div class="home-moon"></div></div>
+      <div class="home-plane"><img class="home-castle" alt="" decoding="async"><canvas class="home-lights"></canvas><div class="home-moon"></div></div>
       <div class="home-tint"></div>
       <div class="home-mist"></div>
       <div class="home-shade"></div>
-      <div class="home-stars home-stars-1"></div><div class="home-stars home-stars-2"></div><div class="home-stars home-stars-3"></div>
-      <div class="home-event"></div>
       <div class="home-clock"><div class="home-time"></div><div class="home-date"><span class="home-cap"></span><span class="home-date-rest"></span></div></div>
       <div class="home-crest" aria-hidden="true"></div>
       <div class="home-bar">
@@ -73,45 +127,41 @@ export default {
       <div class="home-candlelight"></div>
       <div class="home-dock"><div class="home-rows"></div></div>
       <div class="home-arena"></div>
-      <div class="home-rider" aria-hidden="true"><i class="home-puff"></i><i class="home-puff"></i><i class="home-puff"></i><i class="home-streak"></i><i class="home-streak"></i><i class="home-streak"></i><i class="home-streak"></i><div class="home-rider-bob"><img class="home-rider-img" alt="" src="assets/rider.webp"></div></div>
+      <div class="home-rider" aria-hidden="true"><i class="home-puff"></i><i class="home-puff"></i><i class="home-puff"></i><div class="home-rider-bob"><img class="home-rider-img" alt="" decoding="async" src="assets/rider.webp"></div></div>
       <div class="keyhint home-hint"><span><b>▼</b>vers Ollivanders</span></div>
-      <div class="home-dim"></div><div class="home-disc"></div><div class="home-bloom"></div>
+      <div class="home-dim"></div><div class="home-veil"></div><div class="home-disc"></div><div class="home-bloom"></div>
       <div class="home-launch"><img class="home-launch-banner" alt=""><div class="home-launch-logo"></div><div class="home-launch-title engraved gold-text"></div><div class="home-launch-sub"></div></div>
       <div class="home-plate"><div class="home-plate-title engraved">Nox ?</div><div class="home-plate-sub">Passer en mode classique, sans décor ni chouette.</div><div class="home-plate-opts"><span class="home-plate-opt" data-v="yes">Oui, Nox</span><span class="home-plate-opt is-focus" data-v="no">Non</span></div></div>`;
 
     const castle = root.querySelector('.home-castle');
     this.castleReady = new Promise((resolve) => {
-      castle.addEventListener('load', () => { this.findWindows(castle); resolve(true); });
+      castle.addEventListener('load', () => { if (!this.root) return resolve(false); this.findWindows(castle); this.drawLights(); resolve(true); });
       castle.addEventListener('error', () => { castle.remove(); root.classList.add('no-castle'); resolve(false); });
     });
     castle.src = 'assets/castle.jpg';
     const mistProbe = new Image();
-    mistProbe.onerror = () => root.querySelector('.home-mist').classList.add('fallback');
+    mistProbe.onerror = () => { const m = root.querySelector('.home-mist'); if (m) m.classList.add('fallback'); };
     mistProbe.src = 'assets/mist.png';
-    const tiles = starTiles();
-    root.querySelectorAll('.home-stars').forEach((s, n) => { s.style.backgroundImage = `url(${tiles[n]})`; });
 
     this.buildDock();
     this.syncBar();
     this.syncHouse();
     this.unsub = onConfigChange(() => { this.syncHouse(); this.tick(); });
-    this.ro = new ResizeObserver(() => this.layout(true));
+    this.ro = new ResizeObserver(() => { if (this.mode === 'nox') this.placeNoxClock(false); else this.layout(true); });
     this.ro.observe(root);
     this.tick();
-    this.timers.push(setInterval(() => this.tick(), 15000));
+    this.armClock();
 
     if (getConfig().owl !== 'absente') {
       this.owl = createOwl(root.querySelector('.home-arena'), {
-        sheet: 'assets/owl-sheet.webp', cells: OWL_CELLS, feather: 'assets/feather.webp',
+        sheet: 'assets/owl-sheet.webp', cells: OWL_CELLS, cols: OWL_COLS, feather: 'assets/feather.webp',
         size: root.clientWidth * 0.082, reduced: () => isReduced() || getConfig().owl === 'calme',
       });
     }
     this.layout(true);
-    this.untick = ctx.fx.tick((t) => this.frame(t));          // the window flicker rides the shared scene clock
     this.armHint();
-    this.scheduleEvents();
     if (ctx.config().sounds) ctx.fx.initAudio();
-    if (ctx.params.boot) this.boot(isReduced() ? 300 : ctx.params.short ? 700 : 1800);
+    if (ctx.params.boot) this.boot(isReduced() ? 300 : ctx.params.short ? 700 : 1300);
     if (ctx.params.nox) this.nox();
     if (ctx.params.askClassic) this.timers.push(setTimeout(() => this.plate(true), 750));
     // The TV lost the Home key to an update (HomeActivity.checkLostHome): offer to ask it back, once a day at most.
@@ -136,6 +186,15 @@ export default {
   },
   // Everything released (main.js error boundary, hand-over to another app): the launch settles at once.
   settle() { if (this.busy && this.launchDone) this.launchDone(); },
+  // Memory pressure (main.js relays the shell's 'poudlard:trim'): the owl is parked, the fly-by dropped, the Nox
+  // starfield freed when it is not on screen. Nothing is lost: everything is rebuilt on the next event.
+  trim() {
+    if (!this.root) return;
+    if (this.owl) this.owl.stop();
+    if (this.mode !== 'nox') this.dropStars();
+    else this.clearFly();
+    this.root.querySelectorAll('.app-logo .l-shine').forEach((s) => s.getAnimations({ subtree: true }).forEach((a) => a.finish()));
+  },
 
   // The leaving screen's flourish (router.js): the owl lifts off before the crane, the candle goes out before the Room.
   onLeave(transition) {
@@ -155,19 +214,33 @@ export default {
   unmount() {
     if (this.unsub) this.unsub();
     if (this.onHomeEvent) document.removeEventListener('poudlard:home', this.onHomeEvent); this.onHomeEvent = null;
-    if (this.untick) this.untick(); this.untick = null;
-    this.ctx.fx.setRate(getConfig().motion === 'economie' ? 66 : 33);
-    this.timers.forEach(clearTimeout); this.timers.forEach(clearInterval);
+    if (this.mode === 'nox') this.ctx.fx.setRate(getConfig().motion === 'economie' ? 66 : 33);
+    this.timers.forEach(clearTimeout);
     this.launchTimers.forEach(clearTimeout); this.launchTimers = [];
-    this.noxTimers.forEach(clearTimeout);
-    if (this.noxAnim) { this.noxAnim.cancel(); this.noxAnim = null; }
-    clearTimeout(this.hintTimer);
+    this.noxTimers.forEach(clearTimeout); this.noxTimers = [];
+    clearTimeout(this.clockTimer); clearTimeout(this.hintTimer);
+    this.clearFly();
     if (this.ro) this.ro.disconnect();
     if (this.owl) this.owl.destroy();
     this.owl = null;
+    this.dropStars();
   },
 
   // ---- Dock: every visible app, centred and spread out; two rows beyond PER_ROW ----
+  // On the TV a passage (in<n>) is the TV's real HDMI port, as on the Map and in classic mode: the name given on the
+  // Map, else the TV's own label ("HDMI 1", a CEC name), and the TV's input id to switch to. An app the TV does not
+  // have (a package missing, a port the TV lacks) stays on the Parapet, faded, until the Remembrall removes it.
+  dockList() {
+    const ports = Platform.inputs(), named = getConfig().passages || {};
+    return dockApps().map((a) => {
+      if (a.cat === 'passage' && ports) {
+        const p = ports.find((q) => `in${q.port}` === a.id);
+        if (!p) return { ...a, absent: true };
+        return { ...a, name: named[a.id] ? named[a.id].name : p.label, input: p.id, port: p.port, connected: p.connected };
+      }
+      return a.pkg && !Platform.has(a) ? { ...a, absent: true } : a;
+    });
+  },
   buildDock() {
     const rows = this.root.querySelector('.home-rows');
     rows.innerHTML = '';
@@ -182,7 +255,7 @@ export default {
       chunk.forEach((app) => {
         const L = logoOf(app);
         const el = document.createElement('div');
-        el.className = 'home-app';
+        el.className = app.absent ? 'home-app is-absent' : 'home-app';
         el.dataset.id = app.id;
         const box = logoBox(L, LOGO_H, LOGO_W_MAX);           // equal visual weight across the row
         el.style.width = box.w.toFixed(2) + 'cqw'; el.style.height = box.h.toFixed(2) + 'cqw';
@@ -198,98 +271,67 @@ export default {
     if (this.i >= this.items.length) this.i = Math.max(0, this.items.length - 1);
   },
 
+  // The time and the date. Rewritten once a minute (armClock), never per frame.
   tick() {
+    if (!this.root) return;
     const now = new Date();
-    this.root.querySelector('.home-time').textContent = now.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
-    const d = now.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
+    // Two formatters made once per page life (each toLocale…String call builds a new one: about 35 ms on the TV).
+    if (!FMT.time) { FMT.time = new Intl.DateTimeFormat('fr-FR', { hour: '2-digit', minute: '2-digit' }); FMT.date = new Intl.DateTimeFormat('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }); }
+    this.root.querySelector('.home-time').textContent = FMT.time.format(now);
+    const d = FMT.date.format(now);
     this.root.querySelector('.home-cap').textContent = d.charAt(0).toUpperCase();   // the drop cap
     this.root.querySelector('.home-date-rest').textContent = d.slice(1);
     this.root.dataset.sky = getConfig().sky === 'nuit' ? 'night' : skyState(now.getHours());
   },
-
-  // ---- Flickering windows: warm spots of the image, drawn small and discreet ----
-  findWindows(img) {
-    if (!img.naturalWidth) return;
-    const iw = 640, ih = Math.round(iw * img.naturalHeight / img.naturalWidth);
-    const c = document.createElement('canvas'); c.width = iw; c.height = ih;
-    const x = c.getContext('2d', { willReadFrequently: true });
-    x.drawImage(img, 0, 0, iw, ih);
-    let d; try { d = x.getImageData(0, 0, iw, ih).data; } catch (e) { return; }
-    const seen = new Set(), pts = [];
-    for (let y = 0; y < ih; y += 2) for (let xx = 0; xx < iw; xx += 2) {
-      const k = (y * iw + xx) * 4, r = d[k], g = d[k + 1], b = d[k + 2];
-      if (r > 175 && g > 115 && b < 130 && r - b > 80) {
-        const cell = `${xx >> 3}:${y >> 3}`;
-        if (seen.has(cell)) continue;
-        seen.add(cell);
-        pts.push({ x: xx / iw, y: y / ih, a: 0.12 + Math.random() * 0.16, ph: Math.random() * 6.28, sp: 0.25 + Math.random() * 0.7, r: 0.7 + Math.random() * 0.5, lit: 1 });
-      }
-    }
-    this.windows = pts.slice(0, 140);
-    // Moon: the brightest point of the upper third.
-    const moon = this.root.querySelector('.home-moon');
-    try {
-      const top = x.getImageData(0, 0, iw, Math.round(ih * 0.4)).data; let best = 0, bx = 0.3, by = 0.2;
-      for (let y = 0; y < Math.round(ih * 0.4); y += 2) for (let xx = 0; xx < iw; xx += 2) { const k = (y * iw + xx) * 4, v = top[k] + top[k + 1] + top[k + 2]; if (v > best) { best = v; bx = xx / iw; by = y / ih; } }
-      if (best > 600) { moon.style.left = bx * 100 + '%'; moon.style.top = by * 100 + '%'; } else moon.style.opacity = '0';
-    } catch (e) { moon.style.opacity = '0'; }
-    if (!this.glow) {
-      this.glow = document.createElement('canvas'); this.glow.width = this.glow.height = 32;
-      const g = this.glow.getContext('2d'); const rg = g.createRadialGradient(16, 16, 0, 16, 16, 16);
-      rg.addColorStop(0, 'rgba(255,225,170,0.9)'); rg.addColorStop(0.25, 'rgba(255,190,100,0.35)'); rg.addColorStop(1, 'rgba(255,170,60,0)');
-      g.fillStyle = rg; g.fillRect(0, 0, 32, 32);
-    }
+  // One timer per minute, aligned on the minute change (+ 50 ms), re-armed each time; during Nox the clock also
+  // moves to a new spot (burn-in protection), one short transition per minute.
+  armClock() {
+    clearTimeout(this.clockTimer);
+    const ms = 60000 - (Date.now() % 60000) + 50;
+    this.clockTimer = setTimeout(() => {
+      if (!this.root) return;
+      this.tick();
+      if (this.mode === 'nox') this.placeNoxClock(true);
+      this.armClock();
+    }, ms);
   },
 
-  // One frame of the window flicker, on the shared scene clock (Fx.tick): the castle's own canvas, half resolution.
-  frame(t) {
-    if (!this.root) return;
-    const cv = this.root.querySelector('.home-lights');
-    if (!cv || !this.windows.length || !this.glow) return;
+  // ---- Lit windows: warm spots of the image (castleSpots: a constant for the shipped castle, else analysed once per
+  // page life), drawn ONCE on a static canvas (no flicker loop). Returning to the Parapet costs no pixel read. ----
+  findWindows(img) {
+    const spots = castleSpots(img); if (!spots) return;
+    const p = spots.pts; this.windows = [];
+    for (let k = 0; k + 3 < p.length; k += 4) this.windows.push({ x: p[k], y: p[k + 1], a: p[k + 2], r: p[k + 3] });
+    const moon = this.root.querySelector('.home-moon');
+    if (spots.moon) { moon.style.left = spots.moon[0] * 100 + '%'; moon.style.top = spots.moon[1] * 100 + '%'; } else moon.style.opacity = '0';
+  },
+  // The window glows, painted once at half the CSS resolution (they are soft): a still layer the GPU keeps as is.
+  // Boot and Nox only fade this layer (opacity), never redraw it.
+  drawLights() {
+    const cv = this.root && this.root.querySelector('.home-lights');
+    if (!cv || !this.windows.length) return;
     const W = cv.clientWidth, H = cv.clientHeight; if (!W) return;
-    if (cv.width !== Math.round(W / 2)) { cv.width = Math.round(W / 2); cv.height = Math.round(H / 2); }
-    const c = cv.getContext('2d'), w = cv.width, h = cv.height, s = t / 1000;
+    cv.width = Math.round(W / 2); cv.height = Math.round(H / 2);
+    const g = document.createElement('canvas'); g.width = g.height = 32;
+    const gx = g.getContext('2d'); const rg = gx.createRadialGradient(16, 16, 0, 16, 16, 16);
+    rg.addColorStop(0, 'rgba(255,225,170,0.9)'); rg.addColorStop(0.25, 'rgba(255,190,100,0.35)'); rg.addColorStop(1, 'rgba(255,170,60,0)');
+    gx.fillStyle = rg; gx.fillRect(0, 0, 32, 32);
+    const c = cv.getContext('2d'), w = cv.width, h = cv.height, unit = w / 300;
     c.clearRect(0, 0, w, h);
     c.globalCompositeOperation = 'lighter';
-    const unit = w / 300;
     for (const p of this.windows) {
-      if (p.lit <= 0) continue;
-      let a = p.a * (0.6 + 0.4 * Math.sin(s * p.sp + p.ph)) * p.lit;
-      if (Math.sin(s * 5.1 + p.ph * 3) > 0.992) a *= 0.35;
-      c.globalAlpha = Math.max(0, Math.min(1, a));
+      c.globalAlpha = p.a;
       const sz = unit * 1.6 * p.r;
-      c.drawImage(this.glow, p.x * w - sz / 2, p.y * h - sz / 2, sz, sz);
+      c.drawImage(g, p.x * w - sz / 2, p.y * h - sz / 2, sz, sz);
     }
     c.globalAlpha = 1; c.globalCompositeOperation = 'source-over';
-  },
-
-  scheduleEvents() {
-    const next = () => {
-      this.timers.push(setTimeout(() => {
-        if ((this.mode === 'normal' || this.mode === 'nox') && !isReduced()) {   // the shooting star also crosses the Nox sky
-          const ev = this.root.querySelector('.home-event');
-          ev.style.top = (5 + Math.random() * 16) + '%'; ev.style.left = (15 + Math.random() * 70) + '%';
-          ev.animate([{ opacity: 0, transform: 'rotate(-18deg) translateX(0)' }, { opacity: 0.9, offset: 0.1 }, { opacity: 0, transform: 'rotate(-18deg) translateX(-16cqw)' }], { duration: 420, easing: 'ease-out' });
-        }
-        next();
-      }, (90 + Math.random() * 150) * 1000));
-    };
-    next();
-    const tower = () => {
-      this.timers.push(setTimeout(() => {
-        if (this.mode === 'normal' && this.windows.length) { const p = this.windows[Math.floor(Math.random() * this.windows.length)]; const t0 = performance.now();
-          const fade = () => { const k = Math.min(1, (performance.now() - t0) / 2000); p.lit = 1 - k; if (k < 1) requestAnimationFrame(fade); else setTimeout(() => { p.lit = 1; }, 30000); }; fade(); }
-        tower();
-      }, 40000));
-    };
-    tower();
   },
 
   armHint() {
     clearTimeout(this.hintTimer);
     const hint = this.root.querySelector('.home-hint');
     hint.classList.remove('hidden');
-    this.hintTimer = setTimeout(() => hint.classList.add('hidden'), 10000);
+    this.hintTimer = setTimeout(() => { if (this.root) hint.classList.add('hidden'); }, 10000);
   },
 
   // ---- Top-right bar ----
@@ -310,37 +352,35 @@ export default {
     this.syncBar();
   },
 
-  // ---- Layout: parallax by index, owl, candle ----
+  // ---- Layout: focus, owl, candle. The castle stays put (drawn 1:1, sharp): no parallax layer wider than the screen. ----
   layout(instant) {
     const root = this.root, W = root.clientWidth;
     if (!W) return;
     const n = this.items.length;
-    const p = n > 1 ? (this.i / (n - 1)) * 2 - 1 : 0;        // −1 … 1
-    root.querySelector('.home-plane').style.transform = `translateX(${-p * 3}%)`;
     this.items.forEach((it, k) => it.classList.toggle('is-focus', this.zone === 'dock' && k === this.i));
     const light = root.querySelector('.home-candlelight');
     if (!n) { light.classList.remove('on'); if (this.owl) this.owl.hide(); return; }
     const el = this.items[this.i];
     const { cx, cy } = this.center(el);
     light.style.transform = `translate(${cx}px, ${cy}px)`;
-    if (this.owl) this.owl.show();
+    if (this.owl && !this.owlAway) this.owl.show();
     if (instant) { light.classList.toggle('on', this.zone === 'dock'); if (this.owl) { const t = this.owlTarget(); this.owl.teleport(t.x, t.y); } return; }
     light.classList.remove('on');
     if (this.owl) {
       const t = this.owlTarget();
-      const k = Number(getComputedStyle(root).getPropertyValue('--k')) || 1;
+      const k = kOf(root);
       this.owl.flyTo(t.x, t.y, { arena: { h: root.clientHeight }, timeScale: k, onLand: () => {
         this.ctx.fx.burst(t.cx, t.y + this.owl.size().h * 0.98, 8, W / 60);
         this.land(el);
-        setTimeout(() => light.classList.add('on'), 80 * k);
+        this.timers.push(setTimeout(() => light.classList.add('on'), 80 * k));
       } });
-    } else setTimeout(() => light.classList.add('on'), 250);
+    } else this.timers.push(setTimeout(() => light.classList.add('on'), 250));
   },
   // The focused app settles under the owl's weight (focus.css .is-land, --t-land).
   land(el) {
     if (!el || isReduced()) return;
     el.classList.remove('is-land'); void el.offsetWidth; el.classList.add('is-land');
-    this.timers.push(setTimeout(() => el.classList.remove('is-land'), 200 * (Number(getComputedStyle(this.root).getPropertyValue('--k')) || 1)));
+    this.timers.push(setTimeout(() => el.classList.remove('is-land'), 200 * kOf(this.root)));
   },
   press(on) {
     const el = this.zone === 'bar' ? this.root.querySelectorAll('.home-bar-item')[this.bar] : this.items[this.i];
@@ -369,7 +409,7 @@ export default {
     const app = this.apps[this.i]; if (!app) return;
     this.busy = true;                                         // keys still reach onKey (Back cancels) until the intent fires
     let held = false, heldMusic = false;
-    const root = this.root, fx = this.ctx.fx, k = Number(getComputedStyle(root).getPropertyValue('--k')) || 1;
+    const root = this.root, fx = this.ctx.fx, k = kOf(root);
     const item = this.items[this.i], logoEl = item.querySelector('.app-logo');
     const { cx, cy } = this.center(logoEl);
     const light = root.querySelector('.home-candlelight');
@@ -385,7 +425,8 @@ export default {
       logoEl.classList.add('molten');
       if (this.owl) this.owl.liftOff(500);
       if (fx.cue) fx.cue('lumos'); else fx.arpeggio();
-      disc.animate([{ opacity: 0.7, transform: `translate(${cx}px, ${cy}px) scale(.15)` }, { opacity: 0.55, transform: `translate(${cx}px, ${cy}px) scale(9)`, offset: 0.55 }, { opacity: 0, transform: `translate(${cx}px, ${cy}px) scale(30)` }], { duration: 900 * k, easing: 'cubic-bezier(.3,.6,.2,1)' });
+      // The disc is 24 cqw wide: it grows from a point to a few screen widths and fades; transform and opacity only.
+      disc.animate([{ opacity: 0.7, transform: `translate(${cx}px, ${cy}px) scale(.05)` }, { opacity: 0.55, transform: `translate(${cx}px, ${cy}px) scale(3)`, offset: 0.55 }, { opacity: 0, transform: `translate(${cx}px, ${cy}px) scale(10)` }], { duration: 900 * k, easing: 'cubic-bezier(.3,.6,.2,1)' });
       bloom.animate([{ opacity: 0 }, { opacity: 0.32, offset: 0.45 }, { opacity: 0 }], { duration: 1100 * k, easing: 'ease-in-out' });
     });
     const L = logoOf(app);
@@ -397,7 +438,7 @@ export default {
     box.classList.toggle('has-banner', Boolean(uri));
     if (uri) banner.src = uri; else banner.removeAttribute('src');
     box.querySelector('.home-launch-title').textContent = `Ouverture de ${app.name}`;
-    box.querySelector('.home-launch-sub').textContent = app.input ? `Entrée ${app.input}` : '';
+    box.querySelector('.home-launch-sub').textContent = app.port ? `Entrée HDMI ${app.port}` : app.input ? `Entrée ${app.input}` : '';
     updateConfig({ lastApp: app.id });
     const showCard = setTimeout(() => box.classList.add('show'), 420 * k); timers.push(showCard);
     const done = () => {
@@ -439,57 +480,61 @@ export default {
     return true;
   },
 
-  // ---- Boot: a Lumos. Dark castle, a point of light, the iris, the windows relight left to right, the clock
-  // writes itself, the dock rises, the owl arrives last. `ms`: the whole thing (1800 cold, 700 short, 300 reduced). ----
+  // ---- Boot: a Lumos. Dark screen, a point of light that opens, the castle appears, its windows light up, the clock
+  // writes itself, the dock rises, the owl arrives last. `ms`: the whole thing (1300 cold, 700 short, 300 reduced).
+  // Transform and opacity only: the veil (a night layer) fades while the disc grows; no clip-path. ----
   boot(ms) {
     const root = this.root; root.classList.add('booting');
     const W = root.clientWidth, H = root.clientHeight;
     const disc = root.querySelector('.home-disc');
     Input.hold();
-    const k = Number(getComputedStyle(root).getPropertyValue('--k')) || 1;
-    const s = ms / 1800;                                      // the short and reduced boots keep the same shape, compressed
+    const k = kOf(root);
+    const s = ms / 1300;                                      // the short and reduced boots keep the same shape, compressed
     const at = (t, fn) => this.timers.push(setTimeout(fn, t * s * k));
-    root.style.clipPath = 'circle(0 at 50% 58%)';
-    this.windows.forEach((p) => { p.lit = 0; });
-    const ready = this.castleReady || Promise.resolve(false);
-    ready.then(() => { if (!this.root) return; this.windows.forEach((p) => { p.lit = 0; }); });
-    at(0, () => disc.animate([{ opacity: 1, transform: `translate(${W * 0.5}px, ${H * 0.58}px) scale(.05)` }, { opacity: 1, transform: `translate(${W * 0.5}px, ${H * 0.58}px) scale(.4)` }], { duration: 300 * s * k, easing: 'ease-out', fill: 'forwards' }));
-    at(300, () => {
-      disc.animate([{ opacity: 1, transform: `translate(${W * 0.5}px, ${H * 0.58}px) scale(.4)` }, { opacity: 1, transform: `translate(${W * 0.5}px, ${H * 0.58}px) scale(12)`, offset: 0.7 }, { opacity: 0, transform: `translate(${W * 0.5}px, ${H * 0.58}px) scale(30)` }], { duration: 600 * s * k, easing: 'ease-out' });
-      const reveal = root.animate([{ clipPath: 'circle(0 at 50% 58%)' }, { clipPath: 'circle(150% at 50% 58%)' }], { duration: 600 * s * k, easing: 'ease-out', fill: 'forwards' });
-      reveal.onfinish = () => { reveal.cancel(); root.style.clipPath = ''; };
-    });
-    at(450, () => {
-      ready.then(() => {
-        if (!this.root) return;
-        const sorted = [...this.windows].sort((a, b) => a.x - b.x);
-        sorted.forEach((p, n) => this.timers.push(setTimeout(() => { p.lit = 1; }, (n / Math.max(1, sorted.length)) * 900 * s * k)));
-      });
-      if (this.ctx.fx.cue) this.ctx.fx.cue('wake');
-    });
-    at(700, () => { const c = root.querySelector('.home-clock'); c.classList.add('write-in'); root.classList.remove('booting'); });
-    at(1000, () => {
-      if (this.owl && this.items.length && !isReduced()) {
+    const pos = `translate(${W * 0.5}px, ${H * 0.58}px)`;
+    const owlArrives = Boolean(this.owl && this.items.length && !isReduced());
+    this.owlAway = owlArrives;
+    if (owlArrives) this.owl.hide();                            // she is not on her perch yet: she flies in at 700
+    if (!isReduced()) disc.animate([
+      { opacity: 0, transform: `${pos} scale(.02)` }, { opacity: 1, transform: `${pos} scale(.12)`, offset: 0.2 },
+      { opacity: 0.8, transform: `${pos} scale(3)`, offset: 0.65 }, { opacity: 0, transform: `${pos} scale(7)` },
+    ], { duration: 900 * s * k, easing: 'cubic-bezier(.4,0,.2,1)' });
+    at(180, () => root.classList.add('boot-open'));            // the veil lifts (home.css, 600 ms)
+    at(320, () => { root.classList.add('boot-lit'); if (this.ctx.fx.cue) this.ctx.fx.cue('wake'); });   // the windows light up (opacity)
+    at(480, () => { const c = root.querySelector('.home-clock'); c.classList.add('write-in'); root.classList.remove('booting'); });
+    // The boot is over when the sequence has run AND the owl has landed: then main.js may arm the sound (its start-up
+    // AudioContext costs one long frame, kept out of every boot movement).
+    let pending = owlArrives ? 2 : 1;
+    const settled = () => { if (--pending === 0) window.dispatchEvent(new CustomEvent('poudlard:booted')); };
+    at(700, () => {
+      this.owlAway = false;
+      if (owlArrives && this.owl) {
         const t = this.owlTarget();
-        this.owl.comeBack(t.x, t.y, { onLand: () => { this.ctx.fx.burst(t.cx, t.y + this.owl.size().h * 0.98, 8, W / 60); this.land(this.items[this.i]); } });
-      }
+        this.owl.comeBack(t.x, t.y, { onLand: () => { this.ctx.fx.burst(t.cx, t.y + this.owl.size().h * 0.98, 8, W / 60); this.land(this.items[this.i]); this.timers.push(setTimeout(settled, 500)); } });
+      } else if (owlArrives) settled();
     });
-    at(1800, () => { root.querySelector('.home-clock').classList.remove('write-in'); Input.release(); });
+    at(1300, () => {
+      if (!this.root) return;
+      root.querySelector('.home-clock').classList.remove('write-in');
+      root.classList.remove('boot-open', 'boot-lit');
+      Input.release();
+      settled();
+    });
   },
 
   // ---- Nox: the scene clock drops to 15 fps for the whole of it. ----
   // Entrance (nox): a fly-by. A rider on a broom crosses the Parapet left to right at speed; each app goes out the
-  // moment his nose passes it, the mist is pushed aside behind him, then the Nox state settles (settleNox).
+  // moment his nose passes it (one timer per app, computed from the same ease: no per-frame work), the mist is pushed
+  // aside behind him, then the Nox state settles (settleNox).
   // Timeline (× --k): 0 rider starts (1400 ms, momentum ease), hint/bar/crest/candle fade (600) · 120 the mist push
-  // (1400) · 0-1400 the apps go out one by one on the scene clock · 1400 rider gone · 1500 settleNox.
-  // Reduced motion, or the rider image missing: straight to settleNox (the previous fade).
+  // (1400) · 0-1400 the apps go out one by one · 1400 rider gone · 1500 settleNox.
+  // Reduced motion, or the rider image missing: straight to settleNox (a fade).
   nox() {
     if (this.mode === 'nox') return;
     this.mode = 'nox';
     this.ctx.fx.setRate(66);
     if (this.ctx.fx.ambientHold && getConfig().musicNox !== 'continue') this.ctx.fx.ambientHold(true, 'nox');   // the music waits, unless asked to go on
     if (this.ctx.fx.cue) this.ctx.fx.cue('nox');
-    if (this.owl) this.owl.sleep();                            // she tucks her head in before he passes over her
     if (!this.flyBy()) this.settleNox();
   },
   // True when the fly-by started; false when it cannot (reduced motion, or the rider image missing / not loaded yet).
@@ -497,8 +542,8 @@ export default {
     const root = this.root, W = root.clientWidth;
     const layer = root.querySelector('.home-rider'), img = layer && layer.querySelector('.home-rider-img');
     if (isReduced() || !layer || !img || !img.complete || !img.naturalWidth || !W) return false;
-    const k = Number(getComputedStyle(root).getPropertyValue('--k')) || 1;
-    const DUR = 1400 * k;
+    const k = kOf(root);
+    const DUR = FLY_MS * k;
     root.classList.add('nox-fly');
     // Above the dock: the layer's foot clears the owl's head (she is 8.2 cqw tall on the focused app), so the broom
     // skims over her and over the apps rather than through them.
@@ -507,96 +552,118 @@ export default {
     layer.classList.add('fly');
     this.riderAnim = layer.animate([{ transform: 'translateX(-25cqw)' }, { transform: 'translateX(125cqw)' }],
       { duration: DUR, easing: 'cubic-bezier(.55,0,.45,1)', fill: 'forwards' });
-    const endFly = () => { if (this.riderAnim) { this.riderAnim.cancel(); this.riderAnim = null; } layer.classList.remove('fly'); if (this.flyUntick) { this.flyUntick(); this.flyUntick = null; } };
-    this.riderAnim.onfinish = endFly;
-    // The mist, pushed aside in his wake: a scaleX + translate wave on top of its own drift (additive), the sheet
-    // rolling 4 cqw aside and all but going out, then settling back. The local wake (three puffs that bloom and fade
-    // behind the broom) is CSS, on .home-rider.fly (home.css).
+    const anim = this.riderAnim;
+    anim.onfinish = () => { if (this.riderAnim !== anim) return; anim.cancel(); this.riderAnim = null; layer.classList.remove('fly'); };
+    // The mist, pushed aside in his wake: one transform wave (translate + a slight scaleX) and an opacity dip on the
+    // single, screen-wide mist layer. The local wake (three puffs that bloom and fade behind the broom) is CSS.
     const mist = root.querySelector('.home-mist');
     this.noxTimers.push(setTimeout(() => {
       if (this.mode !== 'nox' || !this.root) return;
       this.mistAnim = mist.animate([
-        { transform: 'translateX(0) scaleX(1)' },
-        { transform: 'translateX(4cqw) scaleX(1.12)', offset: 0.5 },
-        { transform: 'translateX(-1.6cqw) scaleX(1.05)', offset: 0.78 },
-        { transform: 'translateX(0) scaleX(1)' },
-      ], { duration: DUR, easing: 'ease-in-out', composite: 'add' });
-      this.mistAnim.onfinish = () => { this.mistAnim = null; if (this.mistDip) { this.mistDip.cancel(); this.mistDip = null; } };
-      this.mistDip = mist.animate([{ opacity: 0.13 }, { opacity: 0.02, offset: 0.5 }, { opacity: 0.07, offset: 0.78 }, { opacity: 0.13 }],
-        { duration: DUR, easing: 'ease-in-out' });                     // opacity is not additive: its own animation, replace mode
+        { transform: 'translateX(0) scaleX(1)', opacity: 0.13 },             // .13: the mist's resting opacity (home.css)
+        { transform: 'translateX(3cqw) scaleX(1.08)', opacity: 0.025, offset: 0.5 },
+        { transform: 'translateX(-1.2cqw) scaleX(1.03)', opacity: 0.07, offset: 0.78 },
+        { transform: 'translateX(0) scaleX(1)', opacity: 0.13 },
+      ], { duration: DUR, easing: 'ease-in-out' });
+      this.mistAnim.onfinish = () => { this.mistAnim = null; };
     }, 120 * k));
-    // The apps go out as his nose passes them, on the shared scene clock (no second loop): the nose is read from the
-    // animation's own time through the same bezier, so the extinction stays aligned whatever the frame rate.
-    const centres = this.items.map((el) => this.center(el).cx / W * 100);   // in cqw
-    const out = new Set();
-    this.flyUntick = this.ctx.fx.tick(() => {
-      const a = this.riderAnim;
-      if (!a || this.mode !== 'nox') { if (this.flyUntick) { this.flyUntick(); this.flyUntick = null; } return; }
-      const p = this.momentum(Math.min(1, (a.currentTime || 0) / DUR));
-      const nose = -25 + 150 * p + 13;                                        // the layer is 14 cqw wide, he faces right
-      centres.forEach((cx, n) => { if (!out.has(n) && cx <= nose) { out.add(n); this.items[n].classList.add('is-out'); } });
+    // The apps go out as his nose passes them: the nose is at −25 + 150·p + 13 cqw (the layer is 14 cqw wide, he
+    // faces right), p = momentum(t / DUR); one timer per app at the inverse of that ease.
+    this.items.forEach((el) => {
+      const cx = this.center(el).cx / W * 100;                // in cqw
+      const p = Math.max(0, Math.min(1, (cx + 12) / 150));
+      this.noxTimers.push(setTimeout(() => { if (this.mode === 'nox') el.classList.add('is-out'); }, momentumInverse(p) * DUR));
     });
-    this.noxTimers.push(setTimeout(() => { if (this.mode === 'nox' && this.root) this.settleNox(); }, 1500 * k));
+    // Hedwig: once his tail has passed over her, she takes off in his wake and leaves the frame (her perch is going out).
+    if (this.owl && this.items[this.i]) {
+      const cx = this.center(this.items[this.i]).cx / W * 100;
+      const p = Math.max(0, Math.min(1, (cx + 12 + 10) / 150));
+      this.noxTimers.push(setTimeout(() => { if (this.mode === 'nox' && this.owl && !this.owlNox) { this.owlNox = true; this.owl.liftOff(900); } }, momentumInverse(p) * DUR));
+    }
+    this.noxTimers.push(setTimeout(() => { if (this.mode === 'nox' && this.root) this.settleNox(); }, (FLY_MS + 100) * k));
     return true;
   },
-  // cubic-bezier(.55, 0, .45, 1) solved for x: the rider's progress at a given fraction of the animation's time.
-  momentum(x) {
-    if (x <= 0) return 0; if (x >= 1) return 1;
-    const X1 = 0.55, Y1 = 0, X2 = 0.45, Y2 = 1;
-    const bx = (t) => 3 * (1 - t) * (1 - t) * t * X1 + 3 * (1 - t) * t * t * X2 + t * t * t;
-    const by = (t) => 3 * (1 - t) * (1 - t) * t * Y1 + 3 * (1 - t) * t * t * Y2 + t * t * t;
-    let lo = 0, hi = 1, t = x;
-    for (let i = 0; i < 18; i++) { t = (lo + hi) / 2; if (bx(t) < x) lo = t; else hi = t; }
-    return by(t);
-  },
-  // The rider, his streaks, the mist push and the per-app extinction all reset: used by wake() and before a new fly-by.
+  // The rider, the mist push and the per-app extinction all reset: used by wake() and before a new fly-by.
   clearFly() {
-    const root = this.root;
-    if (this.flyUntick) { this.flyUntick(); this.flyUntick = null; }
+    const root = this.root; if (!root) return;
     if (this.riderAnim) { this.riderAnim.onfinish = null; this.riderAnim.cancel(); this.riderAnim = null; }
     if (this.mistAnim) { this.mistAnim.onfinish = null; this.mistAnim.cancel(); this.mistAnim = null; }
-    if (this.mistDip) { this.mistDip.cancel(); this.mistDip = null; }
     const layer = root.querySelector('.home-rider'); if (layer) layer.classList.remove('fly');
     root.classList.remove('nox-fly');
     this.items.forEach((it) => it.classList.remove('is-out'));
   },
-  // The Nox state proper: a slow starfield (three drifting tiles), the clock wanders on a 20 min loop (never the same
-  // pixel), the windows go out one by one, the owl sleeps.
+  // The Nox starfield: one static canvas the size of the screen (CSS px), created when Nox settles, removed on wake.
+  makeStars() {
+    if (this.root.querySelector('.home-stars')) return;
+    const W = this.root.clientWidth, H = this.root.clientHeight; if (!W) return;
+    const cv = document.createElement('canvas'); cv.className = 'home-stars'; cv.setAttribute('aria-hidden', 'true');
+    cv.width = Math.round(W); cv.height = Math.round(H);
+    const g = cv.getContext('2d'), u = W / 960;
+    const count = 70;
+    for (let i = 0; i < count; i++) {
+      const x = Math.random() * W, y = Math.pow(Math.random(), 1.6) * H * 0.62;   // denser high in the sky
+      const r = (0.5 + Math.random() * Math.random() * 1.1) * u;
+      g.globalAlpha = 0.3 + Math.random() * 0.55; g.fillStyle = Math.random() < 0.2 ? '#C9D9EA' : '#F1EBDD';
+      g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill();
+    }
+    this.root.querySelector('.home-shade').after(cv);
+    void cv.offsetWidth;                                       // the fade-in starts from 0
+    cv.classList.add('on');
+  },
+  dropStars() {
+    const cv = this.root && this.root.querySelector('.home-stars');
+    if (cv) { cv.width = cv.height = 1; cv.remove(); }
+  },
+  // The Nox clock: centred and grown by a transform (FLIP from its resting place), then a new spot within ±30 % /
+  // ±14 % of the screen once a minute. `move` false: the centred spot (entering Nox, a resize).
+  placeNoxClock(move) {
+    const root = this.root, clock = root.querySelector('.home-clock'); if (!clock) return;
+    const W = root.clientWidth, H = root.clientHeight;
+    if (move && !isReduced()) this.wander = { x: (Math.random() * 2 - 1) * 0.3 * W, y: (Math.random() * 2 - 1) * 0.14 * H };
+    else if (!move) this.wander = { x: 0, y: 0 };
+    const left = clock.offsetLeft, top = clock.offsetTop, w = clock.offsetWidth, h = clock.offsetHeight;
+    const dx = W / 2 - (left + w / 2) + this.wander.x, dy = H * 0.44 - (top + h / 2) + this.wander.y;
+    clock.style.transform = `translate(${dx.toFixed(1)}px, ${dy.toFixed(1)}px) scale(${NOX_CLOCK_SCALE})`;
+    // The date line, left-aligned under the time at rest, is centred under it here (a transform too).
+    const time = clock.querySelector('.home-time'), date = clock.querySelector('.home-date');
+    const off = (time.offsetWidth - date.scrollWidth) / 2;
+    date.style.transform = off > 0 ? `translateX(${off.toFixed(1)}px)` : '';
+  },
+  // The Nox state proper: a still starfield, the clock centred (then moving once a minute), the windows dimmed
+  // (one opacity fade of the static light layer), the moon veiled. The owl is away (she left with the rider, or
+  // fades out when there is no fly-by): the apps she perches on are out. Nothing loops.
   settleNox() {
     const root = this.root; root.classList.add('nox');
-    if (this.owl) this.owl.sleep();
-    const order = [...this.windows].sort(() => Math.random() - 0.5);
-    const keep = Math.floor(order.length / 3);
-    order.slice(keep).forEach((p, n) => this.noxTimers.push(setTimeout(() => { const t0 = performance.now(); const fade = () => { const k = Math.min(1, (performance.now() - t0) / 1500); p.lit = 1 - k * 0.95; if (k < 1) requestAnimationFrame(fade); }; fade(); }, (n / Math.max(1, order.length)) * 20000)));
-    root.querySelector('.home-moon').style.opacity = '.4';
-    if (!isReduced()) {
-      const W = root.clientWidth;
-      const pts = [[0, 0], [30, 12], [-20, 16], [-36, -6], [10, -18], [38, 4], [-8, 18], [-30, -14], [0, 0]];   // in cqw, within ±38 / ±18
-      this.noxTimers.push(setTimeout(() => {
-        if (!this.root || this.mode !== 'nox') return;
-        this.noxAnim = root.querySelector('.home-clock').animate(pts.map(([x, y], i) => ({ transform: `translate(${x * W / 100}px, ${y * W / 100}px)`, offset: i / (pts.length - 1) })),
-          { duration: NOX_WANDER_MS, iterations: Infinity, easing: 'linear', composite: 'add' });
-      }, 2000));
-    }
-    const plane = root.querySelector('.home-plane'); let dir = 1;
-    const drift = () => { plane.style.transform = `translateX(${dir * 3}%)`; dir = -dir; this.noxTimers.push(setTimeout(drift, 90000)); };
-    this.noxTimers.push(setTimeout(drift, 100));
+    this.clearFly();
+    this.items.forEach((it) => it.classList.add('is-out'));
+    if (this.owl && !this.owlNox) { this.owlNox = true; this.owl.hide(); }
+    this.makeStars();
+    this.placeNoxClock(false);
   },
   wake() {
     if (this.mode !== 'nox') return;
     this.mode = 'normal';
     this.noxTimers.forEach(clearTimeout); this.noxTimers = [];
     this.clearFly();                                           // rider off-screen, mist settled, every app back
-    if (this.noxAnim) { this.noxAnim.cancel(); this.noxAnim = null; }
     this.ctx.fx.setRate(getConfig().motion === 'economie' ? 66 : 33);
     if (this.ctx.fx.ambientHold) this.ctx.fx.ambientHold(false, 'nox');
     const root = this.root; root.classList.remove('nox');
-    const sorted = [...this.windows].sort((a, b) => a.x - b.x);
-    sorted.forEach((p, n) => setTimeout(() => { p.lit = 1; }, (n / Math.max(1, sorted.length)) * 700));
-    root.querySelector('.home-moon').style.opacity = '';
+    const clock = root.querySelector('.home-clock'); clock.style.transform = '';
+    const date = clock.querySelector('.home-date'); date.style.transform = '';
+    this.dropStars();
     if (this.ctx.fx.cue) this.ctx.fx.cue('wake');
-    if (this.owl) this.owl.wake();
+    // Hedwig comes back: a swoop down onto the focused app (a plain fade-in in reduced motion).
+    const away = this.owlNox; this.owlNox = false;
+    if (this.owl && away) { this.owl.hide(); this.owlAway = true; }
     this.layout(true);
+    if (this.owl && away) {
+      this.owlAway = false;
+      if (isReduced() || !this.items.length) this.layout(true);
+      else {
+        const t = this.owlTarget(), W = root.clientWidth;
+        this.owl.comeBack(t.x, t.y, { onLand: () => { if (!this.root || this.mode === 'nox') return; this.ctx.fx.burst(t.cx, t.y + this.owl.size().h * 0.98, 8, W / 60); this.land(this.items[this.i]); } });
+      }
+    }
     this.armHint();
   },
 
@@ -605,11 +672,12 @@ export default {
     const app = this.apps[this.i]; if (!app) return;
     const fn = await loadRappeltout(); if (!fn) return;
     // On the TV, an app with a package gets the system's own page (uninstall, force stop); the mock-up shows a plain note.
-    const sysInfo = Boolean(app.pkg && Platform.isTV());
+    const sysInfo = Boolean(app.pkg && Platform.isTV() && Platform.has(app));   // an absent app has no page to open
     const choice = await fn(this.root, { title: app.name, options: [
       { id: 'move', label: 'Déplacer' }, { id: 'remove', label: 'Retirer du parapet' }, { id: 'hide', label: 'Masquer' },
       sysInfo ? { id: 'appinfo', label: 'Infos de l’appli' } : { id: 'info', label: 'Infos' },
     ] });
+    if (!this.root) return;
     if (choice === 'move') this.enterMove();
     else if (choice === 'remove') this.removeFromDock(app.id);
     else if (choice === 'hide') { const c = getConfig(); updateConfig({ dock: c.dock.filter((id) => id !== app.id), hidden: [...c.hidden, app.id] }); this.rebuild(); }
@@ -617,12 +685,12 @@ export default {
     else if (choice === 'info') { const b = await loadBeuglante(); if (b) b(this.root, { message: app.pkg ? `${app.name} · ${app.pkg}` : `${app.name} · ${app.input || 'ajoutée à la main'}` }); }
   },
   removeFromDock(id) { updateConfig({ dock: getConfig().dock.filter((x) => x !== id) }); this.rebuild(); },
-  rebuild() { this.apps = dockApps(); this.i = Math.min(this.i, Math.max(0, this.apps.length - 1)); this.buildDock(); this.layout(true); },
+  rebuild() { if (!this.root) return; this.apps = this.dockList(); this.i = Math.min(this.i, Math.max(0, this.apps.length - 1)); this.buildDock(); this.layout(true); },
   enterMove() { this.mode = 'move'; this.items[this.i].classList.add('lifted'); },
   swap(dir) {
     const j = this.i + dir; if (j < 0 || j >= this.apps.length) return;
     const dock = [...getConfig().dock]; [dock[this.i], dock[j]] = [dock[j], dock[this.i]];
-    updateConfig({ dock }); this.apps = dockApps(); this.i = j; this.buildDock(); this.items[this.i].classList.add('lifted'); this.layout(true);
+    updateConfig({ dock }); this.apps = this.dockList(); this.i = j; this.buildDock(); this.items[this.i].classList.add('lifted'); this.layout(true);
   },
   leaveMove() { this.mode = 'normal'; this.items.forEach((it) => it.classList.remove('lifted')); },
 

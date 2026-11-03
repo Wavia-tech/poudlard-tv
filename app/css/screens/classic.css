@@ -1,6 +1,7 @@
-/* Classic mode ("Monday morning"): plain Night background (the grain is placed by main.js), Cinzel clock,
-   grid of 6 per row of 16:9 stone tiles. Focus = ivory frame + scale 1.06 in 150 ms, nothing else: intentional.
-   Motion: transform and opacity only. Everything in cqw. Class prefix: .cls-
+/* Classic mode ("Monday morning"): plain Night background, Cinzel clock, grid of 6 per row of 16:9 stone tiles.
+   Focus = ivory frame + scale 1.06 in 150 ms, nothing else: intentional.
+   Motion: transform and opacity only, event-driven; at rest nothing runs (the clock changes once a minute).
+   Everything in cqw. Class prefix: .cls-
    Ivory at 90% at most everywhere (burn-in): the focus frame is the element that stays still the longest. */
 
 .screen-classic { background: var(--night); --cls-focus-ms: 150ms; }
@@ -13,13 +14,14 @@
 .cls-date::first-letter { text-transform: uppercase; }
 
 /* ---- Scroll window: the rows slide with translateY, the window clips. ---- */
-.cls-scroll { position: absolute; left: 4.5cqw; right: 4.5cqw; top: 12cqw; bottom: 3.8cqw; overflow: hidden; }
+.cls-scroll { position: absolute; left: 4.5cqw; right: 4.5cqw; top: 12cqw; bottom: 6cqw; overflow: hidden; }   /* the key hint keeps its own band below */
 /* 2.4 cqw bottom fade: classic.js keeps the focused row above it (`fade` margin in focus()). */
 .cls-scroll::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 2.4cqw; pointer-events: none;
   background: linear-gradient(to bottom, #070B1400, var(--night)); }
 .cls-rows { padding: .6cqw 0 2.4cqw; transition: transform calc(var(--k) * 350ms) cubic-bezier(.3, .7, .2, 1); will-change: transform; }
 
-.cls-row { margin: 0 0 1.1cqw; }
+.cls-row { margin: 0 0 1.1cqw; transition: opacity calc(var(--k) * 200ms); }
+.cls-row.is-out { opacity: 0; }   /* slid partly above the window (classic.js) */
 /* Category titles: 2.1 cqw (the contract's "titles" threshold), spaced Cinzel capitals. */
 .cls-row-title { margin: 0 0 .5cqw .3cqw; font-family: var(--display); font-weight: 600; font-size: 2.1cqw; letter-spacing: var(--track-wide); text-transform: uppercase;
   color: var(--mist); opacity: .7; }
@@ -42,8 +44,8 @@
 /* The TV's own banner behind the overlay (TV only; the mock-up shows monograms). */
 .cls-banner-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; border-radius: .7cqw; opacity: .85; }
 .cls-tile.has-banner .cls-icon, .cls-tile.has-banner .cls-glyph { display: none; }
-/* The last launched app wears a small brass plate. */
-.cls-last { position: absolute; right: .5cqw; top: .5cqw; font-size: var(--t-hint); padding: .1cqw .8cqw; }
+/* The last launched app wears a small brass plate, pinned across the plate's top edge (never over the logo). */
+.cls-last { position: absolute; right: .6cqw; top: 0; transform: translateY(-55%); z-index: 1; font-size: var(--t-hint); line-height: 1.15; padding: .05cqw .8cqw; white-space: nowrap; }
 /* The house candle pool under the focused tile: a soft ellipse moved by transform. */
 .cls-pool { position: absolute; left: 0; top: 0; width: 22cqw; height: 11cqw; pointer-events: none; opacity: 0; z-index: 0;
   background: radial-gradient(closest-side, color-mix(in srgb, var(--house-glow) 18%, transparent), transparent 70%);
@@ -66,8 +68,10 @@
 .cls-svg { width: 3.6cqw; height: 3.6cqw; }
 .cls-svg svg { width: 100%; height: 100%; fill: none; stroke: var(--ivory); stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; opacity: .9; }
 
-.cls-name { margin-top: .55cqw; text-align: center; font-family: var(--body); font-weight: 500; font-size: var(--t-body); line-height: 1.2; color: var(--ivory); opacity: .78;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; transition: opacity calc(var(--k) * var(--cls-focus-ms)); }
+/* The name: two lines at most for a long hand-written name, never cut with an ellipsis on one line. */
+.cls-name { margin-top: .55cqw; text-align: center; font-family: var(--body); font-weight: 500; font-size: var(--t-body); line-height: 1.25; color: var(--ivory); opacity: .78;
+  overflow-wrap: anywhere; text-wrap: balance; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden;
+  transition: opacity calc(var(--k) * var(--cls-focus-ms)); }
 .cls-tile.is-focus .cls-name { opacity: .9; }
 
 /* App the TV reports as uninstalled: the content fades, not the plate (the focus frame stays whole), OK opens a Beuglante (Howler). */
@@ -88,9 +92,11 @@
   background: radial-gradient(ellipse at 50% 50%, #F1EBDD 0%, #F1EBDDaa 35%, #F1EBDD00 70%); }
 
 /* ---- "Ouverture de X" (opening X) banner (mock-up) ---- */
-.cls-banner { position: absolute; left: 50%; bottom: 5.2cqw; z-index: 30; transform: translate(-50%, 1.6cqw); opacity: 0; pointer-events: none; white-space: nowrap;
+/* Also the short notes of the screen (the TV's hints): on as many lines as the sentence needs, never cut. */
+.cls-banner { position: absolute; left: 50%; bottom: 6.6cqw; z-index: 30; transform: translate(-50%, 1.6cqw); opacity: 0; pointer-events: none;
+  width: max-content; max-width: 70cqw; box-sizing: border-box; text-align: center; text-wrap: balance;
   padding: .9cqw 2.8cqw; border-radius: .4cqw; background: var(--stone); box-shadow: inset 0 .08cqw 0 #ffffff14, inset 0 0 0 .1cqw #ffffff14, 0 .6cqw 1.6cqw #000b;
-  font-family: var(--display); font-weight: 600; font-size: var(--t-body); letter-spacing: var(--track-wide); text-transform: uppercase; color: var(--ivory);
+  font-family: var(--body); font-weight: 600; font-size: var(--t-body); line-height: 1.3; color: var(--ivory);
   transition: opacity calc(var(--k) * 250ms) ease, transform calc(var(--k) * 250ms) cubic-bezier(.2, .8, .2, 1); }
 .cls-banner.is-in { opacity: 1; transform: translate(-50%, 0); }
 

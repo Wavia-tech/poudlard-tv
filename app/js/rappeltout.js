@@ -19,7 +19,8 @@ import { isReduced } from './config.js';
 let open = null;   // the Remembrall on display, if any: { finish(id) }
 
 // Test-bench time factor (×3 slow motion), read from the host.
-const timeScale = (el) => Number(getComputedStyle(el).getPropertyValue('--k')) || 1;
+// From the attribute (base.css: --k is 3 under :root[data-slow="1"]): getComputedStyle() forced a style recalculation.
+const timeScale = (el) => { void el; return document.documentElement.dataset.slow === '1' ? 3 : 1; };
 
 export function rappeltout(host, { title = '', options = [], anchor = null } = {}) {
   if (open) open.finish(null);                       // only one Remembrall at a time
@@ -39,33 +40,61 @@ export function rappeltout(host, { title = '', options = [], anchor = null } = {
     h.className = 'rpt-title';
     h.textContent = title;
     body.appendChild(h);
+    // The lines sit in a window (.rpt-list) over a track (.rpt-track): when the sphere cannot grow any more, the
+    // track slides (transform) to keep the chosen line in view.
+    const list = document.createElement('div');
+    list.className = 'rpt-list';
+    const track = document.createElement('div');
+    track.className = 'rpt-track';
+    list.appendChild(track);
+    body.appendChild(list);
     const lines = opts.map((o) => {
       const li = document.createElement('div');
       li.className = 'rpt-line' + (o.disabled ? ' is-disabled' : '');
       li.textContent = o.label || o.id;
-      body.appendChild(li);
+      track.appendChild(li);
       return li;
     });
     if (!lines.length) {                              // never an empty sphere: the fallback line takes the focus (OK refuses)
       const li = document.createElement('div');
       li.className = 'rpt-line is-disabled';
       li.textContent = 'Rien à faire ici';
-      body.appendChild(li);
+      track.appendChild(li);
       lines.push(li);
     }
     orb.appendChild(body);
     host.appendChild(veil);
     host.appendChild(orb);
 
-    // ---- Position: below the anchor when possible, always fully inside the host, expressed in cqw ----
+    // ---- Size: a sphere just large enough for its text (the text block fits inside the circle), never larger
+    // than the screen. Long labels wrap (rappeltout.css caps a line's width); if even the largest sphere cannot hold
+    // every line, it becomes a rounded glass pane and the lines scroll in their window. ----
     const W = host.clientWidth || 1, H = host.clientHeight || 1;
+    const cq = W / 100;
+    const margin = W * 0.02;
+    const maxD = H - 2 * margin;
+    const bw = body.offsetWidth, bh = body.offsetHeight;
+    const D = Math.max(17 * cq, Math.hypot(bw, bh) + 2 * cq, bw + 5.6 * cq, bh + 4.4 * cq);
+    let windowed = false;
+    if (D <= maxD) {
+      orb.style.width = (D / cq).toFixed(2) + 'cqw';
+    } else {
+      orb.classList.add('is-tall');
+      orb.style.width = ((bw + 5.6 * cq) / cq).toFixed(2) + 'cqw';
+      if (bh + 4.4 * cq > maxD) {
+        windowed = true;
+        list.style.maxHeight = ((maxD - 4.4 * cq - (bh - list.offsetHeight)) / cq).toFixed(2) + 'cqw';
+        list.classList.add('is-window');
+      }
+    }
+
+    // ---- Position: below the anchor when possible, always fully inside the host, expressed in cqw ----
     const ow = orb.offsetWidth, oh = orb.offsetHeight;
     const ax = anchor && Number.isFinite(anchor.x) ? anchor.x : null;
     const ay = anchor && Number.isFinite(anchor.y) ? anchor.y : null;
     const below = Boolean(anchor && anchor.edge === 'below' && ay !== null);
     let x = ax !== null ? ax - ow / 2 : (W - ow) / 2;
     let y = ay !== null ? (below ? ay : ay - oh / 2) : (H - oh) / 2;
-    const margin = W * 0.02;
     x = Math.min(Math.max(x, margin), W - ow - margin);
     y = Math.min(Math.max(y, margin), H - oh - margin);
     orb.style.left = (x / W * 100).toFixed(2) + 'cqw';
@@ -78,7 +107,15 @@ export function rappeltout(host, { title = '', options = [], anchor = null } = {
 
     // ---- Chosen line ----
     let i = 0;
-    const paint = () => lines.forEach((li, n) => li.classList.toggle('is-on', n === i));
+    let off = 0;
+    const paint = () => {
+      lines.forEach((li, n) => li.classList.toggle('is-on', n === i));
+      if (!windowed) return;
+      const view = list.clientHeight, li = lines[i];
+      if (li.offsetTop + li.offsetHeight - off > view) off = li.offsetTop + li.offsetHeight - view;
+      else if (li.offsetTop < off) off = li.offsetTop;
+      track.style.transform = `translateY(${-off}px)`;
+    };
     paint();
 
     // ---- Closing (only once) ----

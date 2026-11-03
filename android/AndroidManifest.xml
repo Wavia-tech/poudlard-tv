@@ -7,16 +7,20 @@
     `aapt dump permissions PoudlardTV.apk`: the list must be empty.
   - No QUERY_ALL_PACKAGES: the <queries> block only declares the intents we need.
   - Two entry points on the same activity:
-      .Home  : HOME category (the home screen). It is an activity-alias so it can be DISABLED on its own
-               (HomeMode.giveBackHome): the system then falls back to the Google home, without disabling anything on its side.
+      .Home  : HOME category (the home screen). DISABLED in this manifest: installing or updating the APK never
+               takes the Home key and never makes the TV show its "which home app?" chooser. HomeMode.requestHome
+               enables it at runtime (PackageManager.setComponentEnabledSetting on our own component, no permission)
+               only when the person chooses « Faire de Poudlard l'accueil », after recording the current home;
+               HomeMode.giveBackHome disables it again and relaunches that recorded home.
       .Start : LEANBACK_LAUNCHER category (the "Poudlard TV" icon in the app list), always enabled,
                so you can go back even when .Home is disabled.
+  HomeActivity itself declares NO intent filter: .Home is the only HOME component (build.sh checks it).
   Inspired by the Free My TV manifest (io.freemytv), reduced to the strict minimum.
 -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="fr.wavia.poudlardtv"
-    android:versionCode="2"
-    android:versionName="0.2">
+    android:versionCode="3"
+    android:versionName="0.3">
 
     <!-- A TV does not necessarily have a touchscreen or declare Leanback (projectors, boxes): nothing is required. -->
     <uses-feature android:name="android.software.leanback" android:required="false" />
@@ -114,7 +118,8 @@
             android:screenOrientation="landscape"
             android:configChanges="keyboard|keyboardHidden|navigation|orientation|screenSize|screenLayout|smallestScreenSize|uiMode|density|fontScale|locale|layoutDirection" />
 
-        <!-- HOME entry point: the one the TV offers next to Google TV when Home is pressed. Can be disabled on its own.
+        <!-- HOME entry point: the one the TV offers next to its own home once enabled. DISABLED at install
+             (android:enabled="false"): only HomeMode.requestHome enables it, when the person asks for it.
              No android:priority: the system caps a non-privileged app's priority at 0, and in any case
              the person chooses, the launcher never pushes itself to the front. -->
         <activity-alias
@@ -122,7 +127,7 @@
             android:targetActivity=".HomeActivity"
             android:exported="true"
             android:label="@string/app_name"
-            android:enabled="true">
+            android:enabled="false">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.HOME" />

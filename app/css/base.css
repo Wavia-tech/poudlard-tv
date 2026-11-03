@@ -14,7 +14,9 @@
   --fell: "IM Fell English", "EB Garamond", Georgia, serif;  /* written by a wizard: Map, Library, Letter */
   --title: var(--display); --serif: var(--body); --book: var(--fell);
   --ui: "Segoe UI", system-ui, sans-serif;
-  /* Type scale at 3 m: nothing below --t-hint. Safe area: nothing closer to an edge than --safe-x / --safe-y. */
+  /* Type scale at 3 m: nothing below --t-hint. Safe area: nothing closer to an edge than --safe-x / --safe-y.
+     On the TV the WebView lays out at 960x540 CSS px (DPR 2): hint 16 px, body 20, label 22, title 27, clock 61 CSS px,
+     drawn at twice that on the 1080p panel; the same proportions as a 1920x1080 browser at DPR 1 (cqw scale with it). */
   --text-scale: 1;
   /* TV reading distance (3 m, 1080p): hints 1.7 cqw ≈ 33 px, body 2.1 ≈ 40 px, labels 2.3, titles 2.8, the clock 6.4.
      Capitals are tracked lightly (.1em): wide tracking reads as decoration on a TV, not as text. */
@@ -69,17 +71,20 @@ html, body { margin: 0; background: var(--bg); color: var(--fg); font-family: va
   container-type: inline-size; cursor: default; font-size: 1cqw; }
 .stage:fullscreen { border-radius: 0; width: 100vw; height: 100vh; aspect-ratio: auto; }
 .stage:focus-visible { box-shadow: 0 0 0 2px var(--gold); }
-.screen { position: absolute; inset: 0; overflow: hidden; clip-path: circle(150% at 50% 60%);
-  transition-property: transform, opacity, clip-path;
-  transition-duration: calc(var(--k) * var(--t-scene)), calc(var(--k) * var(--t-scene-fade)), calc(var(--k) * var(--t-scene));
-  transition-timing-function: var(--ease-scene), var(--ease-fade), var(--ease-scene); }
+/* A screen layer: no permanent clip-path or mask (a round clip on the layer would cost a full-screen mask texture under
+   every composited child on the TV); transitions move transform and opacity only. */
+.screen { position: absolute; inset: 0; overflow: hidden;
+  transition-property: transform, opacity;
+  transition-duration: calc(var(--k) * var(--t-scene)), calc(var(--k) * var(--t-scene-fade));
+  transition-timing-function: var(--ease-scene), var(--ease-fade); }
 .screen.enter-fade { opacity: 0; }
 .screen.leave-fade { opacity: 0; }
 .screen.enter-up { transform: translateY(100%); }     /* the new screen rises from the bottom */
 .screen.leave-up { transform: translateY(-100%); }
 .screen.enter-down { transform: translateY(-100%); }
 .screen.leave-down { transform: translateY(100%); }
-.screen.enter-iris { clip-path: circle(0% at 50% 60%); }
+/* "Iris" (into the Room of Requirement): the room opens out of the dark, slightly drawn back, then settles (no clip-path). */
+.screen.enter-iris { opacity: 0; transform: scale(.94); }
 .screen.leave-iris { opacity: 0; }
 /* Camera moves (router.js): the crane down to Ollivanders (the Parapet lifts and grows a little while the shop window
    rises from below), its reverse, and the candle-snuff into the Room of Requirement (a short fade to black, then the

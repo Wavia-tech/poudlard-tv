@@ -1,5 +1,7 @@
 # build.sh outputs
 out/
 *.apk
+# apksigner v4 signature written next to the APK
+*.idsig
 # Local signing key: never in the repo
 *.keystore

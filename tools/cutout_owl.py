@@ -3,11 +3,18 @@
 Cut out an owl generated on a black background (the background connected to the edges becomes transparent):
     python -I tools/cutout_owl.py <input.png> <output.png> [max_size]
 
-Pack cut-out poses into one sprite sheet (one row, equal cells, bottom-centred, a 2 px ivory rim baked into
-the alpha so the launcher needs no CSS filter), plus a small original feather:
+Pack cut-out poses into one sprite sheet (a grid of 4 columns, equal cells of 320 x 248, bottom-centred, an ivory
+rim baked into the alpha so the launcher needs no CSS filter), plus a small original feather:
     python -I tools/cutout_owl.py --sheet app/assets/owl-sheet.webp app/assets/owl-perch.png app/assets/owl-look.png ...
     python -I tools/cutout_owl.py --feather app/assets/feather.webp
-The sheet order is the order of the arguments; owl.js reads the same order from its `cells` option.
+The cells are read left to right, then top to bottom, in the order of the arguments (perch, look, sleep, up, down,
+glide, land); owl.js reads the same order from its `cells` option and the grid from its `cols` option (4).
+Cell size: twice the owl's largest box on screen at 960 x 540 CSS px (owl.css: 1.9 x 1.47 x 8.2 cqw = 150 x 116 px),
+so 320 x 248 with a little margin for the flight's 1.045 scale; the sheet stays 1280 x 496, far below the 2048 px
+texture limit of weak TV GPUs (the former one-row sheet of 825 x 640 cells was 5775 px wide, 15 MB decoded).
+
+Repack an existing one-row sheet (cells of equal width, in order) into the grid, without the source poses:
+    python -I tools/cutout_owl.py --regrid old-sheet.webp app/assets/owl-sheet.webp 7
 """
 import sys
 
@@ -57,19 +64,52 @@ def rim(img: Image.Image, px: int = 2, opacity: int = 110) -> Image.Image:
     return Image.alpha_composite(halo, img)
 
 
-def sheet(dst: str, srcs: list, cell_h: int = 640) -> None:
+CELL = (320, 248)   # cell size in the sheet (see the docstring)
+COLS = 4
+
+
+def grid(dst: str, cells: list) -> None:
+    """Lays RGBA cells (already CELL-sized) out left to right, top to bottom, COLS per row."""
+    rows = (len(cells) + COLS - 1) // COLS
+    out = Image.new("RGBA", (CELL[0] * COLS, CELL[1] * rows), (0, 0, 0, 0))
+    for i, c in enumerate(cells):
+        out.alpha_composite(c, ((i % COLS) * CELL[0], (i // COLS) * CELL[1]))
+    out.save(dst, "WEBP", quality=90, method=6)
+    print(dst, out.size, "cells", len(cells), "cell", CELL, "cols", COLS)
+
+
+def sheet(dst: str, srcs: list) -> None:
+    # The poses are packed at 640 px high first (rim of 2 px, as designed), then each cell is scaled down to CELL.
+    cell_h = 640
     poses = []
     for s in srcs:
         im = Image.open(s).convert("RGBA")
         scale = cell_h / im.height
         im = im.resize((max(1, round(im.width * scale)), cell_h), Image.LANCZOS)
         poses.append(rim(im))
-    cell_w = max(p.width for p in poses) + 8
-    out = Image.new("RGBA", (cell_w * len(poses), cell_h), (0, 0, 0, 0))
-    for i, p in enumerate(poses):
-        out.alpha_composite(p, (i * cell_w + (cell_w - p.width) // 2, cell_h - p.height))
-    out.save(dst, "WEBP", quality=88, method=6)
-    print(dst, out.size, "cells", len(poses), "cell", (cell_w, cell_h))
+    cell_w = max(round(cell_h * CELL[0] / CELL[1]), max(p.width for p in poses) + 8)
+    cells = []
+    for p in poses:
+        big = Image.new("RGBA", (cell_w, cell_h), (0, 0, 0, 0))
+        big.alpha_composite(p, ((cell_w - p.width) // 2, cell_h - p.height))
+        cells.append(fit(big))
+    grid(dst, cells)
+
+
+def fit(big: Image.Image) -> Image.Image:
+    """Scales a cell down to CELL, bottom-centred, keeping its proportions (premultiplied, so no dark fringe)."""
+    scale = min(CELL[0] / big.width, CELL[1] / big.height)
+    w, h = max(1, round(big.width * scale)), max(1, round(big.height * scale))
+    small = big.convert("RGBa").resize((w, h), Image.LANCZOS).convert("RGBA")
+    out = Image.new("RGBA", CELL, (0, 0, 0, 0))
+    out.alpha_composite(small, ((CELL[0] - w) // 2, CELL[1] - h))
+    return out
+
+
+def regrid(src: str, dst: str, n: int) -> None:
+    old = Image.open(src).convert("RGBA")
+    cw = old.width // n
+    grid(dst, [fit(old.crop((i * cw, 0, (i + 1) * cw, old.height))) for i in range(n)])
 
 
 def feather(dst: str, w: int = 24, h: int = 48) -> None:
@@ -91,6 +131,8 @@ if __name__ == "__main__":
     args = sys.argv[1:]
     if args and args[0] == "--sheet":
         sheet(args[1], args[2:])
+    elif args and args[0] == "--regrid":
+        regrid(args[1], args[2], int(args[3]))
     elif args and args[0] == "--feather":
         feather(args[1])
     else:

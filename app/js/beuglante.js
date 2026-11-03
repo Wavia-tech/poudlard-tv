@@ -10,7 +10,11 @@
 //              anything, everything else is swallowed. On closing, it hands the keys back to the router (Router.refocus()).
 //              Without an action, no key is captured: the screen underneath carries on.
 // - Only one Howler at a time: opening a second one burns the first immediately.
-// - Motion: transform and opacity only. With isReduced(): 200 ms fade, no shaking, no slide-up.
+// - The message is shown whole, on as many lines as it needs (never truncated): the TV's own sentence (Platform's
+//   `error`, e.g. "Netflix n'est pas installée sur cette télé.") is read as it comes. The lifetime grows with its
+//   length (reading time), and with an action it stays a little longer still.
+// - Motion: transform and opacity only, once on arrival; nothing runs while it waits. With isReduced(): 200 ms fade,
+//   no shaking, no slide-up.
 
 import { Input } from './input.js';
 import { Router } from './router.js';
@@ -18,16 +22,21 @@ import { isReduced } from './config.js';
 
 const SLIDE_MS = 450;     // slide up from the bottom
 const SHAKE_MS = 640;     // four shakes (±1.5°)
-const LIFE_MS = 4000;     // lifetime before burning up
+const LIFE_MS = 4000;     // shortest lifetime before burning up
+const LIFE_MAX_MS = 11000;
+const READ_MS = 60;       // per character of the message (reading from the couch)
+const ACTION_MS = 2500;   // extra time when an action is offered (read, then decide)
 const BURN_MS = 700;      // burn-up fade (opacity + slight rise)
 const REDUCED_FADE_MS = 200;
 
 let current = null;       // the Howler on display, if any
 
 // Test-bench time factor (×3 slow motion): JS timers follow the CSS durations.
+// Read from the attribute (base.css: --k is 3 under :root[data-slow="1"]), not getComputedStyle(), which forced a
+// style recalculation of the page each time a Howler opened.
 function timeScale(host) {
-  const k = Number(getComputedStyle(host).getPropertyValue('--k'));
-  return Number.isFinite(k) && k > 0 ? k : 1;
+  void host;
+  return document.documentElement.dataset.slow === '1' ? 3 : 1;
 }
 
 function build(message, action) {
@@ -128,7 +137,8 @@ export function beuglante(host, { message, action } = {}) {
     if (!reduced) later(() => el.classList.add('is-shake'), SLIDE_MS);
     later(() => el.classList.remove('is-shake'), SLIDE_MS + SHAKE_MS);
   });
-  later(() => handle.close(), LIFE_MS);
+  const text = String(message || '');
+  later(() => handle.close(), Math.min(LIFE_MAX_MS, Math.max(LIFE_MS, 1500 + text.length * READ_MS) + (act ? ACTION_MS : 0)));
 
   return handle;
 }

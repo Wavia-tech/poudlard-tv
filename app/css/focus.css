@@ -9,6 +9,11 @@
 .map-cell.is-focus.is-press { transform: scale(1); }
 .cls-tile.is-focus.is-press .cls-plate { transform: scale(1.02); }
 .set-btn.is-focus.is-press, .sort-btn.is-focus.is-press { transform: scale(.985); }
+/* The Admission Letter (sorting.css): the inked item gives a little under the finger, then settles back. */
+.sort-cell.is-focus.is-press { transform: scale(1.01); }
+.sort-shield.is-focus.is-press { transform: translateY(-.2cqw) scale(1.03); }
+.sort-enum.is-focus.is-press { transform: translateX(.3cqw) scale(.99); }
+.sort-link.is-focus.is-press { transform: translateX(-.2cqw) scale(.97); }
 .home-bar-item.is-focus.is-press { transform: scale(1.06); }
 /* Hedwig's weight: the app dips by six thousandths and comes back, over the 200 ms home.js keeps the class. */
 .home-app.is-land { animation: focus-land calc(var(--k) * var(--t-land)) var(--ease-settle); }

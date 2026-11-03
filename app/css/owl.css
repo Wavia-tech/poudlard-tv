@@ -1,22 +1,20 @@
 /* Hedwig: one sprite sheet on two layers that swap opacities, depth, shadow, feathers. --owl-size = perched height (px).
-   No filter anywhere: the ivory rim is baked into the sheet (tools/cutout_owl.py --sheet). Transform and opacity only. */
+   No filter anywhere: the ivory rim is baked into the sheet (tools/cutout_owl.py --sheet). Transform and opacity only.
+   At rest she is still: no breathing loop (owl.js animates her on events only). */
 .owl { position: absolute; top: 0; left: 0; width: var(--owl-size); height: var(--owl-size); pointer-events: none; z-index: 30; will-change: transform; transition: opacity calc(var(--k) * 300ms); }
 .owl.is-missing { display: none; }                                      /* no sheet: no owl, never a broken image */
 .owl-dir, .owl-depth { position: absolute; inset: 0; transform-origin: 50% 100%; }
-/* The cell box: the sheet's cells are 825 × 640 (1.29 : 1), bottom-aligned on the talons. */
+/* The cell box: the sheet's cells are 320 x 248 (1.29 : 1, a 4 x 2 grid), bottom-aligned on the talons. At 960 x 540
+   CSS px the box is 150 x 116 px, so a cell is drawn at 2x on a DPR 2 TV. */
 .owl-poses { position: absolute; left: 50%; bottom: 0; width: calc(var(--owl-size) * 1.9); height: calc(var(--owl-size) * 1.47); transform: translateX(-50%); transform-origin: 50% 100%;
   transition: transform 220ms cubic-bezier(.3, 0, .2, 1); }            /* the box follows the pose at the pace of the cross-fade (owl.js sets the duration) */
 .owl-poses.is-perched { transform: translateX(-50%) scale(.82); }       /* perched: smaller than with wings spread */
 .owl-layer { position: absolute; inset: 0; background-repeat: no-repeat; background-position: 0 0; opacity: 0;
   transition-property: opacity; transition-timing-function: cubic-bezier(.4, 0, .4, 1); transition-duration: 180ms; will-change: opacity; }
 .owl-shadow { position: absolute; left: 50%; bottom: -.5cqw; width: calc(var(--owl-size) * .9); height: calc(var(--owl-size) * .22); margin-left: calc(var(--owl-size) * -.45);
-  border-radius: 50%; background: radial-gradient(closest-side, #00000088, #00000000); opacity: .55; transform-origin: 50% 50%; will-change: transform, opacity; }
+  border-radius: 50%; background: radial-gradient(closest-side, #00000088, #00000000); opacity: .55; transform-origin: 50% 50%; }
 .owl-feathers { position: absolute; left: 0; right: 0; bottom: 0; height: 100%; pointer-events: none; }
-.owl-feather { position: absolute; bottom: 14%; width: .8cqw; height: 1.6cqw; background-size: contain; background-repeat: no-repeat; opacity: 0; will-change: transform, opacity; }
-.owl[data-state="idle"] .owl-depth { animation: owl-breathe calc(var(--k) * 4.2s) cubic-bezier(.4, 0, .6, 1) infinite; }
-@keyframes owl-breathe { 0%, 100% { transform: scale(1, 1); } 50% { transform: scale(1.008, 1.012); } }
-.owl[data-state="sleep"] .owl-depth { animation: owl-sleep-breathe calc(var(--k) * 5.6s) cubic-bezier(.4, 0, .6, 1) infinite; }
-@keyframes owl-sleep-breathe { 0%, 100% { transform: scale(.97, .97); } 50% { transform: scale(.975, .98); } }
+.owl-feather { position: absolute; bottom: 14%; width: .8cqw; height: 1.6cqw; background-size: contain; background-repeat: no-repeat; opacity: 0; }
+/* Asleep (Nox): tucked in, a touch smaller, still. */
+.owl[data-state="sleep"] .owl-depth { transform: scale(.97); }
 .owl[data-state="sleep"] .owl-shadow { opacity: .4; transition: opacity calc(var(--k) * 1.2s); }
-html[data-motion="reduit"] .owl .owl-depth, html[data-motion="economie"] .owl .owl-depth { animation: none; }
-@media (prefers-reduced-motion: reduce) { .owl .owl-depth { animation: none; } }

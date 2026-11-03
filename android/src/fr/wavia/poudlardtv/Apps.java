@@ -47,10 +47,13 @@ import java.util.regex.Pattern;
  *
  * Rules:
  *  - an app is launched by EXPLICIT intent (named package) only; a film link is opened in the named app
- *    (ACTION_VIEW + setPackage), or failing that on that app's home screen, never "in whatever app";
+ *    (ACTION_VIEW + setPackage), else in the app that owns the link's site (LINK_APPS), else on that app's home
+ *    screen, and only as a last resort in whatever the TV opens https links with (a browser);
  *  - HDMI inputs go through the system's standard intent (ACTION_VIEW content://android.media.tv/…), the only
  *    case of an intent without a package: the system's TV app answers it;
- *  - a missing package or a failed launch returns a message, never an exception;
+ *  - a missing package or a failed launch returns a precise message, never an exception. A missing app ALWAYS
+ *    says "... n'est pas installée sur cette télé." (platform.js reads the word "install" as "missing"); no other
+ *    message may contain "install";
  *  - no URL outside the allow list; no network request (the manifest has no INTERNET anyway).
  *
  * The messages returned as strings are shown on the TV by the Howler (Beuglante), so they stay in French.
@@ -60,7 +63,42 @@ final class Apps {
     private static final Pattern PKG = Pattern.compile("^[a-zA-Z][\\w]*(\\.[a-zA-Z][\\w]*)+$");
     /** Hosts allowed for openUrl: exact copy of URL_HOSTS in platform.js. Keep both lists identical. */
     static final Set<String> URL_HOSTS = new HashSet<>(Arrays.asList(
-            "www.max.com", "play.max.com", "www.netflix.com", "www.primevideo.com", "www.disneyplus.com", "www.youtube.com"));
+            "www.max.com", "play.max.com", "www.netflix.com", "www.primevideo.com", "www.disneyplus.com", "www.youtube.com",
+            "canalplus.com", "www.canalplus.com"));
+    /**
+     * The apps that own each allow-listed site, TV build first: openUrl hands the link to the first one installed
+     * when the named app is missing or refuses it (e.g. a Canal+ link with no package named).
+     */
+    private static final Map<String, String[]> LINK_APPS = new HashMap<>();
+    static {
+        LINK_APPS.put("www.netflix.com", new String[] { "com.netflix.ninja", "com.netflix.mediaclient" });
+        String[] max = { "com.wbd.stream", "com.hbo.hbonow" };
+        LINK_APPS.put("www.max.com", max);
+        LINK_APPS.put("play.max.com", max);
+        String[] canal = { "com.canal.android.canal", "com.canal.android.canalplus" };
+        LINK_APPS.put("canalplus.com", canal);
+        LINK_APPS.put("www.canalplus.com", canal);
+        LINK_APPS.put("www.primevideo.com", new String[] { "com.amazon.amazonvideo.livingroom", "com.amazon.avod.thirdpartyclient" });
+        LINK_APPS.put("www.disneyplus.com", new String[] { "com.disney.disneyplus" });
+        LINK_APPS.put("www.youtube.com", new String[] { "com.google.android.youtube.tv", "com.google.android.youtube" });
+    }
+    /** Names for messages about apps that are NOT installed (an installed app gives its own label). */
+    private static final Map<String, String> KNOWN_NAMES = new HashMap<>();
+    static {
+        String[][] names = {
+                { "com.netflix.ninja", "Netflix" }, { "com.netflix.mediaclient", "Netflix" },
+                { "com.amazon.amazonvideo.livingroom", "Prime Video" }, { "com.amazon.avod.thirdpartyclient", "Prime Video" },
+                { "com.disney.disneyplus", "Disney+" }, { "com.canal.android.canal", "Canal+" }, { "com.canal.android.canalplus", "Canal+" },
+                { "com.wbd.stream", "Max" }, { "com.hbo.hbonow", "Max" }, { "com.apple.atve.androidtv.appletv", "Apple TV" },
+                { "com.cbs.ott", "Paramount+" }, { "com.google.android.youtube.tv", "YouTube" }, { "com.google.android.youtube", "YouTube" },
+                { "fr.francetv.pluzz", "france.tv" }, { "fr.tf1.mytf1", "TF1+" }, { "fr.tf1.player", "TF1+" },
+                { "fr.m6.m6replay", "M6+" }, { "tv.arte.plus7", "Arte" }, { "tv.molotov.app", "Molotov" },
+                { "com.crunchyroll.crunchyroid", "Crunchyroll" }, { "com.dazn", "DAZN" }, { "tv.twitch.android.app", "Twitch" },
+                { "com.spotify.tv.android", "Spotify" }, { "deezer.android.tv", "Deezer" }, { "com.plexapp.android", "Plex" },
+                { "com.android.vending", "Play Store" }, { "com.amazon.venezia", "Amazon Appstore" },
+        };
+        for (String[] n : names) KNOWN_NAMES.put(n[0], n[1]);
+    }
     /** Leanback banner size (320x180 dp) at xxxhdpi density, as in Free My TV: 384x216 is enough at 3 m. */
     private static final int BANNER_W = 384, BANNER_H = 216;
     /** Factory and hotel menus that pass the LAUNCHER query on some sets (Free My TV's FACTORY filter): never offered. */
@@ -211,28 +249,98 @@ final class Apps {
      * FLAG_ACTIVITY_RESET_TASK_IF_NEEDED: the app resumes where it was, like a real home screen.
      */
     String launch(String pkg) {
-        if (!validPackage(pkg)) return "Nom de package invalide.";
+        if (!validPackage(pkg)) return "Nom d'appli invalide : « " + shorten(pkg) + " ».";
         Intent intent = launchIntent(pkg);
-        if (intent == null) return "Cette appli n'est pas installée sur la télé.";
+        if (intent == null) return missing(pkg);
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED);
-        return start(intent, pkg);
+        return start(intent, name(pkg));
     }
 
     /**
-     * Opens a content link (https, allow-listed host) in the app that owns it (ACTION_VIEW + setPackage),
-     * otherwise on that same app's home screen (fallback of Free My TV's open(), without the Netflix case). Never in
-     * another app: without a named package, we refuse, to keep the README's "explicit intents" promise.
+     * The name to show for a package: the label the TV gives it if installed, else a known name, else the package
+     * itself (« L'appli com.example.tv »). Never empty.
+     */
+    String name(String pkg) {
+        if (pkg == null || pkg.isEmpty()) return "Cette appli";
+        try {
+            PackageManager pm = app.getPackageManager();
+            CharSequence l = pm.getApplicationInfo(pkg, 0).loadLabel(pm);
+            if (l != null && l.toString().trim().length() > 0) return l.toString().trim();
+        } catch (PackageManager.NameNotFoundException | RuntimeException ignored) {
+            // not installed (or not visible): the known names below
+        }
+        String known = KNOWN_NAMES.get(pkg);
+        return known != null ? known : "L'appli " + pkg;
+    }
+
+    /** THE message for a missing app: keep the word "installée" (platform.js marks the result `missing`). */
+    String missing(String pkg) {
+        return name(pkg) + " n'est pas installée sur cette télé.";
+    }
+
+    private static String shorten(String s) {
+        if (s == null) return "";
+        return s.length() > 60 ? s.substring(0, 60) + "…" : s;
+    }
+
+    /**
+     * Opens a content link (https, allow-listed host). In order, the first that starts wins:
+     *  1. the link in the named app `pkg` (ACTION_VIEW + setPackage);
+     *  2. the link in the app that owns the site (LINK_APPS: Netflix, Max, Canal+...), if installed;
+     *  3. the named app (or the site's app) on its home screen: the person is at least in the right app;
+     *  4. the link in whatever the TV opens https links with (a browser, or the site's app through its app links).
+     * Errors: the app is missing and nothing else took the link: "<app> n'est pas installée sur cette télé.";
+     * nothing on the TV can open it: "Aucune appli de cette télé ne sait ouvrir ce lien."
      */
     String openUrl(String url, String pkg) {
         Uri uri = allowedUrl(url);
-        if (uri == null) return "Lien refusé : hôte hors liste blanche.";
-        if (!validPackage(pkg)) return "Ce lien n'a pas d'appli associée.";
-        if (!isInstalled(pkg)) return "L'appli qui possède ce lien n'est pas installée sur la télé.";
-        PackageManager pm = app.getPackageManager();
-        Intent inApp = new Intent(Intent.ACTION_VIEW, uri).setPackage(pkg).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-        if (inApp.resolveActivity(pm) != null && start(inApp, pkg) == null) return null;
-        // The app does not take the link: we open it anyway, on its home screen.
-        return launch(pkg);
+        if (uri == null) {
+            String host = hostOf(url);
+            return host == null ? "Lien refusé : ce n'est pas une adresse https valide."
+                    : "Lien refusé : le site « " + shorten(host) + " » n'est pas dans la liste autorisée de Poudlard TV.";
+        }
+        String host = uri.getHost().toLowerCase(Locale.ROOT);
+        LinkedHashSet<String> owners = new LinkedHashSet<>();
+        boolean named = validPackage(pkg);
+        if (named) owners.add(pkg);
+        String[] siteApps = LINK_APPS.get(host);
+        if (siteApps != null) owners.addAll(Arrays.asList(siteApps));
+        List<String> installed = new ArrayList<>();
+        for (String p : owners) if (isInstalled(p)) installed.add(p);
+        // 1 + 2: the link inside an app that owns it.
+        for (String p : installed) {
+            Intent inApp = new Intent(Intent.ACTION_VIEW, uri).setPackage(p).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            if (tryStart(inApp, "link in " + p)) return null;
+        }
+        // 3: that app on its home screen.
+        for (String p : installed) {
+            if (launch(p) == null) return null;
+        }
+        // 4: whatever handles https links on this TV.
+        Intent any = new Intent(Intent.ACTION_VIEW, uri).addCategory(Intent.CATEGORY_BROWSABLE).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        if (tryStart(any, "link in the default handler")) return null;
+        if (named && !isInstalled(pkg)) return missing(pkg);
+        if (installed.isEmpty() && siteApps != null) return missing(siteApps[0]);
+        return "Aucune appli de cette télé ne sait ouvrir ce lien.";
+    }
+
+    private static String hostOf(String url) {
+        try {
+            Uri u = Uri.parse(url == null ? "" : url);
+            return u.getHost();
+        } catch (RuntimeException e) {
+            return null;
+        }
+    }
+
+    private boolean tryStart(Intent intent, String what) {
+        try {
+            app.startActivity(intent);
+            return true;
+        } catch (ActivityNotFoundException | SecurityException | IllegalStateException e) {
+            Log.i("could not open " + what + ": " + e.getClass().getSimpleName());
+            return false;
+        }
     }
 
     static Uri allowedUrl(String url) {
@@ -248,13 +356,20 @@ final class Apps {
         return host != null && URL_HOSTS.contains(host.toLowerCase(Locale.ROOT)) ? uri : null;
     }
 
+    /** Starts an intent; `what` is the name shown to the person (« Netflix », « la Télé »...). */
     private String start(Intent intent, String what) {
         try {
             app.startActivity(intent);
             return null;
-        } catch (ActivityNotFoundException | SecurityException | IllegalStateException e) {
+        } catch (ActivityNotFoundException e) {
             Log.w("could not open " + what + ": " + e.getMessage());
-            return "La télé n'a pas pu ouvrir " + what + ".";
+            return what + " ne se laisse pas ouvrir depuis Poudlard TV (aucun écran de démarrage).";
+        } catch (SecurityException e) {
+            Log.w("could not open " + what + ": " + e.getMessage());
+            return "La télé interdit d'ouvrir " + what + " depuis Poudlard TV.";
+        } catch (IllegalStateException e) {
+            Log.w("could not open " + what + ": " + e.getMessage());
+            return "La télé n'a pas pu ouvrir " + what + " (elle est occupée) : réessayez.";
         }
     }
 
@@ -266,14 +381,14 @@ final class Apps {
      * Returns null when a screen opened, otherwise a readable message. Changes nothing itself.
      */
     String openSystem(String key, String arg) {
-        if (key == null) return "Écran inconnu.";
+        if (key == null) return "Écran de réglages inconnu.";
         Intent[] candidates;
         if ("appinfo".equals(key)) {
-            if (!validPackage(arg)) return "Nom de package invalide.";
+            if (!validPackage(arg)) return "Nom d'appli invalide : « " + shorten(arg) + " ».";
             candidates = new Intent[] { new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + arg)) };
         } else {
             candidates = SYSTEM.get(key);
-            if (candidates == null) return "Écran inconnu.";
+            if (candidates == null) return "Écran de réglages inconnu : « " + shorten(key) + " ».";
         }
         for (Intent candidate : candidates) {
             Intent intent = new Intent(candidate).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
@@ -284,14 +399,27 @@ final class Apps {
                 Log.i("settings screen " + key + ": " + e.getClass().getSimpleName() + ", next candidate");
             }
         }
-        return "Cette télé n'a pas cet écran.";
+        String label = SYSTEM_LABELS.get(key);
+        return label == null ? "Cette télé n'a pas cet écran de réglages."
+                : "Cette télé n'a pas d'écran « " + label + " » accessible depuis Poudlard TV.";
+    }
+
+    /** French names of the SYSTEM screens, for the error messages. */
+    private static final Map<String, String> SYSTEM_LABELS = new HashMap<>();
+    static {
+        String[][] l = {
+                { "settings", "Paramètres" }, { "wifi", "Réseau et Wi-Fi" }, { "bluetooth", "Télécommandes et accessoires" },
+                { "picture", "Image" }, { "sound", "Son" }, { "apps", "Applications" }, { "date", "Date et heure" },
+                { "language", "Langue" }, { "accessibility", "Accessibilité" }, { "update", "Mise à jour du système" },
+                { "about", "À propos" }, { "appinfo", "Infos sur l'appli" } };
+        for (String[] e : l) SYSTEM_LABELS.put(e[0], e[1]);
     }
 
     /** The TV's store: Amazon's on Fire TV, the Play Store elsewhere. */
     String store() {
         String pkg = "Amazon".equalsIgnoreCase(Build.MANUFACTURER) ? "com.amazon.venezia" : "com.android.vending";
-        String err = launch(pkg);
-        return err == null ? null : "Pas de boutique sur cette télé.";
+        if (launchIntent(pkg) == null) return "Cette télé n'a pas de boutique d'applis (" + name(pkg) + " absent).";
+        return launch(pkg);
     }
 
     // ---------------------------------------------------------------- HDMI inputs
@@ -392,9 +520,9 @@ final class Apps {
 
     String liveTv() {
         Intent intent = liveTvIntent();
-        if (intent == null) return "Cette télé n'a pas d'antenne.";
+        if (intent == null) return "Cette télé n'a ni antenne ni appli de chaînes.";
         String err = start(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK), "la Télé");
-        return err == null ? null : "Cette télé n'ouvre pas ses chaînes depuis un launcher.";
+        return err == null ? null : "Cette télé refuse d'ouvrir ses chaînes depuis un autre accueil.";
     }
 
     /**
@@ -407,14 +535,14 @@ final class Apps {
      * ActivityNotFoundException becomes a readable message. TO BE TESTED on the target TV (the 4 CATALOG switches).
      */
     String switchInput(String input) {
-        if (input == null || input.length() > 200) return "Entrée invalide.";
+        if (input == null || input.trim().isEmpty() || input.length() > 200) return "Entrée HDMI invalide.";
         TvInputManager tim = (TvInputManager) app.getSystemService(Context.TV_INPUT_SERVICE);
-        if (tim == null) return "Cette télé n'expose pas ses entrées.";
+        if (tim == null) return "Cette télé ne donne pas accès à ses entrées HDMI.";
         List<TvInputInfo> inputs;
         try {
             inputs = tim.getTvInputList();
         } catch (RuntimeException e) {
-            return "Impossible de lister les entrées.";
+            return "La télé n'a pas voulu donner la liste de ses entrées HDMI.";
         }
         String wanted = input.trim();
         Integer port = portNumber(wanted);
@@ -432,11 +560,15 @@ final class Apps {
             // No readable number in the id: take the n-th HDMI port in the TV's order.
             if (match == null && port >= 1 && port <= hdmi.size()) match = hdmi.get(port - 1);
         }
-        if (match == null) return "Entrée « " + wanted + " » introuvable.";
+        if (match == null) {
+            return hdmi.isEmpty() ? "Cette télé ne déclare aucune entrée HDMI."
+                    : "Entrée « " + shorten(wanted) + " » introuvable : cette télé a " + hdmi.size()
+                            + (hdmi.size() > 1 ? " entrées HDMI." : " entrée HDMI.");
+        }
         Intent intent = new Intent(Intent.ACTION_VIEW, TvContract.buildChannelUriForPassthroughInput(match.getId()))
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
         String err = start(intent, wanted);
-        return err == null ? null : "Cette télé n'ouvre pas ses entrées HDMI depuis un launcher.";
+        return err == null ? null : "Cette télé refuse d'ouvrir l'entrée « " + shorten(wanted) + " » depuis un autre accueil.";
     }
 
     /** "HDMI 2" → 2; "hdmi2" → 2; otherwise null. */

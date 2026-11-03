@@ -50,7 +50,7 @@ try {
 
 Two details we also keep:
 - `FLAG_ACTIVITY_RESET_TASK_IF_NEEDED` on the app's "plain" intent: the app comes back where the user left it instead of starting from scratch.
-- When opening **content** (`ACTION_VIEW` + `setPackage(pkg)`) fails, we fall back to the plain intent of the same app. Netflix sometimes ignores the address: Free My TV then forces its activity and `FLAG_ACTIVITY_CLEAR_TASK`. We keep the generic fallback, without the Netflix special case (our Library targets Max). And we stop there: no third fallback to "any app that answers" (a browser, for instance), so that the README's "explicit intents" promise stays true.
+- When opening **content** (`ACTION_VIEW` + `setPackage(pkg)`) fails, we fall back to the plain intent of the same app. Netflix sometimes ignores the address: Free My TV then forces its activity and `FLAG_ACTIVITY_CLEAR_TASK`. We keep the generic fallback, without the Netflix special case (our film links go to Canal+, Netflix, Max and others, each only when its app is installed). And we stop there: no third fallback to "any app that answers" (a browser, for instance), so that the README's "explicit intents" promise stays true.
 
 On our side: `Apps.launch(pkg)` and `Apps.openUrl(url, pkg)` in `android/src/fr/wavia/poudlardtv/Apps.java`, which return a JSON `{ok, error}` to JavaScript instead of a boolean. The Howler (Beuglante, the mock-up's error message) displays `error`.
 
@@ -147,26 +147,41 @@ Why not on our side:
 - Free My TV's PROTECTED list took months of field feedback per brand; we do not have that feedback.
 
 What we keep of the idea, in a reversible version. The home chooser is the one exception to "same method":
-- **On the TV, Poudlard asks for the HOME role**: `setHome('poudlard')` re-enables our HOME door (the `.Home`
-  alias), clears the crash guard's counter, then calls `RoleManager.createRequestRoleIntent(ROLE_HOME)` from the
+- **Installing takes nothing.** The `.Home` alias ships **disabled** (`android:enabled="false"` in the manifest):
+  right after `adb install`, the TV has the same home candidates as before, so the Home key keeps going to its
+  current home and no "which home app?" chooser appears. (Before 0.3 the alias shipped enabled; on the first
+  device test, a TV whose home was Free My TV showed the chooser right after the install.)
+- **On the TV, Poudlard asks for the HOME role**, only when the person chooses « Faire de Poudlard l'accueil »:
+  `setHome('poudlard')` first **records the home that is the default at that moment** (the HOME role holder, or
+  what the HOME intent resolves to), whether it is the Google TV launcher, the manufacturer's or a third-party
+  launcher such as Free My TV; then it enables our HOME door (the `.Home` alias), clears the crash guard's
+  counter, and calls `RoleManager.createRequestRoleIntent(ROLE_HOME)` from the
   activity (Android 10+, no permission). The system shows its own confirmation dialog; the person presses OK. The
   hint returned to the mock-up says what happened: `held` (already ours), `role` (the dialog is on screen; the
   activity's `onActivityResult` then fires the `poudlard:home` document event so the row repaints), `fire` (Fire
   TV never hands the key over). On Android 8/9, without the role API, the launcher tries the system's "Home app"
   screen (`ACTION_HOME_SETTINGS`, then `ACTION_MANAGE_DEFAULT_APPS_SETTINGS`; `hint: 'settings'`) and otherwise
   says "press Home, choose Poudlard TV, then Always" (`hint: 'press-home'`). An absent screen is never a failure.
-- **From the computer**, `tools/tv.sh home poudlard` (batch 4) runs `cmd package set-home-activity`; Free My TV
-  runs the same command through its on-TV adb client. Same command, two places: ours never runs from the app.
-  Nothing is disabled on either path.
-- **Going back to the original without going through the settings**: `setHome('original')` disables the `.Home` alias with
-  `PackageManager.setComponentEnabledSetting` (allowed without permission on its own components): the system is left
-  with a single candidate home, the Google home, and the Home key goes back to it. The Poudlard launcher stays installed and
-  visible in the app list (`.Start` alias, `LEANBACK_LAUNCHER`) to come back. Uninstalling the APK
-  puts everything back. Since Android 10 the home is a role (`RoleManager` HOME): the system must reassign it
-  when the component disappears. Expected, not yet verified on a device (the "Test status" box in `android/README.md`).
+- **From the computer**, `tools/tv.sh home poudlard` runs `pm enable` on our alias then `cmd package
+  set-home-activity`; Free My TV runs the same command through its on-TV adb client. Same command, two places:
+  ours never runs from the app. Nothing of anyone else's is disabled on either path. The way back by hand is the
+  same command naming the other home (`cmd package set-home-activity io.freemytv/.HomeActivity`, or the TV's own
+  launcher as listed by `cmd package query-activities -a android.intent.action.MAIN -c android.intent.category.HOME`).
+  `pm disable-user` on our alias, documented before 0.3, is refused by Android 11.
+- **Going back to the original without going through the settings**: `setHome('original')` (« Accueil d'origine »,
+  also offered by the rescue screen and the crash guard's fallback screen) disables the `.Home` alias with
+  `PackageManager.setComponentEnabledSetting` (allowed without permission on its own components) and opens the
+  home it recorded. The system is left with the homes that were there before Poudlard, and the Home key goes back
+  to the default one. The Poudlard launcher stays installed and visible in the app list (`.Start` alias,
+  `LEANBACK_LAUNCHER`) to come back. Uninstalling the APK puts everything back. Since Android 10 the home is a role
+  (`RoleManager` HOME): the system reassigns it when the component disappears; the app cannot hand the role to
+  another app itself, so on a TV that still has two homes (a third-party launcher next to an enabled Google TV
+  launcher) the system may ask once which one to use. To be confirmed by the second device test (the "Test status"
+  box in `android/README.md`).
 - Free My TV's `stockHome()` (list the system HOME activities, exclude itself and `FallbackHome`, do not guess
-  when there are two candidates) is taken over as is in `HomeMode.originalHome()` to relaunch the original home
-  right after the switch.
+  when there are two candidates) is taken over in `HomeMode.originalHome()`, now as the **fallback** when no
+  previous home was recorded. Before 0.3 it was the only lookup, and it missed a third-party launcher: on the first
+  device test, with Free My TV as the home, « Accueil d'origine » and the rescue screen led nowhere.
 
 ## 7. The crash guard (Watchdog)
 
@@ -180,8 +195,8 @@ A small file, taken over almost unchanged (hence Free My TV's MIT notice at the 
   **before** building the interface and shows a plain `TextView` otherwise;
 - `clear()` when Free My TV is put back.
 
-On our side, the rollback is `HomeMode.giveBackHome()` (disabling the `.Home` alias + launching the original
-home) instead of adb commands. And since our interface is a WebView, the guard also watches the **rendering**
+On our side, the rollback is `HomeMode.giveBackHome()` (disabling the `.Home` alias + launching the recorded
+original home, third-party launchers included) instead of adb commands. And since our interface is a WebView, the guard also watches the **rendering**
 (`onRenderProcessGone`): a dying WebView engine counts as a crash; the dead WebView is then detached
 and destroyed before the fallback screen is shown (the Android contract when returning `true`). The fallback screen has two
 buttons: « Ouvrir l'accueil d'origine » and « Réessayer Poudlard TV » (`Watchdog.clear` + `recreate()`, the HOME door
@@ -266,8 +281,9 @@ always with `/`), which avoids the aapt2 backslash bug on Windows that Free My T
 ## 11. What we will never do from the app (and that Free My TV does, rightly in its context)
 
 - No internal adb: the app never runs `pm disable-user` or `cmd package set-home-activity`.
-  (These commands remain tools for the person, typed from the computer, documented in `android/README.md`;
-  the APK itself has no means to run them, and that is intended.)
+  (`cmd package set-home-activity` remains a tool for the person, typed from the computer, documented in
+  `android/README.md` and wrapped by `tools/tv.sh`; the APK itself has no means to run it, and that is intended.
+  `pm disable-user` is not even a tool for the person any more: Android 11 refuses it on our alias.)
 - No `RECEIVE_BOOT_COMPLETED`, no accessibility service (`RemoteKeyService`), no `NotificationListener`
   (`NowPlaying`), no `SYSTEM_ALERT_WINDOW` (`SleepOverlay`), no `REQUEST_INSTALL_PACKAGES` (updates).
 - No `INTERNET`: no weather, no TMDB, no crypto, no update check.
@@ -311,6 +327,7 @@ Each line: the mechanism, then what the person at the remote loses with Poudlard
 Poudlard TV only ever disables **its own** `.Home` alias and asks the HOME role through the system's dialog. It
 never calls `pm disable` on anything, never touches another app, the screensaver, picture, sound, network or
 accounts. So `adb uninstall fr.wavia.poudlardtv` (or Settings → Apps → Poudlard TV → Uninstall) leaves the TV
-with a single candidate home, the original one, already enabled: the Home key goes back to it on the spot.
+with the homes it had before, already enabled (the Google TV launcher, or a third-party one such as Free My TV):
+the Home key goes back to the default one on the spot.
 Free My TV, uninstalled while in "Free" mode, strands the TV with its original home still disabled (its README
 says to switch back to "Original" first); that is the trade-off of its method, and the reason ours stops short.

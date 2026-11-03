@@ -30,23 +30,25 @@ Two open-source projects already do the heavy lifting: [Free My TV](https://gith
 
 **What we do**
 
-1. Clone Poudlard TV, build the APK (`android/build.sh`) and install it: `docs/INSTALLATION.md`, section 2.
-2. Hand the Home key to Poudlard TV from the launcher itself: Room of Requirement → "Accueil de la télé" → Touche Home: Poudlard TV (the TV shows its own confirmation; the Admission Letter offers the same button on its last page). Not before checking that "hold Back for two seconds" does bring plain mode back, and that the same row set to "Accueil d'origine" gives the original home back.
+1. Clone Poudlard TV, build the APK (`android/build.sh`) and install it: `docs/INSTALLATION.md`, section 2. Installing changes nothing yet: the Home key stays with the TV's current home (Google TV's, or a launcher you already installed, such as Free My TV) until you decide otherwise.
+2. Hand the Home key to Poudlard TV from the launcher itself: « Faire de Poudlard l'accueil » on the Admission Letter's last page, or Room of Requirement → "Accueil de la télé" → Touche Home: Poudlard TV (the TV shows its own confirmation). Poudlard notes which home was the default at that moment, so that it can give the key back to it. Not before checking that "hold Back for two seconds" does bring plain mode back, and that the same row set to "Accueil d'origine" gives the original home back.
 
 **What we do not do**: disable or uninstall the original home, install an accessibility service, give the launcher a network permission. If a tutorial suggests it, walk away.
 
 ## 3. Gathering your assets
 
-Make a folder (for example `tv-assets/`) and name each file in lowercase with hyphens. Everything below stays with you: the repository distributes none of it.
+Make a folder (for example `tv-assets/`) and name each file in lowercase with hyphens. The repository already carries a full set (the generated scenery, and, at the maintainer's request, the app logos, the house crest pictures and a music file: `DISCLAIMER.md`); what you prepare here replaces it on your own installation and stays out of your commits.
+
+One rule for every image: **no larger than it is shown on screen**. A TV has a fraction of a computer's memory and its graphics chip refuses very wide textures (an image over about 4096 px wide may simply not display); a picture four times its display size costs memory for nothing. Sharpness comes from a clean source at the right size, never from an overlay of grain.
 
 | Asset | Used for | Format | Where to find it, how to prepare it |
 |---|---|---|---|
 | The home backdrop | The Parapet | 16:9, at least 1920 px wide, JPEG or WebP | A generated image (the repository documents the method in `tools/README.md`) or an illustration you hold the rights to. Choose a calm lower third: the apps sit there. No photo from the films. |
 | The owl poses | Hedwig | Cut-out PNGs, transparent background, 600 px tall | Five poses are enough: perched, wings up, wings down, gliding, landing. Generated on a plain black background then cut out (`tools/cutout_owl.py`). All three-quarter views, facing the same side. |
 | The shop window | Ollivanders | 16:9, 1672×941 or the same ratio | A shop-window image with one box per film. The selection areas are polygons measured on the image (`app/js/screens/ollivanders.js`, constant `BOXES`). |
-| The film links | Ollivanders | One web address per title | On your streaming service's site, the film's page (or its search). For Netflix: `netflix.com/title/<number>`. Check on JustWatch first where each title is available in your country. Only the hosts on the whitelist in `app/js/platform.js` are accepted. |
-| The app logos | The Parapet, the Map | Monochrome SVGs | On the real TV, not needed: the launcher takes the icon each app provides to the system. For the mock-up, `tools/README.md` explains how to assemble your own file, not to be redistributed. |
-| The background music | The whole interface | OGG, MP3 or M4A | A file you own, in `app/assets/music/`. Otherwise, the synthesized celesta waltz does the job. `docs/MUSIC.md`. |
+| The film links | Ollivanders | One web address per title | On your streaming service's site, the film's page (or its search). For Netflix: `netflix.com/title/<number>`; for Canal+: the film's page on `canalplus.com`. Check on JustWatch first where each title is available in your country, and pick an app that is installed on your TV. Only the hosts on the whitelist in `app/js/platform.js` (identical in `Apps.java`) are accepted. |
+| The app logos | The Parapet, the Map | Monochrome SVGs | The repository carries the maintainer's set (`app/assets/logos.js`, versioned at his request). To use your own, `tools/README.md` explains how to assemble the file; it overwrites the versioned one, so do not commit it or redistribute it. |
+| The background music | The whole interface | Ogg Opus, under 3 MB | The repository ships `app/assets/music/ambiance.ogg`. To use a file you own instead, put it in its place (conversion command in `docs/MUSIC.md`). Without any file, the synthesized celesta waltz does the job. |
 
 ## 4. The home: the Parapet
 
@@ -57,11 +59,12 @@ What makes the difference in daily use, and what gets tuned first:
 - **A fade rather than a strip.** The apps do not sit on a banner: the night rises gently from the bottom of the image and they settle on it.
 - **The spread.** Eight apps at most, always all visible, evenly spaced. Never any scrolling.
 - **A single focus.** Only one thing is alive at a time: the focused app goes from engraved ivory to raised gold, a candle lights up beneath it, the owl lands on it. No frame, no glass panel.
-- **Visual silence.** No name under the icons, no permanent loop: only the castle windows twinkle.
+- **Visual silence.** No name under the icons, no permanent loop: when nobody touches the remote, nothing moves. On a TV an endless animation is not free: on the first device test, an idle Parapet kept more than one processor core busy and stuttered. Motion is for answering a key press (the owl's flight, the light on the chosen app), then everything settles.
+- **The TV's size.** A 1080p TV usually lays the page out at 960 × 540 CSS pixels with a pixel ratio of 2. Look at every screen at that size (the browser's device emulation does it) as well as at 1920 × 1080: names must not be cut, buttons must stay inside their frame.
 
 **Prompt to paste** (fill in the brackets):
 
-> My backdrop is `tv-assets/chateau.jpg`, my owl poses are in `tv-assets/chouette/`. Install them in `app/assets/` under the expected names (`castle.jpg`, `owl-perch.png`, `owl-up.png`, `owl-down.png`, `owl-glide.png`, `owl-land.png`). My parapet: [Netflix, Prime Video, Disney+, Canal+, Max, Apple TV, YouTube, PlayStation 5]. My house: [Gryffindor]. Relaunch the mock-up and show me the home with each app in focus. Do not change the animation durations without asking me.
+> My backdrop is `tv-assets/chateau.jpg`, my owl poses are in `tv-assets/chouette/`. Install them in `app/assets/` under the expected names (`castle.jpg`, `owl-perch.png`, `owl-up.png`, `owl-down.png`, `owl-glide.png`, `owl-land.png`). My parapet, only apps installed on my TV: [Netflix, Prime Video, Disney+, YouTube, france.tv, Arte, Molotov, PlayStation 5]. My house: [Gryffindor]. Relaunch the mock-up at 960 × 540 with a pixel ratio of 2, and show me the home with each app in focus. Do not change the animation durations without asking me.
 
 Then look at the screen and correct in plain language: "the owl is too big", "move the icons down", "the fade hides the castle". One request at a time.
 
@@ -74,13 +77,13 @@ The films are not a list: they are a shop window. One box per film, from the pla
 3. Paste the prompt:
 
 > Here is my shop window `app/assets/ollivanders.webp` and the links of my films (title | app | link):
-> - [Philosopher's Stone | Max | https://…]
+> - [Philosopher's Stone | Canal+ | https://www.canalplus.com/…]
 > - […]
-> Measure the area of each box on the image and update `BOXES` in `app/js/screens/ollivanders.js`; put the links in `LIBRARY` (`app/js/config.js`). The selection draws no outline: a warm spotlight on the chosen box, the rest of the window dimmed a notch, the camera tilting slightly. Show me each box selected.
+> Measure the area of each box on the image and update `BOXES` in `app/js/screens/ollivanders.js`; put the links in `LIBRARY` (`app/js/config.js`). The selected box must be obvious from the sofa, at 960 × 540 on the TV as well as on the computer: the chosen box clearly marked, the rest of the window dimmed, no glow and no beam. A film whose app is not installed says so instead of naming that app. Show me each box selected.
 
 ## 6. Settings and first launch
 
-Everything is set with the remote, in the Room of Requirement (Salle sur Demande; Menu key, or the quill at the top right): the Home key (Poudlard TV or the original home), the TV's own settings, the parapet apps and their order, the house (it tints the candle, the edging, the crest under the time), the owl (lively, calm, absent), sounds and music, motion (auto, reduced, economy), standby and plain mode.
+Everything is set with the remote, in the Room of Requirement (Salle sur Demande; the quill at the top right, reached with ↑): the Home key (Poudlard TV or the original home), the TV's own settings, the parapet apps and their order, the house (it tints the candle, the edging, the crest under the time), the owl (lively, calm, absent), sounds and music, motion (auto, reduced, economy), standby and plain mode.
 
 The Admission Letter (Lettre d'admission) does all of this in four pages on first launch; the last page, "Les issues de secours", lists the four ways out and, on the TV, asks for the Home key. To replay it: Settings → About → Replay the Admission Letter; to reread the exits alone: Settings → About → "Les issues de secours".
 
@@ -106,14 +109,14 @@ Plain mode is there for the others: the family, the guest, the evening when the 
 
 ## 7. Sounds
 
-No audio files in the interface: a synthesized celesta voice, nine short phrases (move, descend, back, Lumos, Nox, wake, error, tick, confirm) and a background waltz, all original. The Sound key at the top right mutes everything at once. For music of your own: `docs/MUSIC.md`.
+The interface cues are a synthesized celesta voice, nine short phrases (move, descend, back, Lumos, Nox, wake, error, tick, confirm), all original. The background music is a file, `app/assets/music/ambiance.ogg` (versioned at the maintainer's request, under 3 MB): on the TV it starts by itself with the Parapet, and it sits loud enough not to be drowned by the cues. An original celesta waltz takes over when no file can be played. The Sound key at the top right mutes everything at once. To use music of your own: `docs/MUSIC.md`.
 
-What we do not do: reuse the films' music, even modified. An arrangement is still a derivative work.
+What we do not do in the code: reuse the films' music, even modified. An arrangement is still a derivative work.
 
 ## 8. Finishing cleanly
 
 - **Turn off USB debugging** when you are done. While it is on, any computer on the Wi-Fi can ask to connect. Turn it back on when you want to change something.
-- **Everything can be undone.** The original home was never touched; Room of Requirement → "Accueil de la télé" → "Accueil d'origine" puts it back; uninstalling the app puts everything back as before, because the launcher only ever disables its own home entry.
+- **Everything can be undone.** The original home was never touched; Room of Requirement → "Accueil de la télé" → "Accueil d'origine" gives the Home key back to it, even when it is a third-party launcher; uninstalling the app puts everything back as before, because the launcher only ever disables its own home entry. From the computer, `adb shell cmd package set-home-activity <package>/<activity>` names the home you want (details in `docs/INSTALLATION.md`).
 - **One step at a time.** One prompt, one look at the screen, one correction in plain language. Small, precise requests work better than a giant prompt.
 - **Keep your assets folder.** Changing the backdrop, the owl or the shop window later is one short prompt.
 - **Hands off the remote during an install.** Each install restarts the home.

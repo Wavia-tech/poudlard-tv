@@ -3,11 +3,8 @@
 # ---------------------------------------------------------------------------
 
 # The maintainer's own choice (November 2026): the app logos (app/assets/logos.js), the house crest pictures
-# (app/assets/crest-*.webp) and the background music (app/assets/music/) ARE versioned, see DISCLAIMER.md.
-
-# Fonts embedded in the APK (OFL): add them with their license if you
-# version them; ignored by default to keep the repository light.
-app/assets/fonts/
+# (app/assets/crest-*.webp) and the background music (app/assets/music/ambiance.ogg) ARE versioned, see DISCLAIMER.md.
+# The fonts (app/assets/fonts/) are versioned too, with their OFL licence.
 
 # Hosting page for the mock-up (an index.html variant for publishing as an
 # artifact): a working file, not a launcher page.
@@ -20,9 +17,18 @@ android/*.jks
 *.apk
 *.aab
 
+# Build clone of the repository (a clean checkout used to build the APK), at the root.
+/repo/
+
 # Scenery generation scripts tied to the original workstation (local paths):
 # the method is described in tools/README.md, the scripts stay private.
+# tools/tv.ps1 (the adb wrapper, twin of tv.sh) is versioned.
 tools/*.ps1
+!tools/tv.ps1
+
+# Python bytecode.
+__pycache__/
+*.pyc
 
 # Working folders (intermediate renders, raw images, discarded screens).
 _ecarte/

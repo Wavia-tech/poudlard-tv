@@ -14,6 +14,8 @@
     <string name="rescue_resume">Reprendre</string>
     <string name="rescue_reload">Recharger Poudlard TV</string>
     <string name="rescue_settings">Réglages de la télé</string>
+    <!-- « Ouvrir l'accueil d'origine » found no other home to launch (the Home key is given back all the same). -->
+    <string name="no_other_home">Aucun autre accueil n\'a pu s\'ouvrir. La touche Home est quand même rendue à la télé : appuyez dessus.</string>
     <!-- Page missing from the APK (assets/web empty): never a black screen. -->
     <string name="missing_web">Les fichiers de l\'interface manquent dans l\'application (assets/web). L\'APK doit être reconstruit.</string>
 </resources>

@@ -19,7 +19,7 @@ import { Input } from '../input.js';
 import { LOGOS } from '../../assets/logos.js';
 import { monogram, logoBox } from '../monogram.js';
 import { beuglante } from '../beuglante.js';
-import { HOME_MODES, HOME_HINT, HOME_NOTE_MOCK, TV_SCREENS, TV_ONLY } from './settings.js';
+import { HOME_MODES, HOME_HINT, HOME_NOTE_MOCK, TV_SCREENS, TV_ONLY, ARROW, timeK } from './settings.js';
 
 const COLS = 6;                 // tiles per visual row (the CSS grid has the same column count)
 const BANNER_MS = 1200;          // "Ouverture de X" banner in the mockup
@@ -91,11 +91,10 @@ export default {
     root.innerHTML = `
       <div class="cls-clock"><div class="cls-time"></div><div class="cls-date"></div></div>
       <div class="cls-scroll"><div class="cls-pool"></div><div class="cls-rows"></div></div>
-      <div class="keyhint"><span><b>▲</b>Réglages</span><span><b>OK</b>Ouvrir</span><span><b>OK long</b>Options</span><span><b>Retour long</b>Poudlard</span></div>
+      <div class="keyhint"><span><b>${ARROW.up}</b>Réglages</span><span><b>OK</b>Ouvrir</span><span><b>OK long</b>Options</span><span><b>Retour long</b>Poudlard</span></div>
       <div class="cls-banner"><span class="cls-banner-text"></span></div>`;
 
     this.tick();
-    this.timers.push(setInterval(() => this.tick(), 15000));
 
     // Starting focus: the last launched app if it is on the grid, otherwise the first tile.
     this.build();
@@ -118,6 +117,7 @@ export default {
   unmount() {
     this.timers.forEach((t) => { clearInterval(t); clearTimeout(t); });
     this.timers = [];
+    clearTimeout(this.clockTimer); this.clockTimer = 0;
     if (this.msg) { this.msg.close(); this.msg = null; }
     if (typeof dismissRappeltout === 'function') dismissRappeltout();   // an open sphere is not left orphaned
     this.release();                                                      // never leave the input queue closed
@@ -125,19 +125,23 @@ export default {
     this.rows = [];
   },
 
-  // Cinzel clock + EB Garamond date.
+  // Cinzel clock + EB Garamond date. One timer per minute, set on the minute boundary, and the text is written only
+  // when it changes: the only thing that moves at rest is the time itself, once a minute.
   tick() {
+    if (!this.root) return;
     const now = new Date();
     const t = this.root.querySelector('.cls-time'), d = this.root.querySelector('.cls-date');
-    if (t) t.textContent = now.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
-    if (d) d.textContent = now.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
+    const time = now.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+    const date = now.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
+    if (t && t.textContent !== time) t.textContent = time;
+    if (d && d.textContent !== date) d.textContent = date;
+    const wait = 60000 - (now.getSeconds() * 1000 + now.getMilliseconds()) + 50;
+    clearTimeout(this.clockTimer);
+    this.clockTimer = setTimeout(() => this.tick(), wait);
   },
 
   // Test bench time factor (×3 slow motion).
-  k() {
-    const k = Number(getComputedStyle(this.root).getPropertyValue('--k'));
-    return Number.isFinite(k) && k > 0 ? k : 1;
-  },
+  k() { return timeK(); },             // no getComputedStyle: it forced a style recalculation at every timer
 
   // Busy: keys are queued by input.js and replayed at the end, never lost.
   hold() { if (!this.held) { this.held = true; Input.hold(); } this.busy = true; },
@@ -147,9 +151,14 @@ export default {
 
   // Visual rows from the shared config: Parapet (in dock order), then the categories,
   // then Settings / Lumos. Each list is sliced by COLS so that `rows` is exactly what is displayed.
+  // On the TV, only installed apps are offered in the categories (Platform.installed()); the parapet row keeps its
+  // own entries, an app the TV lacks shown faded (OK explains, its Remembrall removes it). The Passages are the
+  // TV's real HDMI ports, as on the Map. The mock-up (no list) keeps the whole catalog.
   computeRows() {
     const cfg = getConfig();
-    const apps = allApps().filter((a) => !a.hidden);
+    const all = allApps();
+    const ports = this.passageApps(all);
+    const apps = (ports ? [...all.filter((a) => a.cat !== 'passage'), ...ports] : all).filter((a) => !a.hidden);
     const byId = Object.fromEntries(apps.map((a) => [a.id, a]));
     const rows = [];
 
@@ -157,12 +166,26 @@ export default {
     if (dock.length) rows.push(...sliceRows('Parapet', dock.map((app) => ({ kind: 'app', app }))));
 
     for (const [cat, title] of CATEGORIES) {
-      const list = apps.filter((a) => a.cat === cat && !a.onDock);
+      const list = apps.filter((a) => a.cat === cat && !a.onDock && (a.custom || this.isInstalled(a)));
       if (list.length) rows.push(...sliceRows(title, list.map((app) => ({ kind: 'app', app }))));
     }
 
     rows.push({ title: 'Poudlard TV', items: [{ kind: 'settings' }, { kind: 'tv' }, { kind: 'home' }, { kind: 'lumos' }], cont: false, tail: true });
     return rows;
+  },
+
+  // The TV's HDMI ports as apps (id in<port>, the name given on the Map first, else the TV's label), or null in the mock-up.
+  passageApps(all) {
+    const list = Platform.inputs();
+    if (!list) return null;
+    const cfg = getConfig();
+    const named = cfg.passages || {};
+    return list.map((p) => {
+      const id = `in${p.port}`;
+      const base = all.find((a) => a.id === id) || {};
+      return { ...base, id, name: named[id] ? named[id].name : p.label, cat: 'passage', input: p.id, port: p.port, connected: p.connected,
+        onDock: cfg.dock.includes(id), hidden: cfg.hidden.includes(id) };
+    });
   },
 
   // Renders (or re-renders) every row. Names come from the CATALOG: textContent everywhere.
@@ -239,7 +262,7 @@ export default {
     name.className = 'cls-name';
     name.textContent = app.name;
     el.append(plate, name);
-    if (!this.isInstalled(app)) el.classList.add('is-absent');
+    if (!this.isInstalled(app) || app.connected === false) el.classList.add('is-absent');   // not on the TV, or nothing plugged in
     return el;
   },
 
@@ -283,7 +306,8 @@ export default {
     banner.querySelector('.cls-banner-text').textContent = text;
     banner.classList.add('is-in');
     clearTimeout(this.sayTimer);
-    this.sayTimer = setTimeout(() => { if (!this.busy && banner.isConnected) banner.classList.remove('is-in'); }, 2600 * this.k());
+    // Reading time grows with the sentence: 2.6 s at least, 9 s at most.
+    this.sayTimer = setTimeout(() => { if (!this.busy && banner.isConnected) banner.classList.remove('is-in'); }, Math.min(9000, Math.max(2600, 1200 + String(text).length * 55)) * this.k());
     this.timers.push(this.sayTimer);
   },
 
@@ -295,7 +319,7 @@ export default {
     if (!choice) return;
     const r = Platform.openSystem(choice);
     if (r.status === 'simulated') this.say(TV_ONLY);
-    else if (r.status === 'failed') this.say(r.error);
+    else if (r.status === 'failed') this.msg = beuglante(this.root, { message: r.error });   // the TV's own sentence, whole
   },
 
   // The "Touche Home" tile: who answers the Home key (Platform.setHome, hints from settings.js).
@@ -304,7 +328,7 @@ export default {
     if (!rappeltout || this.busy) return;
     const mode = Platform.homeMode();
     if (mode === 'simulated') { this.say(HOME_NOTE_MOCK); return; }
-    const choice = await this.ask(rappeltout, it, 'Touche Home', HOME_MODES.map(([id, label]) => ({ id, label: (mode === id ? '● ' : '') + label })));
+    const choice = await this.ask(rappeltout, it, 'Touche Home', HOME_MODES.map(([id, label]) => ({ id, label: mode === id ? `${label} · actuel` : label })));   // no ● glyph: the fonts lack it
     if (!choice) return;
     const r = Platform.setHome(choice);
     if (r.status === 'failed') { this.msg = beuglante(this.root, { message: r.error }); return; }
@@ -428,6 +452,8 @@ export default {
     if (this.r === 0) off = 0;
     off = Math.min(Math.max(0, off), maxOff);
     this._off = off;
+    // A row that has slid partly above the window fades out: never half a tile under the date.
+    this.rows.forEach((rw) => { if (rw.el) rw.el.classList.toggle('is-out', rw.el.offsetTop < off - 2); });
     if (instant) host.style.transition = 'none';
     host.style.transform = `translateY(${-off}px)`;
     if (instant) { void host.offsetWidth; host.style.transition = ''; }
@@ -456,9 +482,9 @@ export default {
 
   // OK on an app: if the TV says it is no longer installed, a Howler (Beuglante); otherwise Platform.launch.
   // During the banner, keys are queued (Input.hold) and replayed afterwards.
+  // An app the TV lacks goes through Platform.launch too: its refusal carries the TV's precise sentence.
   launch(app) {
     if (!app) return;
-    if (!this.isInstalled(app)) { this.complain(app); return; }
     this.hold();
     updateConfig({ lastApp: app.id });
     const r = Platform.launch(app);
@@ -475,18 +501,6 @@ export default {
     // On the TV, the app takes the screen; in the mockup, the banner withdraws on its own after 1.2 s.
     const k = this.k();
     this.timers.push(setTimeout(() => { banner.classList.remove('is-in'); this.release(); }, (r.status === 'bridge' ? BRIDGE_MS : BANNER_MS) * k));
-  },
-
-  // Howler "X n'est plus installé." (X is no longer installed) with at most one action: unpin from the parapet (or hide if it is not on it).
-  complain(app) {
-    const onDock = getConfig().dock.includes(app.id);
-    this.msg = beuglante(this.root, {
-      message: `${app.name} n'est plus installé.`,
-      action: {
-        label: onDock ? 'Retirer du parapet' : 'Masquer',
-        onChoose: () => { if (onDock) this.undock(app); else this.hide(app); },
-      },
-    });
   },
 
   undock(app) { updateConfig({ dock: getConfig().dock.filter((id) => id !== app.id) }); this.rebuild(); },
@@ -534,7 +548,7 @@ export default {
     else if (choice === 'pin') this.pin(app);
     else if (choice === 'hide') this.hide(app);
     else if (choice === 'remove' && app.custom) { removeCustomApp(app.id); this.rebuild(); }
-    else if (choice === 'appinfo') { const r = Platform.openSystem('appinfo', app.pkg); if (r.status === 'failed') this.say(r.error); }
+    else if (choice === 'appinfo') { const r = Platform.openSystem('appinfo', app.pkg); if (r.status === 'failed') this.msg = beuglante(this.root, { message: r.error }); }
   },
 
   // Relight Hogwarts: the preference is persisted, then the home screen replays the Lumos boot.

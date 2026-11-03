@@ -4,8 +4,13 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Poudlard TV</title>
-<!-- Entry page on the TV: the stage alone, full screen, without the test bench.
-     Fonts: OFL files placed in assets/fonts/ (see docs/INSTALLATION.md); without them, system fonts. -->
+<!-- Entry page on the TV: the stage alone, full screen, without the test bench. -->
+<!-- Fonts embedded in assets/fonts/ (OFL): no request leaves the page. The four faces of the first screen are
+     preloaded so the first frame is drawn in them. -->
+<link rel="preload" href="assets/fonts/cinzel-latin.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="assets/fonts/cinzel-decorative-700-latin.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="assets/fonts/eb-garamond-latin.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="assets/fonts/im-fell-english-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="css/fonts.css">
 <link rel="stylesheet" href="css/base.css">
 <link rel="stylesheet" href="css/shared.css">

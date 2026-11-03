@@ -41,13 +41,37 @@ export function crestSvg(id, cls = 'crest') {
   return `<svg class="${cls}" viewBox="${VIEWBOX}" aria-hidden="true">${HELM}<path class="mantle" d="${MANTLE_L}"/><path class="mantle" d="${MANTLE_R}"/><path class="rim" d="${SHIELD}"/><path class="rim inner" d="${SHIELD_INNER}"/><g class="beast">${BEASTS[id] || ''}</g>${BANNER}<text class="banner-text" x="32" y="69.6" text-anchor="middle" font-size="${size}">${name}</text></svg>`;
 }
 
-// The official crests, when present: app/assets/crest-<house>.webp, cut out from the reference image and kept out
-// of the public repository (same rule as the app logos, see .gitignore). mountCrest() puts the picture in `host`
-// and falls back to the drawn achievement above if the file is missing, so the public tree still shows a crest.
+// The crest pictures: app/assets/crest-<house>.webp (versioned at the maintainer's request, see DISCLAIMER.md).
+// mountCrest() puts the picture in `host` (replacing what `host` held) and, if the file is missing or cannot be
+// decoded, swaps THAT picture alone for the drawn achievement above: whatever the caller appended after it (the
+// house name on the Letter, for instance) stays in place. `decoding="async"`: the picture is decoded off the main
+// thread, the screen never waits for it.
 const CREST_FILE = { gryffondor: 'gryffondor', serpentard: 'serpentard', poufsouffle: 'poufsouffle', serdaigle: 'serdaigle' };
+// Three pictures keep an opaque band from their cut-out on one edge (Hufflepuff: the top 12 px of 684; Ravenclaw and
+// Slytherin: the left 3 to 5 px), drawn as a thin line beside the crest. Once the picture is loaded, a static
+// clip-path trims that edge (as a fraction of the picture, placed where object-fit draws it inside the img box): no
+// animation, no repaint. The crest itself starts well inside (14 % and more from those edges).
+const CREST_EDGE = { poufsouffle: { top: 0.03 }, serdaigle: { left: 0.03 }, serpentard: { left: 0.03 } };
+function trimEdge(img, edge) {
+  const bw = img.clientWidth, bh = img.clientHeight, nw = img.naturalWidth, nh = img.naturalHeight;
+  if (!bw || !bh || !nw || !nh) return;
+  const fit = getComputedStyle(img).objectFit;
+  const s = (fit === 'contain' || fit === 'scale-down') ? Math.min(bw / nw, bh / nh, fit === 'scale-down' ? 1 : Infinity) : null;
+  const dw = s ? nw * s : bw, dh = s ? nh * s : bh;                    // the drawn picture (centred: object-position 50% 50%)
+  const top = ((bh - dh) / 2 + (edge.top || 0) * dh) / bh * 100;
+  const left = ((bw - dw) / 2 + (edge.left || 0) * dw) / bw * 100;
+  img.style.clipPath = `inset(${top.toFixed(2)}% 0 0 ${left.toFixed(2)}%)`;
+}
 export function mountCrest(host, id, cls) {
   const file = CREST_FILE[id];
   if (!file) { host.innerHTML = crestSvg(id, cls); return; }
-  host.innerHTML = `<img class="${cls} is-img" src="assets/crest-${file}.webp" alt="" draggable="false">`;
-  host.firstElementChild.onerror = () => { host.innerHTML = crestSvg(id, cls); };
+  host.innerHTML = `<img class="${cls} is-img" src="assets/crest-${file}.webp" alt="" draggable="false" decoding="async">`;
+  const img = host.firstElementChild;
+  if (CREST_EDGE[id]) img.onload = () => { if (img.isConnected) trimEdge(img, CREST_EDGE[id]); };
+  img.onerror = () => {
+    if (!img.isConnected) return;
+    const tpl = document.createElement('template');
+    tpl.innerHTML = crestSvg(id, cls);
+    img.replaceWith(tpl.content.firstElementChild);
+  };
 }

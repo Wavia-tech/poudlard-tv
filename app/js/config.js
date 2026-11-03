@@ -10,6 +10,9 @@ export const HOUSES = {
 };
 
 // Catalog: stable id, display name, category, Android package (for the real launcher), deep-link scheme when known.
+// Ids are stable (stored configs and their migration rely on them): fix a package, never rename an id.
+// Packages checked on an Android TV 11 set (November 2026): Netflix, YouTube and Prime Video are system apps there;
+// France.tv, Arte, TF1+, M6+, Molotov and Disney+ are the usual French installs. Platform.has(app) says which are present.
 // `input`: HDMI input for Passages (consoles, set-top boxes); the real launcher reads it through TvInputManager.
 // Passages are `in<port>`: on the TV the Map lists the real ports (Platform.inputs()) under the same ids, and
 // `config.passages[id].name` holds the name the person gave a port. The mock-up shows four generic consoles.
@@ -23,9 +26,10 @@ export const CATALOG = [
   { id: 'paramount', name: 'Paramount+', cat: 'video', pkg: 'com.cbs.ott' },
   { id: 'youtube', name: 'YouTube', cat: 'video', pkg: 'com.google.android.youtube.tv' },
   { id: 'francetv', name: 'france.tv', cat: 'video', pkg: 'fr.francetv.pluzz' },
-  { id: 'tf1', name: 'TF1+', cat: 'video', pkg: 'fr.tf1.player' },
+  { id: 'tf1', name: 'TF1+', cat: 'video', pkg: 'fr.tf1.mytf1' },
   { id: 'm6', name: 'M6+', cat: 'video', pkg: 'fr.m6.m6replay' },
   { id: 'arte', name: 'Arte', cat: 'video', pkg: 'tv.arte.plus7' },
+  { id: 'molotov', name: 'Molotov', cat: 'video', pkg: 'tv.molotov.app' },
   { id: 'crunchyroll', name: 'Crunchyroll', cat: 'video', pkg: 'com.crunchyroll.crunchyroid' },
   { id: 'dazn', name: 'DAZN', cat: 'video', pkg: 'com.dazn' },
   { id: 'twitch', name: 'Twitch', cat: 'autres', pkg: 'tv.twitch.android.app' },
@@ -52,9 +56,10 @@ export const LIBRARY = [
   {
     // `url`: the film's page on Max (links supplied by the owner). Only the hosts in URL_HOSTS are accepted by platform.js.
     id: 'hp', title: 'Harry Potter', background: 'library',
-    scene: { image: 'assets/ollivanders.webp', w: 1024, h: 576, boxes: [
-      [[222, 178], [292, 178], [270, 508], [180, 508]], [[300, 178], [373, 178], [350, 508], [272, 508]], [[382, 178], [450, 178], [432, 508], [355, 508]], [[460, 178], [530, 178], [520, 508], [440, 508]],
-      [[540, 178], [608, 178], [615, 508], [540, 508]], [[620, 178], [690, 178], [705, 508], [630, 508]], [[700, 178], [770, 178], [800, 508], [718, 508]], [[780, 178], [850, 178], [895, 508], [810, 508]],
+    scene: { image: 'assets/ollivanders.webp', w: 1920, h: 1080, boxes: [
+      // Traced on the image's wood frames, base included (outline drawn in gold on the chosen box: keep them exact).
+      [[412, 326], [553, 326], [484, 982], [341, 982]], [[566, 326], [698, 326], [656, 982], [506, 982]], [[716, 326], [848, 326], [816, 982], [666, 982]], [[866, 326], [998, 326], [990, 982], [844, 982]],
+      [[1016, 326], [1148, 326], [1166, 982], [1016, 982]], [[1162, 326], [1298, 326], [1341, 982], [1191, 982]], [[1312, 326], [1453, 326], [1513, 982], [1356, 982]], [[1466, 326], [1599, 326], [1682, 982], [1524, 982]],
     ] },
     items: [
       { n: 1, title: "À l'école des sorciers", year: 2001, symbol: 'stone', color: '#7a2328', app: 'max', content: 'hp1', url: "https://www.max.com/fr/fr/search?q=Harry+Potter+à+l'école+des+sorciers", urls: { max: "https://www.max.com/fr/fr/search?q=Harry+Potter+à+l'école+des+sorciers", canal: 'https://www.canalplus.com/cinema/harry-potter-a-l-ecole-des-sorciers/h/40438941_50889' } },
@@ -69,14 +74,17 @@ export const LIBRARY = [
   },
   {
     id: 'fb', title: 'Les Animaux fantastiques', background: 'newyork',   // `urls`: Max, Netflix (FR catalogue) and Canal+ pages, one link per app
-    scene: { image: 'assets/beasts.webp', w: 1024, h: 576, boxes: [
-      [[45, 262], [345, 262], [345, 500], [45, 500]], [[368, 252], [662, 252], [662, 500], [368, 500]], [[682, 262], [978, 262], [978, 506], [682, 506]],
+    scene: { image: 'assets/beasts.webp', w: 1920, h: 1080, boxes: [
+      // Each suitcase with its handle, plus an 11 px margin: a vitrine's frame around it, never across the leather.
+      [[75, 461], [671, 461], [671, 949], [75, 949]], [[694, 463], [1251, 463], [1251, 941], [694, 941]], [[1273, 469], [1849, 469], [1849, 952], [1273, 952]],
     ] },
     items: [
-      // French catalogue (November 2026): the first two films are on Max, only the third is on Netflix France.
+      // French catalogue (November 2026): the first two films are on Max, only the third is on Netflix France, so the
+      // first two carry no Netflix link. Never list an app whose catalogue lacks the film: ollivanders.js treats every
+      // key of `urls` as an app that can open it, and the caption would send the viewer to a missing title.
       // `urls`: one link per app, so the Remembrall can switch ("Ouvrir avec Netflix" / "… Max").
-      { n: 1, title: 'Les Animaux fantastiques', year: 2016, symbol: 'suitcase', color: '#1d3b4a', app: 'max', content: 'fb1', url: 'https://www.max.com/fr/fr/search?q=Les+Animaux+fantastiques', urls: { max: 'https://www.max.com/fr/fr/search?q=Les+Animaux+fantastiques', netflix: 'https://www.netflix.com/title/80111501' , canal: 'https://www.canalplus.com/cinema/les-animaux-fantastiques/h/40442388_50889' } },
-      { n: 2, title: 'Les Crimes de Grindelwald', year: 2018, symbol: 'skull', color: '#2a2a2a', app: 'max', content: 'fb2', url: 'https://www.max.com/fr/fr/search?q=Les+Crimes+de+Grindelwald', urls: { max: 'https://www.max.com/fr/fr/search?q=Les+Crimes+de+Grindelwald', netflix: 'https://www.netflix.com/title/80997275' , canal: 'https://www.canalplus.com/cinema/les-animaux-fantastiques-les-crimes-de-grindelwald/h/40439354_50889' } },
+      { n: 1, title: 'Les Animaux fantastiques', year: 2016, symbol: 'suitcase', color: '#1d3b4a', app: 'max', content: 'fb1', url: 'https://www.max.com/fr/fr/search?q=Les+Animaux+fantastiques', urls: { max: 'https://www.max.com/fr/fr/search?q=Les+Animaux+fantastiques', canal: 'https://www.canalplus.com/cinema/les-animaux-fantastiques/h/40442388_50889' } },
+      { n: 2, title: 'Les Crimes de Grindelwald', year: 2018, symbol: 'skull', color: '#2a2a2a', app: 'max', content: 'fb2', url: 'https://www.max.com/fr/fr/search?q=Les+Crimes+de+Grindelwald', urls: { max: 'https://www.max.com/fr/fr/search?q=Les+Crimes+de+Grindelwald', canal: 'https://www.canalplus.com/cinema/les-animaux-fantastiques-les-crimes-de-grindelwald/h/40439354_50889' } },
       { n: 3, title: 'Les Secrets de Dumbledore', year: 2022, symbol: 'phoenix', color: '#3d2f1a', app: 'netflix', content: 'fb3', url: 'https://www.netflix.com/title/81516447', urls: { netflix: 'https://www.netflix.com/title/81516447', max: 'https://www.max.com/fr/fr/search?q=Les+Secrets+de+Dumbledore' , canal: 'https://www.canalplus.com/cinema/les-animaux-fantastiques-les-secrets-de-dumbledore/h/41125749_50889' } },
     ],
   },
@@ -86,7 +94,9 @@ export const DEFAULT_CONFIG = Object.freeze({
   version: 4,
   mode: 'poudlard',             // 'poudlard' | 'classique'
   house: null,                  // null until the Admission Letter has been completed
-  dock: ['netflix', 'prime', 'disney', 'canal', 'max', 'appletv', 'youtube', 'in1'],   // order = display order, 8 max
+  // Order = display order, 8 max. Canal+, Max and Apple TV are often absent from a TV: the Admission Letter keeps
+  // only the installed ones (Platform.has) when it builds the Parapet; this default is the mock-up's showcase.
+  dock: ['netflix', 'prime', 'disney', 'canal', 'max', 'appletv', 'youtube', 'in1'],
   passages: {},                 // names given to HDMI ports: { in2: { name: 'Salon' } }
   hidden: [],                   // apps hidden from the Map (never lost: they can be shown again)
   owl: 'vive',                  // 'vive' | 'calme' | 'absente'

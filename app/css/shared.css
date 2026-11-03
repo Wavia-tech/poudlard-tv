@@ -3,7 +3,9 @@
 /* App logo: ivory engraved in relief at rest, embossed gold in focus (is-focus class on an ancestor, or .lit on the logo).
    Five layers masked by the same SVG (--m). No filter, no blur: the relief comes from the offsets.
    The gold is a cross-fade, not a switch: a gradient cannot transition, so it sits on the base layer's ::after
-   (inside the same mask) and only its opacity moves, on the focus breath (--t-focus, --ease-breath). */
+   (inside the same mask) and only its opacity moves, on the focus breath (--t-focus, --ease-breath).
+   The shine and the molten gold move a gradient by transform (a pseudo-element wider / taller than the logo, clipped
+   by the mask), never by background-position: compositor only, no repaint per frame. */
 .app-logo { --m: none; position: relative; width: 100%; height: 100%; }
 .app-logo i { position: absolute; inset: 0; -webkit-mask: var(--m) center / contain no-repeat; mask: var(--m) center / contain no-repeat;
   transition: opacity calc(var(--k) * var(--t-focus)) var(--ease-breath), transform calc(var(--k) * var(--t-focus)) var(--ease-breath), background-color calc(var(--k) * var(--t-focus)) var(--ease-breath); }
@@ -14,18 +16,23 @@
 .app-logo .l-base { background: var(--ivory); opacity: .72; }
 .app-logo .l-base::after { content: ""; position: absolute; inset: 0; opacity: 0; transition: opacity calc(var(--k) * var(--t-focus)) var(--ease-breath);
   background: linear-gradient(165deg, #FFF6CF 0%, #F3D27A 22%, #C08F35 46%, #F6DD8F 62%, #A26F24 82%, #F1CF7C 100%); }
-.app-logo .l-shine { opacity: 0; background: linear-gradient(105deg, transparent 38%, #FFF8E07a 50%, transparent 62%); background-size: 260% 100%; background-position: 160% 0; }
+.app-logo .l-shine { opacity: 0; overflow: hidden; }
+.app-logo .l-shine::before { content: ""; position: absolute; top: 0; bottom: 0; left: 0; width: 260%; transform: translateX(-98.5%);
+  background: linear-gradient(105deg, transparent 38%, #FFF8E07a 50%, transparent 62%); }
 .is-focus .app-logo .l-ext, .app-logo.lit .l-ext { opacity: 1; }
 .is-focus .app-logo .l-rimL, .app-logo.lit .l-rimL { opacity: .9; transform: translateY(-.08cqw); }
 .is-focus .app-logo .l-rimD, .app-logo.lit .l-rimD { opacity: .7; transform: translateY(.1cqw); }
 .is-focus .app-logo .l-base, .app-logo.lit .l-base { opacity: 1; }
 .is-focus .app-logo .l-base::after, .app-logo.lit .l-base::after { opacity: 1; }
 /* The shine: one slow pass, a breath after the gold has risen. */
-.is-focus .app-logo .l-shine, .app-logo.lit .l-shine { opacity: 1; animation: logo-shine calc(var(--k) * 1200ms) cubic-bezier(.4, 0, .3, 1) calc(var(--k) * 120ms) 1 forwards; }
-@keyframes logo-shine { from { background-position: 160% 0; } to { background-position: -60% 0; } }
-/* Molten gold (Lumos): the gradient flows from top to bottom, unhurried. */
-.app-logo.molten .l-base::after { background-size: 100% 300%; animation: logo-molten calc(var(--k) * 700ms) cubic-bezier(.4, 0, .3, 1) forwards; }
-@keyframes logo-molten { from { background-position: 0 0; } to { background-position: 0 100%; } }
+.is-focus .app-logo .l-shine, .app-logo.lit .l-shine { opacity: 1; }
+.is-focus .app-logo .l-shine::before, .app-logo.lit .l-shine::before { animation: logo-shine calc(var(--k) * 1200ms) cubic-bezier(.4, 0, .3, 1) calc(var(--k) * 120ms) 1 forwards; }
+@keyframes logo-shine { from { transform: translateX(-98.5%); } to { transform: translateX(36.9%); } }
+/* Molten gold (Lumos): the gradient flows from top to bottom, unhurried (the ::after grows to three logo heights and
+   slides up by two of them: the same picture as a background-size of 300 % moving to 100 %). */
+.app-logo .l-base { overflow: hidden; }
+.app-logo.molten .l-base::after { bottom: auto; height: 300%; animation: logo-molten calc(var(--k) * 700ms) cubic-bezier(.4, 0, .3, 1) forwards; }
+@keyframes logo-molten { from { transform: translateY(0); } to { transform: translateY(-66.667%); } }
 
 /* Text engraved in gold / in stone. */
 .engraved { font-family: var(--display); font-weight: 600; letter-spacing: var(--track-wide); text-transform: uppercase; color: var(--gold-light);
@@ -53,13 +60,7 @@
 .keyhint b { font-weight: 600; color: var(--gold); margin-right: .5cqw; }
 .keyhint.hidden { opacity: 0; }
 
-/* Film grain: a noise tile moved in steps, zero cost. Placed on the stage by main.js. The tile is centred on the
-   Night (#070B14 ± 12) so plain blending at .07 reads like the old overlay: no blend mode, no extra compositing. */
-.film-grain { position: absolute; inset: -10%; pointer-events: none; z-index: 60; opacity: .022;
-  background-repeat: repeat; animation: grain-step 1s steps(4) infinite; }
-@keyframes grain-step { 0% { transform: translate(0, 0); } 25% { transform: translate(-3%, 2%); } 50% { transform: translate(2%, -3%); } 75% { transform: translate(-1%, -2%); } 100% { transform: translate(3%, 1%); } }
-html[data-motion="economie"] .film-grain { display: none; }
-
-/* Quill writing, shared: a line reveals itself left to right (the boot clock, the settings' lines). */
+/* Quill writing, shared: a line appears as if just written (the boot clock). Opacity and a short slide only: a
+   clip-path reveal would repaint every frame. */
 .write-in { animation: write-in calc(var(--k) * 420ms) cubic-bezier(.2, .7, .2, 1) both; }
-@keyframes write-in { from { clip-path: inset(0 100% 0 0); opacity: .4; } to { clip-path: inset(0 0 0 0); opacity: 1; } }
+@keyframes write-in { from { opacity: 0; transform: translateX(-.6cqw); } to { opacity: 1; transform: none; } }

@@ -9,9 +9,16 @@
 //   2. the opening: the melody starts on the downbeat with a stepwise rise B C D E
 //      (no B → E pickup, the ascending fourth in anacrusis that opens the films' theme);
 //   3. the forbidden cells, in absolute pitches AND at every transposition, in the sequence of consecutive
-//      intervals: E–G–F#–E (+3 −1 −2), B–A–F# preceded by a fifth (+7 −2 −3), and the +5 +3 −1 variant.
+//      intervals: E–G–F#–E (+3 −1 −2), B–A–F# preceded by a fifth (+7 −2 −3), and the +5 +3 −1 variant;
+//   4. the background music file: app/assets/music/ambiance.ogg present and under 3 MB, no other ambiance.* left,
+//      probed first, probed with preload 'metadata', and never decoded whole (no decodeAudioData in sound.js);
+//   5. the levels (round 4, "the music is too low against the effects"): the music's gain chain (MASTER_DB + FILE_DB)
+//      is no lower than −16 dB and never above 0, the cues' CUE_PEAK_DB is no higher than −30, and, when ffmpeg is on
+//      the PATH, the file's first 12 s are no more than 6 dB quieter (RMS) than the whole file (the previous file
+//      opened 15 dB under its body, which is what the owner heard first). Without ffmpeg that last check is skipped.
 // Everything is re-readable: the melody is written note by note in sound.js.
-import { readFileSync } from 'node:fs';
+import { readFileSync, statSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -71,6 +78,46 @@ for (const cell of ABS) {
   }
 }
 
+// ---- 4. the background music file (round 4: the 28 MB mp3 became a ≈ 2.8 MB Ogg Opus) ------------------------
+// The file is shipped in the APK: it must stay small, it must be the first format probed, the probe must read the
+// header only, and the music must be streamed by an <audio> (a decoded 9-minute buffer would weigh ≈ 200 MB).
+const musicDir = resolve(here, '..', 'app', 'assets', 'music');
+const ogg = resolve(musicDir, 'ambiance.ogg');
+let oggSize = -1;
+try { oggSize = statSync(ogg).size; } catch (e) { /* missing */ }
+check(oggSize > 0, `app/assets/music/ambiance.ogg is missing`);
+check(oggSize < 3_000_000, `ambiance.ogg weighs ${oggSize} bytes, the budget is 3 MB`);
+const filesBlock = text.slice(text.indexOf('const MUSIC_FILES = ['), text.indexOf('];', text.indexOf('const MUSIC_FILES = [')));
+check(/^\s*\{\s*src:\s*'assets\/music\/ambiance\.ogg'/m.test(filesBlock.split('\n')[1] || ''), 'MUSIC_FILES must probe assets/music/ambiance.ogg first');
+check(text.includes("el.preload = 'metadata'"), "the probe must use preload = 'metadata' (never download the whole file to probe it)");
+check(!/decodeAudioData\s*\(/.test(text), 'decodeAudioData is forbidden in sound.js: the music is streamed by an <audio> element');
+for (const big of ['ambiance.mp3', 'ambiance.m4a', 'ambiance.wav', 'ambiance.flac']) {
+  let sz = -1; try { sz = statSync(resolve(musicDir, big)).size; } catch (e) { /* absent: good */ }
+  check(sz < 0, `app/assets/music/${big} is still there (${sz} bytes): only ambiance.ogg is shipped`);
+}
+
+// ---- 5. levels ------------------------------------------------------------------------------------------------
+const dbConst = (name) => { const m = text.match(new RegExp('^const ' + name + ' = (-?[0-9]+(?:[.][0-9]+)?);', 'm')); return m ? Number(m[1]) : NaN; };
+const masterDb = dbConst('MASTER_DB'), fileDb = dbConst('FILE_DB'), cueDb = dbConst('CUE_PEAK_DB');
+check(Number.isFinite(masterDb) && Number.isFinite(fileDb) && Number.isFinite(cueDb), 'MASTER_DB, FILE_DB and CUE_PEAK_DB must be plain numeric constants in sound.js');
+check(masterDb + fileDb >= -16, `music gain chain MASTER_DB + FILE_DB = ${masterDb + fileDb} dB: below −16 dB the music sits far under TV level again`);
+check(masterDb + fileDb <= 0, `music gain chain MASTER_DB + FILE_DB = ${masterDb + fileDb} dB: above 0 dB the file would clip`);
+check(cueDb <= -30, `CUE_PEAK_DB = ${cueDb}: above −30 dBFS the cues jump out over the music`);
+let opening = 'skipped (no ffmpeg on the PATH)';
+const rmsOf = (args) => {
+  const r = spawnSync('ffmpeg', ['-hide_banner', '-nostats', ...args, '-i', ogg, '-af', 'astats=measure_perchannel=none', '-f', 'null', '-'], { encoding: 'utf8' });
+  if (r.error || r.status !== 0) return null;
+  const m = (r.stderr || '').match(/RMS level dB:\s*(-?[\d.]+)/g);
+  return m ? Number(m[m.length - 1].split(':')[1]) : null;
+};
+if (oggSize > 0) {
+  const head = rmsOf(['-t', '12']), whole = rmsOf([]);
+  if (head !== null && whole !== null) {
+    opening = `first 12 s ${head.toFixed(1)} dBFS RMS, whole file ${whole.toFixed(1)} dBFS RMS`;
+    check(head >= whole - 6, `ambiance.ogg opens ${(whole - head).toFixed(1)} dB under its own average (${opening}): level its opening`);
+  }
+}
+
 // ---- summary -------------------------------------------------------------------------------------------------
 console.log(`${notes.length} notes, ${totalBeats} beats, ${intervals.length} intervals analyzed (${soundPath})`);
 if (failures.length) {
@@ -78,3 +125,5 @@ if (failures.length) {
   process.exit(1);
 }
 console.log('OK: no quotation of the films\' theme, 24 × 3/4 structure respected.');
+console.log(`OK: ambiance.ogg ${(oggSize / 1e6).toFixed(2)} MB, probed first with preload 'metadata', streamed.`);
+console.log(`OK: levels MASTER_DB ${masterDb}, FILE_DB ${fileDb}, CUE_PEAK_DB ${cueDb}; opening: ${opening}.`);

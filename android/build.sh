@@ -58,23 +58,39 @@ rm -rf "$OUT/assets"
 mkdir -p "$OUT/assets/web" "$OUT/gen" "$OUT/classes" "$OUT/res"
 [ -f "$WEB_SRC/index.html" ] || { echo "Mock-up not found: $WEB_SRC/index.html" >&2; exit 1; }
 DEST="$(pwd)/$OUT/assets/web"
-( cd "$WEB_SRC" && find . -type f ! -name '*.md' ! -name 'artifact.html' ! -name '.DS_Store' ! -name '.gitkeep' \
-    ! -path '*/node_modules/*' -print0 \
+# Left out: documentation (*.md), the claude.ai artifact page (artifact.html), the example logos (logos.example.js,
+# never loaded by the page), tools and scripts (tools/, *.py, *.ps1, *.sh, __pycache__), editor and OS litter.
+( cd "$WEB_SRC" && find . -type f ! -name '*.md' ! -name 'artifact.html' ! -name 'logos.example.js' \
+    ! -name '.DS_Store' ! -name 'Thumbs.db' ! -name '.gitkeep' ! -name '*.py' ! -name '*.pyc' ! -name '*.ps1' ! -name '*.sh' \
+    ! -path './tools/*' ! -path '*/__pycache__/*' ! -path '*/node_modules/*' ! -path '*/.git/*' -print0 \
   | while IFS= read -r -d '' f; do mkdir -p "$DEST/$(dirname "$f")"; cp "$f" "$DEST/$f"; done )
-echo "web        : $(find "$OUT/assets/web" -type f | wc -l | tr -d ' ') files copied"
-# Private files (outside the repo, see ../.gitignore): they go into the APK if they are there. We say so, so that an APK
-# meant for other people is built from a clean clone (logos.example.js, no music).
-PRIVATE=""
-[ -f "$WEB_SRC/assets/logos.js" ] && ! cmp -s "$WEB_SRC/assets/logos.js" "$WEB_SRC/assets/logos.example.js" && PRIVATE="$PRIVATE logos.js"
-[ -n "$(find "$WEB_SRC/assets/music" -type f ! -name '*.md' ! -name '.gitkeep' 2>/dev/null)" ] && PRIVATE="$PRIVATE music/"
-ls "$WEB_SRC"/assets/crest-*.webp >/dev/null 2>&1 && PRIVATE="$PRIVATE crest-*.webp"
-if [ -n "$PRIVATE" ]; then
-  echo "WARNING: private files embedded in the APK:$PRIVATE (personal use; do not distribute this APK)." >&2
-fi
-# Fonts: if app/assets/fonts/ exists, they are shipped too (CSS @font-face to be added in base.css). Otherwise the page
-# requests fonts.googleapis.com, which the APK (no INTERNET) cleanly refuses: fallback to system fonts.
+echo "web        : $(find "$OUT/assets/web" -type f | wc -l | tr -d ' ') files copied ($(du -sh "$OUT/assets/web" | cut -f1))"
+LEAK="$(cd "$OUT/assets/web" && find . -type f \( -name '*.md' -o -name 'artifact.html' -o -path './tools/*' -o -name '*.py' -o -name '*.ps1' \) | head -5)"
+[ -z "$LEAK" ] || { echo "Working files in assets/web, the copy filter is broken: $LEAK" >&2; exit 1; }
+# The tracked logos, house crests and background music go into the APK on purpose (maintainer's decision, see
+# DISCLAIMER): we just list them, so the size of the APK is never a surprise.
+NOTE=""
+[ -f "$OUT/assets/web/assets/logos.js" ] && NOTE="$NOTE logos.js"
+ls "$OUT"/assets/web/assets/crest-*.webp >/dev/null 2>&1 && NOTE="$NOTE crest-*.webp"
+MUSIC="$(find "$OUT/assets/web/assets/music" -type f 2>/dev/null | head -1)"
+[ -n "$MUSIC" ] && NOTE="$NOTE music/ ($(du -sh "$OUT/assets/web/assets/music" | cut -f1))"
+[ -n "$NOTE" ] && echo "embedded   :$NOTE"
+# Fonts: app/assets/fonts/ is shipped with the rest. Without it the page asks fonts.googleapis.com, which the WebView
+# refuses (no INTERNET, setBlockNetworkLoads): the TV then shows its system fonts.
 if [ ! -d "$WEB_SRC/assets/fonts" ]; then
   echo "WARNING: no embedded fonts (app/assets/fonts/); the TV will display its system fonts." >&2
+fi
+
+# ---------------------------------------------------------------- 1b. check: installing never takes the Home key
+# Exactly one HOME component, the .Home activity-alias, and it is android:enabled="false" (HomeMode enables it at
+# runtime when the person asks). HomeActivity itself must have no intent filter.
+HOME_COUNT="$(grep -c 'android.intent.category.HOME"' AndroidManifest.xml || true)"
+# The <queries> block also names HOME (to see the other homes): it does not declare a component.
+HOME_ALIAS="$(awk '/<activity-alias/{blk=""; inb=1} inb{blk=blk $0 "\n"} /<\/activity-alias>/{if (blk ~ /category.HOME"/) print blk; inb=0}' AndroidManifest.xml)"
+if [ "$HOME_COUNT" != 2 ] || ! printf '%s' "$HOME_ALIAS" | grep -q 'android:name=".Home"' \
+   || ! printf '%s' "$HOME_ALIAS" | grep -q 'android:enabled="false"'; then
+  echo "AndroidManifest.xml: the HOME category must appear only in <queries> and in the .Home alias, with android:enabled=\"false\"." >&2
+  exit 1
 fi
 
 # ---------------------------------------------------------------- 2. resources
