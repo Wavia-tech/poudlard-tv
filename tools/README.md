@@ -111,8 +111,66 @@ no letters*. The three selection boxes are measured on the image (`scene.boxes` 
 
 ### The broom rider (`app/assets/rider.webp`)
 
-The Nox fly-by silhouette. Generated locally (Z-Image Turbo, `generate.ps1 -Format paysage -Seed 11`, 1024×576)
-with a generic prompt (*a single clean silhouette of a young wizard flying fast on a broomstick, side view facing
-right, crouched forward, long cape streaming behind, round glasses, one arm reaching forward, broom bristles
-trailing, high contrast, no text*), then cut out by luminance and given a baked golden rim with PIL (no CSS
-filter at runtime). Original drawing: no likeness, no film frame.
+The Nox fly-by rider: Harry on his broom, cut out (rembg u2net, stray alpha removed, bottom edge feathered) from a
+photo supplied by the maintainer, then night-graded with PIL (399×216). He faces left in the picture; the Parapet mirrors
+him in CSS so he flies left to right, with `assets/scene/trail-gold.webp` behind the bristles. Third-party image,
+versioned at the maintainer's request (DISCLAIMER.md).
+
+## Scenery: the Parapet in three planes (`app/assets/scene/`)
+
+The depth effect of the Parapet (three planes sliding a few pixels as the focus moves along the dock) and the
+pictures of the other effects are cut from `app/assets/castle.jpg` itself: no new generation, nothing redrawn, so the
+three planes put back together give the castle exactly as it is (43.5 dB PSNR against `castle.jpg`, the only visible
+loss being the half-resolution clouds). `castle.jpg` stays in place as the fallback. Coordinates, sizes and the
+stacking order are in `app/assets/scene/scene.json`; the windows for the Lumos wave are in
+`app/assets/scene/windows.json`.
+
+| File | Pixels | Decoded | Role |
+|---|---|---|---|
+| `sky.webp` | 992 × 540, opaque | 2.0 MB | Sky, clouds, mountains at half resolution, drawn at 992 × 540 CSS px. Everything the castle and the trees hide is filled. |
+| `sky-detail.webp` | 614 × 508, alpha | 1.2 MB | The moon and the snowy ridges on the right at full resolution, over the half-resolution sky (child of the sky plane). |
+| `castle.webp` | 1984 × 1080, alpha | 8.2 MB | Castle, rock, mist bank, lake, boathouse. Transparent in the sky, with a 10 px soft edge. |
+| `fg-left.webp`, `fg-right.webp` | 692 × 993, 189 × 530, alpha | 2.6 + 0.4 MB | The dark pines and the bare tree on the left, the pines and the snow bank on the right. |
+| `lit-windows.webp` | 1035 × 503, alpha | 2.0 MB | Only the lit windows (94 of them), brighter and a little warmer; transparent elsewhere. Child of the castle plane. |
+| `trail-gold.webp` | 600 × 60, alpha | 0.1 MB | The rider's golden trail, blur baked in, head on the right. |
+| `mist-wake.webp` | 320 × 72, alpha | 0.1 MB | A wisp of mist for the rider's wake. |
+| `logo-shadow.webp` | 256 × 64, alpha | 0.1 MB | Soft dark ellipse under the focused logo (stretch it to the logo width). |
+| `lake-shimmer-a.webp`, `-b.webp` | 720 × 112, alpha | 0.3 MB each | Two states of the window reflections in the lake, for "Ambiance vivante" only. |
+| `lake-mist-tile.webp` | 960 × 130, alpha | 0.5 MB | `mist.png` made seamless left to right, for the one slow mist drift of "Ambiance vivante". |
+
+Everything decoded is about 18 MB (castle.jpg alone is 8 MB); without the "Ambiance vivante" pictures, which only
+load when it is on, about 17 MB.
+
+**Geometry.** Every plane is the screen plus 32 device px (16 CSS px) on each side: 1984 × 1080 px, laid at
+`left: -16px` as 992 × 540 CSS px, so it is drawn 1:1 (never scaled, so never soft) and can slide 16 CSS px either
+way before an edge shows. The margins repeat the texture found a little further inside the picture (a translated
+copy cross-faded from the edge, not a mirror, which reads as a symmetrical blot).
+
+**Stacking, back to front:** sky, sky-detail, castle, lit-windows, (lake-shimmer), fg-left and fg-right. Recommended
+parallax: 1, 3 and 7 CSS px per focus step for sky, castle and foreground, with the foreground held within ±10 CSS px
+(castle ±5, sky ±2). Composites with every plane pushed to its limit (and beyond: castle ±7, foreground ±16) show no
+hole and no doubled edge.
+
+**How the planes were cut** (Python with Pillow, NumPy and SciPy, run with `python -I`):
+
+- *Castle plane*: a hand-drawn outline above the silhouette, kept 10 to 20 px out into the sky around every spire
+  (the automatic segmenters, u2net and isnet, did not see the castle in a night scene); everything below it, down to
+  the lake, belongs to the castle plane. A little sky moves with the castle at its edge, which nobody can see at a 2 or
+  3 px difference, and no spire tip can be cut off.
+- *Foreground*: the trees are the near-black pixels (a 7 px minimum filter under 20 to 30 of luminance) inside a zone
+  at each side, closed and hole-filled; the bare tree on the left is taken as a whole blob with the mist between its
+  branches, so no twig is left behind on the plane behind it.
+- *Filling behind*: the sky under the castle and the trees, and the castle plane under the trees, are filled by
+  pull-push (a pyramid of averages of the known pixels, smooth and seamless). Each soft edge is placed so that,
+  at rest, both planes carry the original pixels under it: the composite is exact.
+- *Lit windows*: warm pixels (R > 92, R − B > 46, G > B), kept only in small compact blobs (windows), which drops the
+  uplit stone of the towers; brightened by a screen (`255 − (255 − c) × 0.40`), blue × 0.70, green × 0.955; alpha is
+  the warmth of the pixel, with no halo around the window.
+- *Trail, wake, shadow*: drawn as numeric gradients (Gaussian profiles, tapering towards the tail), blur in the
+  pixels, so nothing is blurred at runtime.
+- *Lake shimmer*: the reflection streaks of the windows, with each row catching the light differently (a smoothed
+  random field of brightness and sub-pixel shift), in two independent states to cross-fade.
+
+`windows.json` lists every window (box, centre, weight, `t` from 0 for the leftmost to 1 for the rightmost) in
+`castle.jpg` pixels (half that in CSS px), the placement of the layer, and six vertical bands cut in empty columns of
+the layer, for a wave made of a few clipped copies of the same picture.

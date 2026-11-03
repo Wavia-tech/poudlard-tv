@@ -50,7 +50,7 @@ app/
   js/config.js          app catalog, collections, settings, hand-added apps, strict validation of stored data
   js/platform.js        the ONLY door to the outside (launch an app, switch an input, open a title, list installed apps)
   js/input.js           D-pad: actions, long presses, queue during Lumos
-  js/router.js          one screen at a time, fade / up / down / iris transitions
+  js/router.js          one screen at a time, fade / up / down / iris transitions, the dive into a lit window and back (dive / undive)
   js/fx.js              the single scene clock, Lumos, sound cues and background music (through sound.js)
   js/sound.js           celesta synthesized in Web Audio (original cues, fallback waltz) + player for the music file
   js/owl.js             Hedwig: one sprite sheet, poses chosen according to flight progress

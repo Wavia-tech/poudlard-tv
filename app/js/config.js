@@ -91,12 +91,14 @@ export const LIBRARY = [
 ];
 
 export const DEFAULT_CONFIG = Object.freeze({
-  version: 4,
+  version: 5,
   mode: 'poudlard',             // 'poudlard' | 'classique'
   house: null,                  // null until the Admission Letter has been completed
-  // Order = display order, 8 max. Canal+, Max and Apple TV are often absent from a TV: the Admission Letter keeps
-  // only the installed ones (Platform.has) when it builds the Parapet; this default is the mock-up's showcase.
-  dock: ['netflix', 'prime', 'disney', 'canal', 'max', 'appletv', 'youtube', 'in1'],
+  // Order = display order, 8 max. Max and Apple TV are often absent from a TV: the Admission Letter keeps only the
+  // installed ones (Platform.has) when it builds the Parapet; this default is the mock-up's showcase. Canal+ left
+  // it in 0.3 (often not installed). A default only fills a config that has no dock at all (a new install, a reset):
+  // a stored dock is never rewritten, Canal+ stays on the Parapet of whoever already has it.
+  dock: ['netflix', 'prime', 'disney', 'max', 'appletv', 'youtube', 'in1'],
   passages: {},                 // names given to HDMI ports: { in2: { name: 'Salon' } }
   hidden: [],                   // apps hidden from the Map (never lost: they can be shown again)
   owl: 'vive',                  // 'vive' | 'calme' | 'absente'
@@ -104,6 +106,7 @@ export const DEFAULT_CONFIG = Object.freeze({
   music: 'auto',                // background music: 'auto' (personal file if present, otherwise celesta) | 'fichier' (the file) | 'celesta' | 'aucune'
   musicNox: 'pause',            // during Nox (sleep): 'pause' the music | 'continue' it
   motion: 'auto',               // 'auto' | 'reduit' | 'economie'
+  ambiance: 'calme',            // the Parapet at rest: 'calme' (nothing moves) | 'vivante' (one slow mist drift and the window reflections shimmering on the lake; off whenever isReduced())
   sky: 'auto',                  // the Parapet's sky: 'auto' (dusk, night, deep night, dawn by the hour) | 'nuit' (always a clear night)
   motionSystem: 'follow',       // 'follow' the system's reduced-motion flag | 'ignore' it
   text: 'normal',               // 'normal' | 'grand' (every type token × 1.25)
@@ -155,6 +158,7 @@ export function sanitize(raw) {
   if (['auto', 'fichier', 'celesta', 'aucune'].includes(raw.music)) c.music = raw.music;
   if (['pause', 'continue'].includes(raw.musicNox)) c.musicNox = raw.musicNox;
   if (['auto', 'reduit', 'economie'].includes(raw.motion)) c.motion = raw.motion;
+  if (['calme', 'vivante'].includes(raw.ambiance)) c.ambiance = raw.ambiance;
   if (['auto', 'nuit'].includes(raw.sky)) c.sky = raw.sky;
   if (['follow', 'ignore'].includes(raw.motionSystem)) c.motionSystem = raw.motionSystem;
   if (['normal', 'grand'].includes(raw.text)) c.text = raw.text;
@@ -183,6 +187,12 @@ export function loadConfig() {
       if (Array.isArray(parsed.hidden)) parsed.hidden = parsed.hidden.map(mig);
       if (typeof parsed.lastApp === 'string') parsed.lastApp = mig(parsed.lastApp);
       parsed.version = 4;
+    }
+    // Migration: version 5 (0.3) adds `ambiance`; whoever had a Parapet before keeps it still ('calme'), whatever the
+    // stored value says. Nothing else changes: the dock, in particular, is kept exactly as it was.
+    if (parsed && typeof parsed === 'object' && !(Number(parsed.version) >= 5)) {
+      parsed.ambiance = 'calme';
+      parsed.version = 5;
       current = sanitize(parsed);
       try { localStorage.setItem(KEY, JSON.stringify(current)); } catch (e) { /* storage unavailable: migrated in memory only */ }
       return current;
@@ -252,3 +262,5 @@ export function isReduced() {
   if (current.motion !== 'auto') return true;
   return current.motionSystem !== 'ignore' && typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
 }
+// Living ambience (the Parapet's only loops at rest): asked for in the Room of Requirement AND motion not reduced.
+export function isAmbianceOn() { return current.ambiance === 'vivante' && !isReduced(); }

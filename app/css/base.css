@@ -28,7 +28,7 @@
   --t-focus: 560ms; --t-press-in: 120ms; --t-press-out: 300ms; --t-land: 200ms;
   --ease-out: cubic-bezier(.25, .7, .2, 1); --ease-settle: cubic-bezier(.3, .5, .15, 1);
   --ease-breath: cubic-bezier(.42, 0, .12, 1);       /* slow in, long soft settle, no overshoot */
-  /* Screen transitions (router.js removes the leaving layer after 700 ms, 820 for the crane: nothing longer here).
+  /* Screen transitions (router.js removes the leaving layer after 700 ms, 820 for the crane, 840 for the dive, 850 for the undive: nothing longer here).
      One scene curve for the camera moves, a plain ease for the fades, a short candle-snuff. */
   --t-scene: 700ms; --t-scene-fade: 600ms; --t-snuff: 260ms;
   --ease-scene: cubic-bezier(.55, .02, .18, 1); --ease-fade: cubic-bezier(.35, 0, .25, 1);
@@ -95,8 +95,32 @@ html, body { margin: 0; background: var(--bg); color: var(--fg); font-family: va
 .screen.leave-uncrane { transform: translateY(34%); opacity: 0; }
 .screen.leave-snuff { opacity: 0; transition-duration: calc(var(--k) * var(--t-snuff)); transition-timing-function: var(--ease-fade); }
 .screen.enter-snuff { opacity: 0; }
+/* The dive (router.js): into a lit window of the castle and back out. The router puts both layers' transform-origin on
+   the window's point and keeps it until the move is over. The zoom curves follow how a zoom is perceived (by ratio,
+   not by distance): the dive's ease-in tracks 3.5^(t^1.4), a flight that keeps gathering speed; the undive mirrors it.
+   Dive: the Parapet zooms toward the window (scale 1 -> 3.5 in 650 ms) and fades over its last third; the shop, the
+   upper layer, appears from 380 ms and settles from 1.06 to 1 by 830 ms (the Parapet is at 2.2x when it shows).
+   Undive: the shop recedes toward the window (to .92) and fades from 120 ms; the Parapet, the upper layer, shows from
+   100 ms already 3.5x into the window and pulls back to 1 by 850 ms (fast first, a long settle, no overshoot).
+   will-change only while the move lasts (the leave class goes with the layer, data-via is dropped at the end). */
+.screen.leave-dive { transform: scale(3.5); opacity: 0; will-change: transform, opacity;
+  transition-duration: calc(var(--k) * 650ms), calc(var(--k) * 220ms); transition-delay: 0s, calc(var(--k) * 430ms);
+  transition-timing-function: cubic-bezier(.45, 0, .8, .5), var(--ease-fade); }
+.screen.enter-dive { transform: scale(1.06); opacity: 0; }
+.screen[data-via="dive"] { will-change: transform, opacity;
+  transition-duration: calc(var(--k) * 450ms), calc(var(--k) * 340ms); transition-delay: calc(var(--k) * 380ms);
+  transition-timing-function: cubic-bezier(.2, .55, .25, 1), var(--ease-fade); }
+.screen.leave-undive { transform: scale(.92); opacity: 0; will-change: transform, opacity;
+  transition-duration: calc(var(--k) * 420ms), calc(var(--k) * 300ms); transition-delay: 0s, calc(var(--k) * 120ms);
+  transition-timing-function: cubic-bezier(.45, 0, .8, .5), var(--ease-fade); }
+.screen.enter-undive { transform: scale(3.5); opacity: 0; }
+.screen[data-via="undive"] { will-change: transform, opacity;
+  transition-duration: calc(var(--k) * 750ms), calc(var(--k) * 280ms); transition-delay: calc(var(--k) * 100ms);
+  transition-timing-function: cubic-bezier(.25, .55, .3, 1), var(--ease-fade); }
 html:not([data-motion="auto"]) .screen.enter-crane, html:not([data-motion="auto"]) .screen.enter-uncrane { transform: none; }
 html:not([data-motion="auto"]) .screen.leave-crane, html:not([data-motion="auto"]) .screen.leave-uncrane { transform: none; }
+html:not([data-motion="auto"]) .screen.enter-dive, html:not([data-motion="auto"]) .screen.enter-undive,
+html:not([data-motion="auto"]) .screen.leave-dive, html:not([data-motion="auto"]) .screen.leave-undive { transform: none; transition-delay: 0s; }
 html:not([data-motion="auto"]) .screen { transition-duration: calc(var(--k) * 200ms); }
 
 .fx-dust { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 40; }
@@ -107,4 +131,5 @@ html:not([data-motion="auto"]) .screen { transition-duration: calc(var(--k) * 20
 .screen-error { position: absolute; inset: 0; display: grid; place-content: center; gap: 1cqw; text-align: center; background: var(--night); }
 .screen-error .engraved { font-size: var(--t-title); }
 
-@media (prefers-reduced-motion: reduce) { .screen { transition-duration: 1ms; } }
+/* The system's reduced motion, unless "Suivre le système : Non" (config.motionSystem 'ignore'; router.js plays fades then). */
+@media (prefers-reduced-motion: reduce) { html:not([data-motion-system="ignore"]) .screen { transition-duration: 1ms; transition-delay: 0s; } }

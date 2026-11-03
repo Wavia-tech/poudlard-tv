@@ -14,6 +14,15 @@
 .screen-library.no-image .olv-bg { display: none; }
 .screen-library.no-image::before { content: ""; position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 30%, #2a1a0c, var(--night) 70%); }
 
+/* Arrival through the dive (router.js): the screen layer itself fades in, so the image, the grade, the selection and
+   the vignette are at their light already (no fade under a fade); the letterbox, label and lean follow is-in. */
+.screen-library.is-dive .olv-bg { opacity: 1; transition: none; }
+.screen-library.is-dive .olv-grade, .screen-library.is-dive .olv-sel, .screen-library.is-dive .olv-vignette { transition: none; }
+.screen-library.is-dive .olv-grade-warm { opacity: .16; }
+.screen-library.is-dive .olv-grade-cool { opacity: .34; }
+.screen-library.is-dive .olv-sel { opacity: 1; }
+.screen-library.is-dive .olv-vignette { opacity: .78; }
+
 /* Colour grade, two still layers at low opacity inside the scene (they lean with it). Warm: the lamp's amber
    reaching across the counter from the left. Cool: the night's blue in the far corners and under the ceiling. */
 .olv-grade { position: absolute; inset: 0; pointer-events: none; opacity: 0; transition: opacity calc(var(--k) * 1200ms) var(--ease-fade); }

@@ -30,6 +30,11 @@ const OWL = [['vive', 'Vive'], ['calme', 'Calme'], ['absente', 'Absente']];
 const YESNO = [[true, 'Oui'], [false, 'Non']];
 const MOTION = [['auto', 'Auto'], ['reduit', 'Réduit'], ['economie', 'Économie']];
 const SKY = [['auto', 'Selon l’heure'], ['nuit', 'Nuit claire']];
+// Living ambience (config.ambiance): the only thing allowed to move on the Parapet at rest, off by default.
+const AMBIANCE = [['calme', 'Non'], ['vivante', 'Oui']];
+const AMBIANCE_NOTE = (v) => (v !== 'vivante' ? 'Au repos, rien ne bouge : le lac attend une touche.'
+  : isReduced() ? 'Le mouvement est réduit : le lac reste immobile tant qu’il l’est.'
+    : 'La brume dérive et les reflets frémissent sur le lac. Un peu plus de calcul.');
 const FOLLOW = [['follow', 'Oui'], ['ignore', 'Non']];
 const TEXT = [['normal', 'Normale'], ['grand', 'Grande']];
 // Background music (sound.js): 'auto' = personal file (assets/music/ambiance.ogg, .mp3 or .m4a, not in the repo,
@@ -280,7 +285,7 @@ export default {
       this.placePreviewOwl();                       // the preview reacts (owl absent, etc.)
     };
     return {
-      id: label, el: row,
+      id: label, el: row, paint,
       key: (a) => {
         const i = idx();
         if (a === 'left') { if (i === 0) return 'exit'; change(i - 1); return true; }
@@ -557,11 +562,18 @@ export default {
 
   // ---- Section: Motion and energy ---------------------------------------------------------------------------
   rub_motion(body) {
+    // The ambience row says when reduced motion holds it still: the two reduced-motion rows repaint its note.
+    let ambiance = null;
+    const reflow = () => { this.reduced = isReduced(); this.root.classList.toggle('is-reduced', this.reduced); if (ambiance) ambiance.paint(); };
+    const motion = this.enumRow(body, 'Mouvement', MOTION, () => getConfig().motion, (v) => { updateConfig({ motion: v }); reflow(); }, (v) => MOTION_NOTE[v]);
+    // Saved through updateConfig like every row: the Parapet (onConfigChange) starts or stops its two loops itself.
+    ambiance = this.enumRow(body, 'Ambiance vivante', AMBIANCE, () => getConfig().ambiance || 'calme', (v) => updateConfig({ ambiance: v }), AMBIANCE_NOTE);
     const items = [
-      this.enumRow(body, 'Mouvement', MOTION, () => getConfig().motion, (v) => { updateConfig({ motion: v }); this.reduced = isReduced(); this.root.classList.toggle('is-reduced', this.reduced); }, (v) => MOTION_NOTE[v]),
+      motion,
+      ambiance,
       this.enumRow(body, 'Ciel', SKY, () => getConfig().sky || 'auto', (v) => updateConfig({ sky: v }),
         (v) => (v === 'auto' ? 'Crépuscule, nuit, nuit profonde, aube : le ciel suit l’heure.' : 'Une nuit claire, toujours.')),
-      this.enumRow(body, 'Suivre le système', FOLLOW, () => getConfig().motionSystem || 'follow', (v) => { updateConfig({ motionSystem: v }); this.reduced = isReduced(); this.root.classList.toggle('is-reduced', this.reduced); },
+      this.enumRow(body, 'Suivre le système', FOLLOW, () => getConfig().motionSystem || 'follow', (v) => { updateConfig({ motionSystem: v }); reflow(); },
         (v) => (v === 'follow'
           ? (matchMedia('(prefers-reduced-motion: reduce)').matches ? 'Le système demande des animations réduites : Poudlard les réduit aussi.' : 'Si le système demande des animations réduites, Poudlard les réduit aussi.')
           : 'Le réglage du système est ignoré : seule la ligne « Mouvement » compte.')),

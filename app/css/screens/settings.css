@@ -47,6 +47,12 @@
   transform: scaleX(0); transform-origin: 0 50%; opacity: .9; transition: transform calc(var(--k) * 300ms) cubic-bezier(.2, .8, .2, 1); }
 .set-rub.is-focus .set-quill { transform: none; }
 .set-folio { position: absolute; left: 3cqw; bottom: 1.3cqw; font-family: var(--fell); font-style: italic; font-size: var(--t-hint); color: var(--ink); opacity: .55; }
+/* "Taille du texte : Grande" (base.css, every token x 1.25): the two-line title, the nine sections and the folio no
+   longer fit the page with the normal spacing (the last section ran over the folio). The list starts under the
+   taller title and the lines close up; the star follows its line's padding. */
+html[data-text="grand"] .set-rubs { top: 9.2cqw; }
+html[data-text="grand"] .set-rub { padding-top: .34cqw; padding-bottom: .34cqw; }
+html[data-text="grand"] .set-rub::before { top: calc(.34cqw + var(--t-body) * .575 - .55cqw); }
 
 /* Right page: a column (title, subtitle, body that takes the rest, preview); the message band floats over the
    bottom of the body. Nothing is placed at a fixed height: a two-line subtitle pushes the body down. */

@@ -18,7 +18,7 @@ import { mountCrest } from '../crests.js';
 import { HOME_HINT } from './settings.js';
 
 // Pre-ticked on a brand-new TV: the first six of this list that the TV has, in this order.
-const PRESET = ['netflix', 'prime', 'disney', 'youtube', 'canal', 'max', 'francetv', 'arte', 'molotov', 'm6', 'tf1', 'appletv'];
+const PRESET = ['netflix', 'prime', 'disney', 'youtube', 'max', 'francetv', 'arte', 'molotov', 'm6', 'tf1', 'appletv'];
 const PRESET_COUNT = 6;
 const FALLBACK_DOCK = ['youtube'];
 const CUSTOM_MAX = 12;                      // same cap as sanitize() in config.js

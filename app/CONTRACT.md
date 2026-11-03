@@ -38,8 +38,9 @@ app/
                              fatal, device, version (docs/FREE-MY-TV.md). Platform.device() and Platform.fatal() wrap the last two.
                              Config keys beyond the defaults: passages, sky, motionSystem, text, homeNagAt (all sanitized in config.js).
   js/input.js                actions: left right up down ok back menu longok longback home, plus okdown (press feedback, never queued); Input.press(a); Input.hold()/release() (queue)
-  js/router.js               Router.go(name, params, transition) / replace / back / current / refocus; transitions: fade | up | down | iris | crane | uncrane | snuff
-                             (a screen may expose onLeave(transition) for its own flourish; reduced motion turns everything into a 200 ms fade)
+  js/router.js               Router.go(name, params, transition) / replace / back / current / refocus; transitions: fade | up | down | iris | crane | uncrane | snuff | dive | undive
+                             (a screen may expose onLeave(transition) for its own flourish and diveOrigin() → {x,y} stage CSS px, the point the
+                             camera dives into; every screen's ctx.transition is the move it arrived by; reduced motion turns everything into a 200 ms fade)
   js/fx.js                   ONE scene clock: Fx.tick(fn) / Fx.untick(fn) / Fx.setRate(ms); Fx.burst(x, y, n, power) / Fx.lumos(host, x, y, ms) /
                              Fx.cue(name) / Fx.ambient(mode) / Fx.chime / Fx.whoosh() / Fx.initAudio(). No screen runs its own requestAnimationFrame loop.
                              A callback unregisters itself (Fx.untick) once its motion has settled: with nothing registered, no frame runs.
@@ -63,8 +64,8 @@ app/
 ```
 
 Screens and transitions (D-pad grammar):
-- `home` (the Parapet): down → `library` (Ollivanders, `up` transition), up → top bar (Sound · Map · Settings; down comes back), OK → Lumos + Platform.launch, long OK or menu → the focused app's Remembrall (Rappeltout; menu goes to `settings` (`snuff`) when the parapet is empty), long Back → classic mode ("Nox?" plate). Lumos, boot-up and Nox (sleep) live INSIDE home.js (as states), not in separate screens.
-- `library` (Ollivanders, `js/screens/ollivanders.js`, `.olv-` classes): the film collection displayed as a wand shop window; up or Back → `home` (`down`). OK → Platform.openContent(app, item). Replaces the former Library (dropped, out of the repo).
+- `home` (the Parapet): down → `library` (Ollivanders, `dive` transition: the camera dives into a lit window, `diveOrigin()`), up → top bar (Sound · Map · Settings; down comes back), OK → Lumos + Platform.launch, long OK or menu → the focused app's Remembrall (Rappeltout; menu goes to `settings` (`snuff`) when the parapet is empty), long Back → classic mode ("Nox?" plate). Lumos, boot-up and Nox (sleep) live INSIDE home.js (as states), not in separate screens.
+- `library` (Ollivanders, `js/screens/ollivanders.js`, `.olv-` classes): the film collection displayed as a wand shop window; up or Back → `home` (`undive`). OK → Platform.openContent(app, item). Replaces the former Library (dropped, out of the repo).
 - `map` (Marauder's Map): Back, or down from the last row, or up from the first → `home` (`up`). Candle → `settings`.
 - `settings` (Room of Requirement): Back → previous screen (`ctx.router.back()`), or `home` if the stack is empty. First section "Accueil de la télé": one row "Touche Home" (Poudlard TV / Accueil d'origine → `Platform.setHome`, giving it back asks a confirmation with focus on "Non"; the hint from the TV is written in the message band; the row repaints on the `poudlard:home` document event; read-only in the mock-up). Second section "Réglages de la télé": eleven buttons → `Platform.openSystem(key)` (`TV_SCREENS`, exported for classic mode and the Map). "Mode classique" section → `updateConfig({mode:'classique'})` then `router.replace('classic')`. "Chouette et sons" section: Owl (vive / calme / absente), Sounds (yes / no), Background music (Auto / Célesta / Aucune → `config.music`, applied live by `Fx.ambient`). "Veille" section: `idleSeconds` (1.5 / 3 / 5 / 10 min / never), **0 (never) by default** since config version 3. "À propos" section: network, version, Home key, "Les issues de secours" (→ `sorting` page IV alone), "Réinitialiser" (three presses), "Relancer la Lettre d'admission".
 - `sorting` (Admission Letter, first launch): 4 pages (house, spells, owl, emergency exits + "Faire de Poudlard l'accueil" on the TV); at the end `updateConfig({firstRunDone:true, house, dock, owl, sounds})` then `router.replace('home', {boot:true})`. Params `{ page, only }` open one page alone: Back returns, nothing is saved.
@@ -122,7 +123,10 @@ Rules:
 - **Materials** (shared.css): `.ivory-logo` engraved ivory at rest, `.gold-logo` embossed gold in focus, `.engraved` text engraved in stone,
   `.parchment` parchment background (parchment.jpg, plain --parchment fallback), `.keyhint` key reminder. No dark band under the dock: a soft
   vertical fade (night → transparent) that blends into the image.
-- **Backdrop**: the castle at night (castle.jpg), mist (mist.png), lit windows; still when nobody touches the remote; all generated for the
+- **Backdrop**: the castle at night in three planes cut from castle.jpg (`assets/scene/`: sky, castle, foreground; they slide a few px as the
+  focus moves, 992 CSS px wide for a 16 px margin, promoted only while moving; castle.jpg is the fallback), mist (mist.png), lit windows (a
+  pre-rendered layer revealed in a left-to-right wave on Lumos and wake); the "Ambiance vivante" option (`config.ambiance`, 'calme' by
+  default, config version 5, `isAmbianceOn()`) adds a slow lake mist drift and reflections, otherwise still when nobody touches the remote; all generated for the
   project, with no image from the films. No grain or noise overlay: sharpness comes from the images themselves. The crests: the four
   pictures versioned at the maintainer's request (DISCLAIMER.md), or `crests.js`'s original pen strokes.
 - **Hedwig** (owl.js, owl.css): cut-out photo poses (perched, looking, take-off, gliding, landing, asleep) cross-faded according to flight progress;
@@ -156,7 +160,7 @@ export function beuglante(host, { message, action?: { label, onChoose } }) → {
 ## Publishing (public repo)
 - Never in the repo: `*.apk`, `android/*.keystore`, `android/out/`, the build clone `repo/`, `__pycache__/`, working files (see `.gitignore`), nor a personal
   replacement of a versioned file (your own `logos.js` or `ambiance.ogg`).
-- Versioned at the maintainer's request and listed in `DISCLAIMER.md`: `assets/logos.js`, `assets/crest-*.webp`, `assets/music/ambiance.ogg`. No other third-party asset.
+- Versioned at the maintainer's request and listed in `DISCLAIMER.md`: `assets/logos.js`, `assets/crest-*.webp`, `assets/rider.webp`, `assets/music/ambiance.ogg`. No other third-party asset.
 - Fonts only with their licence (`assets/fonts/`, OFL).
 - No other official asset, no melody from the films in the code, no data collection, no network access: `DISCLAIMER.md`.
 - No first name, no personal path in a versioned file (code and comments included).

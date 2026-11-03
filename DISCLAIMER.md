@@ -14,7 +14,7 @@ Every sentence shown by the interface is original copy written for this project:
 
 What the project wrote, drew or generated for itself follows these rules. The few third-party files the maintainer chose to version are listed in the next section and are the only exceptions.
 
-- **No official assets** from the films, books or games: no photo, no clip, no lightning-bolt lettering, no font derived from the posters. The scenery (castle, parchment, mist, owl, the Ollivanders and Beasts windows, the broom rider) and the glyphs are generated or drawn for this project (`tools/README.md`). The exception is the four house crest pictures, below.
+- **No official assets** from the films, books or games: no photo, no clip, no lightning-bolt lettering, no font derived from the posters. The scenery (castle, parchment, mist, owl, the Ollivanders and Beasts windows) and the glyphs are generated or drawn for this project (`tools/README.md`). The exceptions are the house crest pictures and the broom rider, below.
 - **No melody from the films in the code.** The interface sounds and the fallback waltz (a celesta waltz) are synthesized at runtime (Web Audio) and composed for this project; `node tools/test-sound.mjs` checks that the waltz quotes nothing. Hedwig's Theme and the other music by John Williams, Patrick Doyle, Nicholas Hooper and Alexandre Desplat are protected works: the code neither includes, nor quotes, nor "rearranges" them. The background music file is a separate recording, listed below. See `docs/MUSIC.md`.
 - **No data.** The launcher collects nothing, transmits nothing, has no account, no analytics, no crash reporting and no network access. Settings stay in the device's local storage.
 - **Fonts**: Cinzel, Cinzel Decorative, EB Garamond and IM Fell English are embedded in `app/assets/fonts/` under the SIL Open Font License, whose text travels with them. They are not covered by the repository's MIT license.
@@ -24,6 +24,7 @@ What the project wrote, drew or generated for itself follows these rules. The fe
 Since November 2026 the repository also carries, on the maintainer's explicit decision and responsibility:
 
 - the four house crest pictures (`app/assets/crest-*.webp`), cut out from published artwork owned by Warner Bros.;
+- the broom rider of the Nox fly-by (`app/assets/rider.webp`), Harry on his broom cut out from a photo supplied by the maintainer, a character and image owned by Warner Bros.;
 - the streaming apps' logos (`app/assets/logos.js`), trademarks of their owners;
 - a background music file (`app/assets/music/ambiance.ogg`, Ogg Opus, under 3 MB, re-encoded from the maintainer's own file), a recording whose rights belong to its author. It replaces the earlier 28 MB `ambiance.mp3`.
 

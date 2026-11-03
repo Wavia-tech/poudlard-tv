@@ -4,8 +4,9 @@
 // selection: the whole shop drops under a veil except the chosen box, which keeps its full light inside a thin gold
 // frame drawn exactly on its outline. Veil and frame are one inline SVG per selection, cut from scene.boxes (config.js);
 // two such layers cross-fade (opacity only) when the choice moves. Nothing moves at rest: no loop, no dust, no breath.
-// The camera leans in by a hair on arrival; the caption is typeset like a museum label above the boxes (never over
-// them) whose gold rule draws itself from the centre between the title and the sub-line. Transform and opacity only; the styles live in ollivanders.css.
+// The camera leans in by a hair on arrival (from the Parapet, the router's dive brings it in through a castle
+// window); the caption is typeset like a museum label above the boxes (never over them) whose gold rule draws itself
+// from the centre between the title and the sub-line. Transform and opacity only; the styles live in ollivanders.css.
 import { LIBRARY, appById, getConfig, updateConfig } from '../config.js';
 import { Platform } from '../platform.js';
 import { Input } from '../input.js';
@@ -42,7 +43,7 @@ export default {
     this.i = 0;
     root.innerHTML = `
       <div class="olv-scene">
-        <img class="olv-bg" alt="">
+        <img class="olv-bg" alt="" decoding="async">
         <div class="olv-grade olv-grade-warm"></div>
         <div class="olv-grade olv-grade-cool"></div>
         <div class="olv-sel"></div>
@@ -60,8 +61,14 @@ export default {
     const hintNext = root.querySelector('.olv-hint-next'), hintUp = root.querySelector('.olv-hint-up');
     if (next) hintNext.append(next.title); else hintNext.remove();
     if (prev) { hintUp.lastChild.textContent = prev.title; }
+    // The shop image decodes off the main thread (decoding="async": the dive's frames do not wait on it).
     // On arrival only: the layers fade in and the camera leans in by a hair (one transition, then everything rests).
-    this.timers.push(setTimeout(() => { root.classList.add('is-in'); root.querySelector('.olv-scene').classList.add('lean'); }, 60));
+    // Through the dive (router.js) the screen itself fades in from 380 ms: the shop's light is already there (is-dive,
+    // no second fade under the first), and the letterbox, the label and the lean start as the shop appears.
+    const dive = ctx.transition === 'dive';
+    if (dive) root.classList.add('is-dive');
+    const k = dive ? Number(getComputedStyle(root).getPropertyValue('--k')) || 1 : 1;
+    this.timers.push(setTimeout(() => { root.classList.add('is-in'); root.querySelector('.olv-scene').classList.add('lean'); }, dive ? 380 * k : 60));
     this.focus(this.i, true);
     if (ctx.config().sounds) ctx.fx.initAudio();
   },
@@ -242,9 +249,10 @@ export default {
     if (action === 'ok') { this.launch(); return true; }
     if (action === 'longok') { this.rappeltout(); return true; }
     if (action === 'up' && this.windows[this.ci - 1]) { ctx.fx.cue ? ctx.fx.cue('return') : ctx.fx.whoosh(); ctx.router.replace('library', { collection: this.windows[this.ci - 1].id }, 'uncrane'); return true; }
-    if (action === 'up' || action === 'back') { if (ctx.fx.cue) ctx.fx.cue('return'); else ctx.fx.whoosh(); ctx.router.go('home', {}, 'uncrane'); return true; }
+    // Back to the Parapet: the camera pulls back out of the castle window it dived into (router.js, 'undive').
+    if (action === 'up' || action === 'back') { if (ctx.fx.cue) ctx.fx.cue('return'); else ctx.fx.whoosh(); ctx.router.go('home', {}, 'undive'); return true; }
     if (action === 'home') { ctx.router.replace('home', {}, 'fade'); return true; }
-    if (action === 'longback') { ctx.router.go('home', { askClassic: true }, 'uncrane'); return true; }
+    if (action === 'longback') { ctx.router.go('home', { askClassic: true }, 'undive'); return true; }
     if (action === 'menu') { this.rappeltout(); return true; }   // Menu = the box's Remembrall
     return false;
   },
