@@ -77,7 +77,17 @@ export const Platform = {
     const url = item && allowedUrl(item.url);
     const b = bridge();
     if (url && b && typeof b.openUrl === 'function') return call(b.openUrl, url, String(app.pkg || ''));
-    if (url) { try { const w = window.open(url, '_blank', 'noopener'); if (w) return { status: 'opened', error: null, hint: null }; } catch (e) { /* window blocked: simulate */ } }
+    if (url) {
+      // Mock-up: a new tab. window.open first, then a real anchor click (some frames only allow that); if both are
+      // blocked (popup blocker, sandboxed frame), say so instead of pretending the film opened.
+      try { const w = window.open(url, '_blank', 'noopener'); if (w) return { status: 'opened', error: null, hint: null }; } catch (e) { /* blocked: try the anchor */ }
+      try {
+        const a = document.createElement('a'); a.href = url; a.target = '_blank'; a.rel = 'noopener'; a.style.display = 'none';
+        document.body.appendChild(a); a.click(); a.remove();
+        return { status: 'opened', error: null, hint: null };
+      } catch (e) { /* blocked too */ }
+      return failed('Le navigateur a bloqué l’ouverture du lien (fenêtre surgissante). Sur la télé, le film s’ouvre dans l’appli.');
+    }
     return this.launch(app);
   },
 
