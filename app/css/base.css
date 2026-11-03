@@ -20,9 +20,16 @@
      Capitals are tracked lightly (.1em): wide tracking reads as decoration on a TV, not as text. */
   --t-hint: calc(var(--text-scale) * 1.7cqw); --t-body: calc(var(--text-scale) * 2.1cqw); --t-label: calc(var(--text-scale) * 2.3cqw); --t-title: calc(var(--text-scale) * 2.8cqw); --t-clock: calc(var(--text-scale) * 6.4cqw);
   --safe-x: 5cqw; --safe-y: 4.5cqw; --track-wide: .1em; --track-tight: .06em;
-  /* Focus grammar (focus.css): rest → focus → press → land. */
-  --t-focus: 340ms; --t-press-in: 110ms; --t-press-out: 220ms; --t-land: 220ms;
+  /* Focus grammar (focus.css): rest → focus → press → land. The focus is a slow breath (--t-focus, --ease-breath):
+     the gold rises in the logo and the scale settles without a bounce. --t-land stays at 200 ms, the time home.js
+     keeps .is-land on the app. */
+  --t-focus: 560ms; --t-press-in: 120ms; --t-press-out: 300ms; --t-land: 200ms;
   --ease-out: cubic-bezier(.25, .7, .2, 1); --ease-settle: cubic-bezier(.3, .5, .15, 1);
+  --ease-breath: cubic-bezier(.42, 0, .12, 1);       /* slow in, long soft settle, no overshoot */
+  /* Screen transitions (router.js removes the leaving layer after 700 ms, 820 for the crane: nothing longer here).
+     One scene curve for the camera moves, a plain ease for the fades, a short candle-snuff. */
+  --t-scene: 700ms; --t-scene-fade: 600ms; --t-snuff: 260ms;
+  --ease-scene: cubic-bezier(.55, .02, .18, 1); --ease-fade: cubic-bezier(.35, 0, .25, 1);
   --k: 1;                      /* time factor: 3 in slow motion */
   color-scheme: dark;
 }
@@ -62,7 +69,10 @@ html, body { margin: 0; background: var(--bg); color: var(--fg); font-family: va
   container-type: inline-size; cursor: default; font-size: 1cqw; }
 .stage:fullscreen { border-radius: 0; width: 100vw; height: 100vh; aspect-ratio: auto; }
 .stage:focus-visible { box-shadow: 0 0 0 2px var(--gold); }
-.screen { position: absolute; inset: 0; overflow: hidden; transition: transform calc(var(--k) * 700ms) cubic-bezier(.65, 0, .25, 1), opacity calc(var(--k) * 600ms) ease; }
+.screen { position: absolute; inset: 0; overflow: hidden; clip-path: circle(150% at 50% 60%);
+  transition-property: transform, opacity, clip-path;
+  transition-duration: calc(var(--k) * var(--t-scene)), calc(var(--k) * var(--t-scene-fade)), calc(var(--k) * var(--t-scene));
+  transition-timing-function: var(--ease-scene), var(--ease-fade), var(--ease-scene); }
 .screen.enter-fade { opacity: 0; }
 .screen.leave-fade { opacity: 0; }
 .screen.enter-up { transform: translateY(100%); }     /* the new screen rises from the bottom */
@@ -71,22 +81,23 @@ html, body { margin: 0; background: var(--bg); color: var(--fg); font-family: va
 .screen.leave-down { transform: translateY(100%); }
 .screen.enter-iris { clip-path: circle(0% at 50% 60%); }
 .screen.leave-iris { opacity: 0; }
-/* Camera moves (router.js): the crane down to Ollivanders (the Parapet lifts and grows while the shop window
-   rises from below), its reverse, and the candle-snuff into the Room of Requirement (a short fade to black). */
-.screen.enter-crane { transform: translateY(42%); opacity: 0; }
-.screen.leave-crane { transform: translateY(-10%) scale(1.06); opacity: 0; }
-.screen.enter-uncrane { transform: translateY(-10%) scale(1.06); opacity: 0; }
-.screen.leave-uncrane { transform: translateY(42%); opacity: 0; }
-.screen.leave-snuff { opacity: 0; transition-duration: calc(var(--k) * 150ms); }
+/* Camera moves (router.js): the crane down to Ollivanders (the Parapet lifts and grows a little while the shop window
+   rises from below), its reverse, and the candle-snuff into the Room of Requirement (a short fade to black, then the
+   Room fades in over --t-scene-fade). The crane travel is modest: a camera move, not a slide. */
+.screen.enter-crane { transform: translateY(34%); opacity: 0; }
+.screen.leave-crane { transform: translateY(-8%) scale(1.04); opacity: 0; }
+.screen.enter-uncrane { transform: translateY(-8%) scale(1.04); opacity: 0; }
+.screen.leave-uncrane { transform: translateY(34%); opacity: 0; }
+.screen.leave-snuff { opacity: 0; transition-duration: calc(var(--k) * var(--t-snuff)); transition-timing-function: var(--ease-fade); }
 .screen.enter-snuff { opacity: 0; }
-.screen { clip-path: circle(150% at 50% 60%); transition-property: transform, opacity, clip-path; }
 html:not([data-motion="auto"]) .screen.enter-crane, html:not([data-motion="auto"]) .screen.enter-uncrane { transform: none; }
 html:not([data-motion="auto"]) .screen.leave-crane, html:not([data-motion="auto"]) .screen.leave-uncrane { transform: none; }
 html:not([data-motion="auto"]) .screen { transition-duration: calc(var(--k) * 200ms); }
 
 .fx-dust { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 40; }
-.fx-lumos { position: absolute; top: 0; left: 0; width: 6cqw; height: 6cqw; margin: -3cqw 0 0 -3cqw; border-radius: 50%; pointer-events: none; z-index: 45;
-  background: radial-gradient(closest-side, #fff8e6cc, #ffe39a80 40%, #ffd06a00); }
+/* A soft halo, not a flash: the core is already translucent and the falloff is long. */
+.fx-lumos { position: absolute; top: 0; left: 0; width: 8cqw; height: 8cqw; margin: -4cqw 0 0 -4cqw; border-radius: 50%; pointer-events: none; z-index: 45;
+  background: radial-gradient(closest-side, #fff8e68a 0%, #ffe8b35a 30%, #ffc97a2a 60%, #ffd06a00 100%); }
 
 .screen-error { position: absolute; inset: 0; display: grid; place-content: center; gap: 1cqw; text-align: center; background: var(--night); }
 .screen-error .engraved { font-size: var(--t-title); }

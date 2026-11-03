@@ -1,15 +1,17 @@
 /* One focus grammar for every screen: rest → focus (--t-focus) → press (--t-press-in / --t-press-out) → land (--t-land).
    The screens keep their own look (gold, ivory frame, ink underline); these classes only add the shared timings.
    .is-press: set by the screens on the 'okdown' action (input.js), removed on 'ok' / 'longok'.
-   .is-land : set by the Parapet for --t-land after Hedwig lands (a small settle of the focused app). */
+   .is-land : set by the Parapet for --t-land after Hedwig lands (a small settle of the focused app).
+   The press is the only quick move of the grammar; the release and the focus itself breathe (--ease-breath). */
 .is-focus.is-press { transition: transform calc(var(--k) * var(--t-press-in)) var(--ease-out); }
 .is-focus:not(.is-press) { transition-duration: calc(var(--k) * var(--t-press-out)); }
-.home-app.is-focus.is-press { transform: scale(1.23); }
+.home-app.is-focus.is-press { transform: scale(1.25); }
 .map-cell.is-focus.is-press { transform: scale(1); }
 .cls-tile.is-focus.is-press .cls-plate { transform: scale(1.02); }
-.set-btn.is-focus.is-press, .sort-btn.is-focus.is-press { transform: scale(.98); }
-.home-bar-item.is-focus.is-press { transform: scale(1.1); }
+.set-btn.is-focus.is-press, .sort-btn.is-focus.is-press { transform: scale(.985); }
+.home-bar-item.is-focus.is-press { transform: scale(1.06); }
+/* Hedwig's weight: the app dips by six thousandths and comes back, over the 200 ms home.js keeps the class. */
 .home-app.is-land { animation: focus-land calc(var(--k) * var(--t-land)) var(--ease-settle); }
-@keyframes focus-land { 0% { transform: scale(1.28); } 50% { transform: scale(1.295); } 100% { transform: scale(1.28); } }
+@keyframes focus-land { 0% { transform: scale(1.28); } 45% { transform: scale(1.272); } 100% { transform: scale(1.28); } }
 html:not([data-motion="auto"]) .is-land { animation: none; }
 html:not([data-motion="auto"]) .is-focus.is-press, html:not([data-motion="auto"]) .is-focus:not(.is-press) { transition-duration: calc(var(--k) * 200ms); }

@@ -1,8 +1,8 @@
 // Ollivanders: the film collection shown as a wandmaker's shop window.
 // The reference image (assets/ollivanders.webp) is displayed as is. Selection draws no outline at all:
-// a warm spotlight lights the chosen box (the rest of the shop dims gently through a soft hole that is one
-// static radial mask moved by transform, no blur), a beam of light falls on it from above, the camera leans
-// slightly towards it, and a few specks of gold dust rise along the beam. Transform and opacity only.
+// the rest of the shop rests under a soft veil (one static radial window moved by transform, no blur), the camera
+// leans in by a hair, and the caption is typeset like a museum label whose gold rule draws itself from the centre
+// between the title and the sub-line. Transform and opacity only.
 import { LIBRARY, appById, getConfig, updateConfig, isReduced } from '../config.js';
 import { Platform } from '../platform.js';
 import { Input } from '../input.js';
@@ -12,8 +12,8 @@ import { monogram } from '../monogram.js';
 // Each collection of LIBRARY (config.js) is a window: its `scene` gives the backdrop, its pixel size and one
 // selection polygon per film. The windows stack under the Parapet: Down opens the next one, Up the previous one.
 let IMG = { w: 1672, h: 941 };
-const HOLE = 1.25;    // the hole's box is 1.25 × the film box (the soft edge lives in the mask gradient): framed, not spilling
-const BEAM_W = 14, BEAM_H = 60, WARM_W = 18, WARM_H = 36;   // cqw: the base sizes of the beam and the warmth (CSS), scaled per box
+const HOLE = 1.25;    // the window's box is 1.25 × the film box (the soft edge lives in the mask gradient): framed, not spilling
+const LINE_W = 0.6;   // the label's rule spans 60% of the title's width, centred under it
 const loadRappeltout = () => import('../rappeltout.js').then((m) => m.rappeltout).catch(() => null);
 const loadBeuglante = () => import('../beuglante.js').then((m) => m.beuglante).catch(() => null);
 
@@ -35,16 +35,13 @@ export default {
       <div class="olv-scene">
         <img class="olv-bg" alt="">
         <div class="olv-shade"></div>
-        <div class="olv-beam"></div>
-        <div class="olv-warmth"></div>
       </div>
-      <div class="olv-caption"><div class="olv-caption-kicker"></div><div class="olv-caption-title"></div><div class="olv-caption-sub"></div></div>
+      <div class="olv-caption"><div class="olv-caption-title"></div><i class="olv-line" aria-hidden="true"></i><div class="olv-caption-sub"></div></div>
       <div class="keyhint olv-hint"><span><b>◀ ▶</b>Choisir</span><span><b>OK</b>Ouvrir le film</span><span class="olv-hint-up"><b>▲</b>Parapet</span><span class="olv-hint-next"><b>▼</b></span></div>
       <div class="olv-dim"></div>`;
     const bg = root.querySelector('.olv-bg');
     bg.addEventListener('error', () => root.classList.add('no-image'));
     bg.src = coll.scene.image;
-    root.querySelector('.olv-caption-kicker').textContent = coll.title;
     const next = windows[this.ci + 1], prev = windows[this.ci - 1];
     const hintNext = root.querySelector('.olv-hint-next'), hintUp = root.querySelector('.olv-hint-up');
     if (next) hintNext.append(next.title); else hintNext.remove();
@@ -68,33 +65,42 @@ export default {
     return { cx: (x0 + x1) / 2 / IMG.w, cy: (y0 + y1) / 2 / IMG.h, w: (x1 - x0) / IMG.w, h: (y1 - y0) / IMG.h };
   },
 
-  // The veil (with its static hole), the beam and the warmth move by transform to the chosen box (380 ms,
-  // cubic-bezier(.33,0,.2,1) in CSS). The hole is cut once at HOLE × the first box; the veil then only translates
-  // (its centre onto the box) and scales (the box's size relative to the first).
+  // The veil (with its static window) glides by transform to the chosen box (480 ms, cubic-bezier(.3,0,.15,1) in
+  // CSS). The window is cut once at HOLE × the first box; the veil then only translates (its centre onto the box)
+  // and scales (the box's size relative to the first).
   moveHole(n, instant) {
     const root = this.root, W = root.clientWidth, H = root.clientHeight;
     const b = this.boxOf(n);
-    const shade = root.querySelector('.olv-shade'), beam = root.querySelector('.olv-beam'), warm = root.querySelector('.olv-warmth');
+    const shade = root.querySelector('.olv-shade');
     if (!this.holeBase) {
       const b0 = this.boxOf(0);
       this.holeBase = { w: b0.w * HOLE, h: b0.h * HOLE };
-      // Radii in % of the veil (three screens): half the hole, divided by three.
+      // Radii in % of the veil (three screens): half the window, divided by three. The edge is long and soft.
       const rx = (this.holeBase.w * 100 / 6).toFixed(2), ry = (this.holeBase.h * 100 / 6).toFixed(2);
-      const m = `radial-gradient(ellipse ${rx}% ${ry}% at 50% 50%, transparent 55%, #000 72%)`;
+      const m = `radial-gradient(ellipse ${rx}% ${ry}% at 50% 50%, transparent 60%, #000 85%)`;
       shade.style.webkitMaskImage = m; shade.style.maskImage = m;
     }
     const sx = (b.w * HOLE) / this.holeBase.w, sy = (b.h * HOLE) / this.holeBase.h;
     const tx = (b.cx - 0.5) * W, ty = (b.cy - 0.5) * H;
     const set = (el, v) => { if (instant) el.style.transition = 'none'; el.style.transform = v; if (instant) { void el.offsetWidth; el.style.transition = ''; } };
     set(shade, `translate(${tx.toFixed(1)}px, ${ty.toFixed(1)}px) scale(${sx.toFixed(3)}, ${sy.toFixed(3)})`);
-    // The beam hangs from the top edge down to the top of the box (scaled, never past it), as wide as the box,
-    // leaning ±4° with the box's position; the warmth is an ellipse the size of the box, centred on it.
-    const cqw = W / 100, lean = (b.cx - 0.5) * 8;
-    const beamH = Math.max(0.05, b.cy - b.h / 2) * H, beamW = b.w * W * 1.1;
-    set(beam, `translate(${(b.cx * W - BEAM_W * cqw / 2).toFixed(1)}px, 0) rotate(${lean.toFixed(2)}deg) scale(${(beamW / (BEAM_W * cqw)).toFixed(3)}, ${(beamH / (BEAM_H * cqw)).toFixed(3)})`);
-    const warmW = b.w * W * 1.15, warmH = b.h * H * 0.9;
-    set(warm, `translate(${(b.cx * W - WARM_W * cqw / 2).toFixed(1)}px, ${(b.cy * H - WARM_H * cqw / 2).toFixed(1)}px) scale(${(warmW / (WARM_W * cqw)).toFixed(3)}, ${(warmH / (WARM_H * cqw)).toFixed(3)})`);
-    void warm;   // the warmth keeps its CSS opacity (.35): no flare on a move, the veil's window does the work
+  },
+
+  // The label's rule: a 1 px gold line between the title and the sub-line, LINE_W of the title's text width, that
+  // retracts at once (scaleX 0, no reverse draw) and draws itself again from the centre (the CSS transition, 300 ms).
+  // Called once the title is typeset, so the width measured is the new title's.
+  drawLine(instant) {
+    const cap = this.root.querySelector('.olv-caption'), line = cap.querySelector('.olv-line');
+    const range = document.createRange();
+    range.selectNodeContents(cap.querySelector('.olv-caption-title'));
+    const span = range.getBoundingClientRect().width * LINE_W;
+    line.style.transition = 'none';
+    line.classList.remove('is-drawn');
+    line.style.width = `${span.toFixed(1)}px`;
+    void line.getBoundingClientRect();
+    if (!instant) line.style.transition = '';
+    line.classList.add('is-drawn');
+    if (instant) { void line.getBoundingClientRect(); line.style.transition = ''; }
   },
 
   focus(n, instant) {
@@ -113,17 +119,18 @@ export default {
     cap.querySelector('.olv-caption-sub').textContent = app
       ? (this.hiddenKeys.has(it.key) ? 'Ce film est prêté' : `S’ouvre dans ${app.name}${others.length ? ` · OK long : ${others.map((a) => a.name).join(', ')}` : ''}`)
       : 'Appli à choisir dans les réglages';
+    this.drawLine(instant);
     if (!instant) { cap.classList.remove('is-write'); void cap.offsetWidth; cap.classList.add('is-write'); }
   },
 
-  // A few specks of gold rise along the beam, now and then.
+  // A single speck of gold rises above the chosen box, rarely: a hint of life, never a show.
   dust() {
     clearTimeout(this.dustTimer);
     const tick = () => {
-      if (!isReduced() && !this.busy && this.root) { const c = this.center(this.i); const y = c.y - this.root.clientHeight * (0.12 + Math.random() * 0.3); this.ctx.fx.burst(c.x + (Math.random() - 0.5) * this.root.clientWidth * 0.04, y, 3, this.root.clientWidth / 90); }
-      this.dustTimer = setTimeout(tick, 1400 + Math.random() * 1200);
+      if (!isReduced() && !this.busy && this.root) { const c = this.center(this.i); const y = c.y - this.root.clientHeight * (0.1 + Math.random() * 0.25); this.ctx.fx.burst(c.x + (Math.random() - 0.5) * this.root.clientWidth * 0.03, y, 1, this.root.clientWidth / 140); }
+      this.dustTimer = setTimeout(tick, 3200 + Math.random() * 2800);
     };
-    this.dustTimer = setTimeout(tick, 600);
+    this.dustTimer = setTimeout(tick, 1500);
   },
 
   // Lumos: the box lights up, then the film opens in the app that owns it (link from the config).

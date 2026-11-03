@@ -29,9 +29,10 @@
 /* Left page: the engraved title (2.1 cqw, may run to two lines) and the sections. */
 .set-title { position: absolute; top: 2.2cqw; left: 3cqw; right: 2cqw; font-size: 2.1cqw; line-height: 1.15; letter-spacing: .14em; color: var(--gold-dark); text-shadow: 0 .05cqw 0 #fff6cf66; }
 .set-rubs { position: absolute; top: 7.6cqw; left: 3cqw; right: 2.4cqw; margin: 0; padding: 0; list-style: none; }
-.set-rub { position: relative; padding: .9cqw 0 .9cqw 2.2cqw; font-family: var(--body); font-weight: 500; font-size: 2.15cqw; line-height: 1.15; color: var(--ink); opacity: .72;
+/* Nine sections at .65cqw of padding each end at ~41.5cqw of the page (46.25cqw tall at 16:9): the folio below keeps its own line. */
+.set-rub { position: relative; padding: .65cqw 0 .65cqw 2.2cqw; font-family: var(--body); font-weight: 500; font-size: 2.15cqw; line-height: 1.15; color: var(--ink); opacity: .72;
   transition: opacity calc(var(--k) * 200ms), transform calc(var(--k) * 250ms) cubic-bezier(.3, .7, .2, 1); }
-.set-rub::before { content: "✦"; position: absolute; left: .2cqw; top: 1cqw; font-size: var(--t-hint); color: var(--wax); opacity: 0; transform: scale(.6); transition: opacity calc(var(--k) * 200ms), transform calc(var(--k) * 250ms); }
+.set-rub::before { content: "✦"; position: absolute; left: .2cqw; top: .75cqw; font-size: var(--t-hint); color: var(--wax); opacity: 0; transform: scale(.6); transition: opacity calc(var(--k) * 200ms), transform calc(var(--k) * 250ms); }
 .set-rub.is-active { opacity: 1; }
 .set-rub.is-active::before { opacity: 1; transform: scale(1); }
 .set-rub.is-focus { opacity: 1; font-weight: 600; transform: translateX(.35cqw); }
@@ -39,7 +40,7 @@
 .set-quill { position: absolute; left: 2.2cqw; right: 1cqw; bottom: .45cqw; height: .14cqw; background: linear-gradient(to right, var(--ink) 0%, var(--ink) 70%, transparent 100%); border-radius: .1cqw;
   transform: scaleX(0); transform-origin: 0 50%; opacity: .85; transition: transform calc(var(--k) * 300ms) cubic-bezier(.2, .8, .2, 1); }
 .set-rub.is-focus .set-quill { transform: scaleX(1); }
-.set-folio { position: absolute; left: 3cqw; bottom: 2cqw; font-family: var(--fell); font-style: italic; font-size: var(--t-hint); color: var(--ink); opacity: .5; }
+.set-folio { position: absolute; left: 3cqw; bottom: 1.4cqw; font-family: var(--fell); font-style: italic; font-size: var(--t-hint); color: var(--ink); opacity: .5; }
 
 /* Right page: title, subtitle, body, message, preview. */
 .set-rtitle { position: absolute; top: 2.4cqw; left: 3.4cqw; right: 3cqw; font-family: var(--display); font-weight: 600; font-size: 2.5cqw; letter-spacing: .14em; text-transform: uppercase; color: var(--ink); line-height: 1.1; }

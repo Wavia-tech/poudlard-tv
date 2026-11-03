@@ -23,9 +23,10 @@ const glow = document.createElement('canvas');
 glow.width = glow.height = 32;
 {
   const g = glow.getContext('2d');
+  // A soft mote: the core is already translucent, the falloff long (no hard bright centre).
   const rg = g.createRadialGradient(16, 16, 0, 16, 16, 16);
-  rg.addColorStop(0, 'rgba(255,236,190,1)');
-  rg.addColorStop(0.3, 'rgba(255,190,90,0.55)');
+  rg.addColorStop(0, 'rgba(255,240,205,0.85)');
+  rg.addColorStop(0.35, 'rgba(255,200,120,0.35)');
   rg.addColorStop(1, 'rgba(255,170,60,0)');
   g.fillStyle = rg;
   g.fillRect(0, 0, 32, 32);
@@ -43,12 +44,18 @@ function resize() {
   dirty = true;
 }
 
+// Ambient motes: a handful, slow, small and faint, drifting like dust in a sunbeam. Each one rises barely, sways
+// sideways on its own phase (SWAY px/s at most) and breathes a slow twinkle; it fades in over the first quarter of its
+// life and out over the rest, so none ever pops.
+const AMBIENT_MAX = 9;
+const SWAY = 3;
 let last = 0;
 function drawDust(now, dt) {
   if (!ctx2d || !W) return;
   if (!enabled.dust || reduced()) { if (parts.length || dirty) { parts.length = 0; ctx2d.clearRect(0, 0, W, H); dirty = false; } return; }
-  if (parts.filter((p) => p.amb).length < 22) {
-    parts.push({ amb: true, x: Math.random() * W, y: H * (0.5 + Math.random() * 0.55), vx: (Math.random() - 0.5) * 4, vy: -(3 + Math.random() * 8), life: 0, max: 7 + Math.random() * 7, s: 0.5 + Math.random() * 1 });
+  if (parts.filter((p) => p.amb).length < AMBIENT_MAX) {
+    parts.push({ amb: true, x: Math.random() * W, y: H * (0.5 + Math.random() * 0.55), vx: (Math.random() - 0.5) * 1.6, vy: -(1 + Math.random() * 2.5),
+      life: 0, max: 14 + Math.random() * 10, s: 0.35 + Math.random() * 0.55, ph: Math.random() * Math.PI * 2 });
   }
   if (!parts.length && !dirty) return;
   ctx2d.clearRect(0, 0, W, H); dirty = false;
@@ -58,10 +65,11 @@ function drawDust(now, dt) {
     const p = parts[j];
     p.life += dt;
     if (p.life > p.max) { parts.splice(j, 1); continue; }
-    p.vy += (p.g || 0) * dt; p.x += p.vx * dt; p.y += p.vy * dt;
+    const sway = p.amb ? Math.sin(t * 0.45 + p.ph) * SWAY : 0;
+    p.vy += (p.g || 0) * dt; p.x += (p.vx + sway) * dt; p.y += p.vy * dt;
     const k = p.life / p.max;
-    const tw = p.amb ? 0.5 + 0.5 * Math.sin(t * 5 + j) : 1;
-    ctx2d.globalAlpha = (k < 0.15 ? k / 0.15 : 1 - (k - 0.15) / 0.85) * (p.amb ? 0.5 : 0.75) * tw;
+    const tw = p.amb ? 0.7 + 0.3 * Math.sin(t * 1.3 + p.ph) : 1;
+    ctx2d.globalAlpha = (k < 0.25 ? k / 0.25 : 1 - (k - 0.25) / 0.75) * (p.amb ? 0.22 : 0.45) * tw;
     const s = p.s * W / 900;
     ctx2d.drawImage(glow, p.x - s * 3, p.y - s * 3, s * 6, s * 6);
   }
@@ -101,26 +109,26 @@ export const Fx = {
   },
   size() { return { W, H }; },
 
-  // Dust burst at a point (coordinates within the host).
-  burst(x, y, n = 24, power = 90) {
+  // Dust burst at a point (coordinates within the host): a few motes lifted and settling, not a spray.
+  burst(x, y, n = 12, power = 60) {
     if (!enabled.dust || reduced()) return;
     for (let j = 0; j < n; j++) {
-      const a = Math.random() * Math.PI * 2, v = power * (0.3 + Math.random());
-      parts.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - power * 0.4, g: power * 0.9, life: 0, max: 0.6 + Math.random() * 0.8, s: 0.8 + Math.random() * 1.8 });
+      const a = Math.random() * Math.PI * 2, v = power * (0.25 + Math.random() * 0.75);
+      parts.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - power * 0.35, g: power * 0.6, life: 0, max: 1 + Math.random() * 1.2, s: 0.5 + Math.random() * 1.1, ph: 0 });
     }
   },
 
-  // "Lumos" flash: a halo that grows from a point and then floods the screen.
+  // "Lumos": a halo that grows from a point and slowly floods the screen, more a dawn than a flash.
   lumos(host, x, y, ms = 900) {
     const el = document.createElement('div');
     el.className = 'fx-lumos';
     host.appendChild(el);
     const tr = (s) => `translate(${x}px, ${y}px) scale(${s})`;
     const anim = el.animate([
-      { opacity: 0.8, transform: tr(0.2) }, { opacity: 0.7, transform: tr(5), offset: 0.35 }, { opacity: 0, transform: tr(32) }
-    ], { duration: reduced() ? 1 : ms * 1.2, easing: 'cubic-bezier(.3,.6,.2,1)' });
+      { opacity: 0.55, transform: tr(0.2) }, { opacity: 0.45, transform: tr(5), offset: 0.4 }, { opacity: 0, transform: tr(30) }
+    ], { duration: reduced() ? 1 : ms * 1.6, easing: 'cubic-bezier(.35,.3,.2,1)' });
     anim.onfinish = () => el.remove();
-    this.burst(x, y, 36, 110);
+    this.burst(x, y, 16, 70);
   },
 
   // ----- Soundtrack (see sound.js) -----

@@ -5,15 +5,16 @@
 .screen-home.no-castle .home-plane { background: radial-gradient(ellipse at 50% 30%, #122744, #050a14 70%); }
 
 /* Backdrop: the castle image rendered wider than the screen, slight parallax following the focus. */
-.home-plane { position: absolute; top: 0; bottom: 0; left: -4%; width: 108%; will-change: transform; transition: transform calc(var(--k) * 700ms) cubic-bezier(.33, 0, .2, 1); }
+.home-plane { position: absolute; top: 0; bottom: 0; left: -4%; width: 108%; will-change: transform; transition: transform calc(var(--k) * 1100ms) var(--ease-breath); }
 .home-castle { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 50% 45%; display: block; }
 .home-lights { position: absolute; inset: 0; width: 100%; height: 100%; }
 .home-moon { position: absolute; width: 22%; aspect-ratio: 1; transform: translate(-50%, -50%); border-radius: 50%; pointer-events: none;
   background: radial-gradient(closest-side, #fff6d81a, #fff6d800); opacity: .8; transition: opacity calc(var(--k) * 2s); }
-.home-mist { position: absolute; left: 0; bottom: 6%; width: 200%; height: 24%; pointer-events: none; opacity: .28;
-  background: url("../../assets/mist.png") repeat-x; background-size: 50% 100%; animation: home-mist calc(var(--k) * 260s) linear infinite; }
-.home-mist.fallback { background: radial-gradient(ellipse 12% 40% at 10% 70%, #c8daf028, transparent 70%), radial-gradient(ellipse 14% 36% at 30% 80%, #c8daf020, transparent 70%),
-  radial-gradient(ellipse 12% 40% at 60% 70%, #c8daf028, transparent 70%), radial-gradient(ellipse 14% 36% at 80% 80%, #c8daf020, transparent 70%); background-size: 100% 100%; }
+/* The mist: barely there, a slow six-minute drift. */
+.home-mist { position: absolute; left: 0; bottom: 6%; width: 200%; height: 24%; pointer-events: none; opacity: .13;
+  background: url("../../assets/mist.png") repeat-x; background-size: 50% 100%; animation: home-mist calc(var(--k) * 380s) linear infinite; }
+.home-mist.fallback { background: radial-gradient(ellipse 12% 40% at 10% 70%, #c8daf01c, transparent 70%), radial-gradient(ellipse 14% 36% at 30% 80%, #c8daf014, transparent 70%),
+  radial-gradient(ellipse 12% 40% at 60% 70%, #c8daf01c, transparent 70%), radial-gradient(ellipse 14% 36% at 80% 80%, #c8daf014, transparent 70%); background-size: 100% 100%; }
 @keyframes home-mist { from { transform: translateX(0); } to { transform: translateX(-50%); } }
 html[data-motion="economie"] .home-mist { animation: none; }
 /* Sky states (home.js sets data-sky from the hour: dusk, night, deep, dawn): an opacity-only tint over the castle. */
@@ -35,36 +36,40 @@ html[data-motion="economie"] .home-mist { animation: none; }
 
 /* Top-right bar: sound, Map, Settings */
 .home-bar { position: absolute; top: calc(var(--safe-y) - .9cqw); right: var(--safe-x); display: flex; gap: 2.2cqw; align-items: flex-start; }
-.home-bar-item { position: relative; width: 2.6cqw; height: 2.6cqw; opacity: .38; transition: opacity calc(var(--k) * var(--t-focus)), transform calc(var(--k) * var(--t-focus)); }
+.home-bar-item { position: relative; width: 2.6cqw; height: 2.6cqw; opacity: .38; transition: opacity calc(var(--k) * var(--t-focus)) var(--ease-fade), transform calc(var(--k) * var(--t-focus)) var(--ease-breath); }
 .home-bar-item svg { width: 100%; height: 100%; fill: none; stroke: var(--gold-light); stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
 .home-bar-item svg .fill { fill: var(--gold-light); stroke: none; }
 .home-bar-item .snd-off { display: none; }
 .home-bar-item.off .snd-off { display: block; } .home-bar-item.off .snd-on { display: none; }
 .home-bar-label { position: absolute; top: 115%; left: 50%; transform: translateX(-50%); white-space: nowrap; font-family: var(--display); font-size: var(--t-hint); letter-spacing: var(--track-wide); text-transform: uppercase; color: var(--gold-light); opacity: 0; transition: opacity calc(var(--k) * var(--t-focus)); }
 .screen-home.bar-active .home-bar-item { opacity: .55; }
-.home-bar-item.is-focus { opacity: 1; transform: scale(1.18); }
+.home-bar-item.is-focus { opacity: 1; transform: scale(1.12); }
 .home-bar-item.is-focus .home-bar-label { opacity: 1; }
-.home-bar-item.is-focus::before { content: ""; position: absolute; inset: -.7cqw; border-radius: 50%; border: .1cqw solid var(--house-glow); }
+.home-bar-item.is-focus::before { content: ""; position: absolute; inset: -.7cqw; border-radius: 50%; border: .1cqw solid var(--house-glow); opacity: .8; }
 
 /* Centered dock: the apps spread out according to their number */
-.home-dock { position: absolute; left: 6cqw; right: 6cqw; top: 76%; transition: transform calc(var(--k) * 600ms) ease, opacity calc(var(--k) * 600ms) ease; }
+.home-dock { position: absolute; left: 6cqw; right: 6cqw; top: 76%; transition: transform calc(var(--k) * 900ms) var(--ease-breath), opacity calc(var(--k) * 900ms) var(--ease-fade); }
 .screen-home.two-rows .home-dock { top: 66%; }
 .home-rows { display: flex; flex-direction: column; gap: 5.2cqw; }
 /* The apps spread across the full width of the parapet, evenly spaced, whatever their number. */
 .home-row { display: flex; justify-content: space-evenly; align-items: center; gap: 0; min-height: 4.8cqw; }
 .home-row:has(.home-app:nth-child(-n+3):last-child) { justify-content: center; gap: 14cqw; }   /* 1 to 3 apps: packed closer together */
-.home-app { position: relative; flex: none; height: 3.6cqw; transform: scale(1); transition: transform calc(var(--k) * 420ms) cubic-bezier(.3, 0, .15, 1); }
+/* The focus breathes: scale and gold rise together on --t-focus / --ease-breath. The press release (focus.css sets a
+   shorter --t-press-out on every .is-focus) rides the same breath here: on the Parapet, OK goes straight into Lumos. */
+.home-app { position: relative; flex: none; height: 3.6cqw; transform: scale(1); transition: transform calc(var(--k) * var(--t-focus)) var(--ease-breath); }
 .home-app.is-focus { transform: scale(1.28); }
+.home-app.is-focus:not(.is-press) { transition-duration: calc(var(--k) * var(--t-focus)); }
 .home-app.lifted { transform: scale(1.28) translateY(-1.1cqw); }
-.home-app-name { position: absolute; top: 122%; left: 50%; transform: translate(-50%, -.3cqw); white-space: nowrap; opacity: 0; font-size: var(--t-body); transition: opacity calc(var(--k) * 300ms), transform calc(var(--k) * 300ms); }
+.home-app-name { position: absolute; top: 122%; left: 50%; transform: translate(-50%, -.3cqw); white-space: nowrap; opacity: 0; font-size: var(--t-body); transition: opacity calc(var(--k) * var(--t-focus)) var(--ease-fade), transform calc(var(--k) * var(--t-focus)) var(--ease-breath); }
 .home-app.is-focus .home-app-name { opacity: 1; transform: translate(-50%, 0); }
 .home-empty { font-size: var(--t-body); opacity: .7; }
-/* The candle: a discreet warm pool under the focused app, lit 80 ms after landing; it flares on a launch. */
-.home-candlelight { position: absolute; left: 0; top: 0; width: 18cqw; height: 9cqw; margin: -4cqw 0 0 -9cqw; pointer-events: none; opacity: 0;
-  background: radial-gradient(closest-side, color-mix(in srgb, var(--house-glow) 13%, transparent), color-mix(in srgb, var(--house-glow) 5%, transparent) 45%, transparent 72%);
-  transition: opacity calc(var(--k) * 400ms) ease, transform calc(var(--k) * 600ms) cubic-bezier(.3, 0, .15, 1); }
+/* The candle: a faint warm pool under the focused app, lit 80 ms after landing, that comes up slowly; on a launch it
+   gives way to the Lumos light (the transform is set inline by home.js: only the opacity lives here). */
+.home-candlelight { position: absolute; left: 0; top: 0; width: 20cqw; height: 10cqw; margin: -4.5cqw 0 0 -10cqw; pointer-events: none; opacity: 0;
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--house-glow) 9%, transparent), color-mix(in srgb, var(--house-glow) 3.5%, transparent) 45%, transparent 70%);
+  transition: opacity calc(var(--k) * 900ms) var(--ease-fade), transform calc(var(--k) * 900ms) var(--ease-breath); }
 .home-candlelight.on { opacity: 1; }
-.home-candlelight.flare { opacity: .7; transform-origin: 50% 50%; transition: opacity calc(var(--k) * 180ms); }
+.home-candlelight.flare { opacity: .45; transition: opacity calc(var(--k) * 360ms) var(--ease-fade); }
 /* House crest, under the clock, sealed in wax. */
 .home-crest { position: absolute; top: calc(var(--safe-y) + 9.7cqw); left: calc(var(--safe-x) + .2cqw); display: flex; align-items: center; gap: .8cqw; opacity: 0; transform: translateY(.4cqw); transition: opacity calc(var(--k) * 500ms), transform calc(var(--k) * 500ms); }
 .home-crest.show { opacity: 1; transform: none; }
@@ -77,16 +82,18 @@ html[data-motion="economie"] .home-mist { animation: none; }
 .home-arena { position: absolute; inset: 0; pointer-events: none; }
 .home-hint { transition: opacity calc(var(--k) * 600ms); }
 
-/* Lumos: the backdrop dims, molten gold, a warm soft-edged disc, a veil of light, the launch card */
-.home-dim { position: absolute; inset: 0; background: var(--night); opacity: 0; pointer-events: none; transition: opacity calc(var(--k) * 150ms); z-index: 20; }
-.home-dim.on { opacity: .85; }
-.home-disc { position: absolute; left: 0; top: 0; width: 6cqw; height: 6cqw; margin: -3cqw 0 0 -3cqw; border-radius: 50%; pointer-events: none; z-index: 45; opacity: 0;
-  background: radial-gradient(closest-side, #fff6e0cc 0%, #ffe7b399 20%, #ffb45755 45%, #ff9d3a1a 65%, #ff8c2a00 100%); }
-.home-bloom { position: absolute; inset: 0; pointer-events: none; z-index: 44; opacity: 0; background: radial-gradient(ellipse at 50% 50%, #ffd58a22, #ffb45700 55%); }
-/* Anticipation: before the light rises, the logo "charges" (its shine sweeps twice, fast). */
-.app-logo.charging .l-shine { opacity: 1; animation: logo-shine calc(var(--k) * 350ms) ease-out 2; }
+/* Lumos: the backdrop dims, molten gold, a warm soft-edged disc, a veil of light, the launch card.
+   The light is cinematic, not a flash: the dim comes down slowly, the disc has a translucent core and a long falloff
+   (home.js drives its scale and opacity), the bloom is a faint warm veil. */
+.home-dim { position: absolute; inset: 0; background: var(--night); opacity: 0; pointer-events: none; transition: opacity calc(var(--k) * 480ms) var(--ease-fade); z-index: 20; }
+.home-dim.on { opacity: .82; }
+.home-disc { position: absolute; left: 0; top: 0; width: 8cqw; height: 8cqw; margin: -4cqw 0 0 -4cqw; border-radius: 50%; pointer-events: none; z-index: 45; opacity: 0;
+  background: radial-gradient(closest-side, #fff6e080 0%, #ffe7b35a 22%, #ffb45733 48%, #ff9d3a12 70%, #ff8c2a00 100%); }
+.home-bloom { position: absolute; inset: 0; pointer-events: none; z-index: 44; opacity: 0; background: radial-gradient(ellipse at 50% 50%, #ffd58a18, #ffb45700 62%); }
+/* Anticipation: before the light rises, the logo "charges" (its shine sweeps twice, a little faster than at rest). */
+.app-logo.charging .l-shine { opacity: 1; animation: logo-shine calc(var(--k) * 460ms) cubic-bezier(.4, 0, .3, 1) 2; }
 .home-launch { position: absolute; inset: 0; z-index: 50; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1.6cqw;
-  background: radial-gradient(ellipse at 50% 45%, #0f1a30, var(--night) 70%); opacity: 0; pointer-events: none; transition: opacity calc(var(--k) * 300ms); }
+  background: radial-gradient(ellipse at 50% 45%, #0f1a30, var(--night) 70%); opacity: 0; pointer-events: none; transition: opacity calc(var(--k) * 560ms) var(--ease-fade); }
 .home-launch.show { opacity: 1; }
 .home-launch-logo { width: 22cqw; height: 8cqw; }
 .home-launch-banner { width: 22cqw; aspect-ratio: 16 / 9; object-fit: cover; border-radius: .4cqw; box-shadow: 0 .6cqw 1.6cqw #000c; display: none; }
@@ -103,18 +110,18 @@ html:not([data-motion="auto"]) .home-launch { transition-duration: calc(var(--k)
 .screen-home.booting .home-dock { transform: translateY(1.2cqw); opacity: 0; }
 
 /* Nox: three drifting star layers (never the same pixel twice), the clock wanders (WAAPI, home.js), the owl sleeps. */
-.home-stars { position: absolute; inset: -20%; pointer-events: none; opacity: 0; transition: opacity calc(var(--k) * 2s); background-repeat: repeat; background-size: 512px 512px; }
-.screen-home.nox .home-stars { opacity: 1; }
-.home-stars-1 { animation: nox-drift-1 600s linear infinite; }
-.home-stars-2 { animation: nox-drift-2 900s linear infinite; }
-.home-stars-3 { animation: nox-drift-3 1200s linear infinite; }
+.home-stars { position: absolute; inset: -20%; pointer-events: none; opacity: 0; transition: opacity calc(var(--k) * 4s) var(--ease-fade); background-repeat: repeat; background-size: 512px 512px; }
+.screen-home.nox .home-stars { opacity: .55; }
+.home-stars-1 { animation: nox-drift-1 1200s linear infinite; }
+.home-stars-2 { animation: nox-drift-2 1800s linear infinite; }
+.home-stars-3 { animation: nox-drift-3 2400s linear infinite; }
 @keyframes nox-drift-1 { to { transform: translate(-512px, 256px); } }
 @keyframes nox-drift-2 { to { transform: translate(512px, -256px); } }
 @keyframes nox-drift-3 { to { transform: translate(-256px, -512px); } }
 .screen-home.nox .home-dock, .screen-home.nox .home-hint, .screen-home.nox .home-bar, .screen-home.nox .home-candlelight, .screen-home.nox .home-crest { opacity: 0 !important; transition-duration: calc(var(--k) * 1s); }
-.screen-home.nox .home-clock { top: 50%; left: 50%; transform: translate(-50%, -60%); align-items: center; transition: top calc(var(--k) * 1.4s) cubic-bezier(.65, 0, .25, 1), left calc(var(--k) * 1.4s) cubic-bezier(.65, 0, .25, 1), transform calc(var(--k) * 1.4s) cubic-bezier(.65, 0, .25, 1); }
+.screen-home.nox .home-clock { top: 50%; left: 50%; transform: translate(-50%, -60%); align-items: center; transition: top calc(var(--k) * 1.8s) var(--ease-scene), left calc(var(--k) * 1.8s) var(--ease-scene), transform calc(var(--k) * 1.8s) var(--ease-scene); }
 .screen-home.nox .home-date { justify-content: center; }
-.screen-home.nox .home-time { font-size: 9cqw; opacity: .6; transition: font-size calc(var(--k) * 1.4s) cubic-bezier(.65, 0, .25, 1), opacity calc(var(--k) * 2s); }
+.screen-home.nox .home-time { font-size: 9cqw; opacity: .5; transition: font-size calc(var(--k) * 1.8s) var(--ease-scene), opacity calc(var(--k) * 3s) var(--ease-fade); }
 .screen-home.nox .home-plane { transition: transform calc(var(--k) * 90s) ease-in-out; }
 html:not([data-motion="auto"]) .home-stars { animation: none; }
 
