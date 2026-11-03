@@ -367,7 +367,7 @@ export default {
     if (this.busy) return;
     const app = this.apps[this.i]; if (!app) return;
     this.busy = true;                                         // keys still reach onKey (Back cancels) until the intent fires
-    let held = false;
+    let held = false, heldMusic = false;
     const root = this.root, fx = this.ctx.fx, k = Number(getComputedStyle(root).getPropertyValue('--k')) || 1;
     const item = this.items[this.i], logoEl = item.querySelector('.app-logo');
     const { cx, cy } = this.center(logoEl);
@@ -406,6 +406,7 @@ export default {
       if (this.owl) { const t = this.owlTarget(); this.owl.comeBack(t.x, t.y); }
       this.cancelUntil = 0; this.busy = false;
       if (held) { held = false; Input.release(); }
+      if (heldMusic) { heldMusic = false; if (fx.ambientHold) fx.ambientHold(false, 'launch'); }   // the music comes back with the Parapet
     };
     this.launchDone = done;
     // The intent fires at 350 ms; from then on keys are queued and replayed at the end. The TV's answer decides the
@@ -414,7 +415,7 @@ export default {
     at(CANCEL_MS, async () => {
       this.cancelUntil = 0;
       held = true; Input.hold();
-      if (fx.ambientHold) { fx.ambientHold(true, 'launch'); timers.push(setTimeout(() => fx.ambientHold(false, 'launch'), 6000)); }
+      if (fx.ambientHold) { fx.ambientHold(true, 'launch'); heldMusic = true; }   // lifted by done(): never by a timer that done() could cancel
       const r = Platform.launch(app);
       if (r.status === 'failed') {
         clearTimeout(showCard);
