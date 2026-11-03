@@ -30,6 +30,8 @@ const OWL = [['vive', 'Vive'], ['calme', 'Calme'], ['absente', 'Absente']];
 const YESNO = [[true, 'Oui'], [false, 'Non']];
 const MOTION = [['auto', 'Auto'], ['reduit', 'Réduit'], ['economie', 'Économie']];
 const SKY = [['auto', 'Selon l’heure'], ['nuit', 'Nuit claire']];
+const FOLLOW = [['follow', 'Oui'], ['ignore', 'Non']];
+const TEXT = [['normal', 'Normale'], ['grand', 'Grande']];
 // Background music (sound.js): 'auto' = personal file (assets/music/ambiance.ogg, .mp3 or .m4a, not in the repo,
 // see docs/MUSIC.md) if it exists, otherwise the celesta waltz. The notes speak to the person holding the
 // remote: never a file path on screen.
@@ -479,8 +481,13 @@ export default {
       this.enumRow(body, 'Mouvement', MOTION, () => getConfig().motion, (v) => { updateConfig({ motion: v }); this.reduced = isReduced(); this.root.classList.toggle('is-reduced', this.reduced); }, (v) => MOTION_NOTE[v]),
       this.enumRow(body, 'Ciel', SKY, () => getConfig().sky || 'auto', (v) => updateConfig({ sky: v }),
         (v) => (v === 'auto' ? 'Crépuscule, nuit, nuit profonde, aube : le ciel suit l’heure.' : 'Une nuit claire, toujours.')),
+      this.enumRow(body, 'Suivre le système', FOLLOW, () => getConfig().motionSystem || 'follow', (v) => { updateConfig({ motionSystem: v }); this.reduced = isReduced(); this.root.classList.toggle('is-reduced', this.reduced); },
+        (v) => (v === 'follow'
+          ? (matchMedia('(prefers-reduced-motion: reduce)').matches ? 'Le système demande des animations réduites : Poudlard les réduit aussi.' : 'Si le système demande des animations réduites, Poudlard les réduit aussi.')
+          : 'Le réglage du système est ignoré : seule la ligne « Mouvement » compte.')),
+      this.enumRow(body, 'Taille du texte', TEXT, () => getConfig().text || 'normal', (v) => updateConfig({ text: v }),
+        (v) => (v === 'grand' ? 'Toutes les écritures un quart plus grandes.' : 'La taille prévue pour trois mètres.')),
     ];
-    body.appendChild(el('div', 'set-note set-note-dim', matchMedia('(prefers-reduced-motion: reduce)').matches ? 'Le système demande des animations réduites : il est respecté quel que soit ce réglage.' : 'Le réglage « Réduit » du système est respecté s’il est activé.'));
     return { items, axis: 'v', start: 0 };
   },
 
@@ -646,7 +653,7 @@ export default {
     if (action === 'okdown') { const it = this.level === 'right' && this.items[this.row]; if (it && it.el && !this.busy) it.el.classList.add('is-press'); return true; }
     { const it = this.items[this.row]; if (it && it.el) it.el.classList.remove('is-press'); }
     if (this.busy) return true;                                   // the sand is falling: 320 ms without keys
-    if (action === 'longback') { this.goClassic(); return true; }  // reversibility: classic mode from anywhere
+    if (action === 'longback') { this.ctx.router.go('home', { askClassic: true }, 'fade'); return true; }   // the Parapet asks "Nox ?" (never a silent switch)
     if (action === 'home') { this.leave(); return true; }
     if (action === 'menu') { if (this.level === 'right') this.toLeft(); else this.leave(); return true; }
 

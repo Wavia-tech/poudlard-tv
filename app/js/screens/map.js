@@ -3,7 +3,7 @@
 // and where you add an app of your own (V4): a last "Ajouter une appli" piece opens a spell to write.
 //
 // Grammar: arrows in the grid (column memory per row) · OK launches (ink version of Lumos) ·
-// long OK or Menu: the app's Remembrall (Rappeltout) · Back, down from the last row, up from the first: "Méfait accompli" (Mischief managed)
+// long OK or Menu: the app's Remembrall (Rappeltout) · Back, down from the last row, up from the first: "Fait et bien fait" (the closing line)
 // then back to the Parapet. Every change goes through updateConfig / addCustomApp / removeCustomApp (config.js): nothing else writes.
 //
 // Opening choreography: the screen first slides into place (router `down` transition, 700 ms); ONLY THEN is the `is-in`
@@ -50,8 +50,9 @@ const TOAST_MS = 2200;       // duration of an informative brass plate
 // Same shape as an Android package accepted by sanitize() (PKG_RE in config.js): never offer a package
 // the config would silently drop (the app would then be created without a path).
 const PKG_RE = /^[a-zA-Z][\w]*(\.[a-zA-Z][\w]*)+$/;
-const FORMULA = 'Je jure solennellement que mes intentions sont mauvaises';
-const MISCHIEF = 'Méfait accompli';
+// Original copy: the parchment's opening and closing lines are ours, not the books' (DISCLAIMER.md).
+const FORMULA = 'Je jure que je ne veux que regarder la télé';
+const MISCHIEF = 'Fait et bien fait';
 const KEYHINT_BROWSE = '<span><b>◀ ▶ ▲ ▼</b>Parcourir</span><span><b>OK</b>Ouvrir</span><span><b>OK long</b>Rappeltout</span><span><b>Retour</b>Parapet</span>';
 const KEYHINT_MOVE = '<span><b>◀ ▶</b>Déplacer</span><span><b>OK</b>Poser</span><span><b>Retour</b>Annuler</span>';
 const KEYHINT_SPELL = '<span><b>◀ ▶ ▲ ▼</b>Lettre</span><span><b>OK</b>Écrire</span><span><b>Retour</b>Effacer · Annuler</span>';
@@ -568,6 +569,9 @@ export default {
     });
   },
 
+  // Everything released (main.js error boundary, hand-over to another app): the light recedes, keys are free.
+  settle() { if (this.launching && this.launching.settle) this.launching.settle(); },
+
   // Back during the 350 ms window: the intent has not fired, everything is switched off.
   cancelLaunch() {
     const L = this.launching;
@@ -973,7 +977,7 @@ export default {
   },
 
   // ---------------------------------------------------------------- leaving
-  // "Méfait accompli" (Mischief managed): the formula rewrites itself, the ink fades in reverse order (350 ms),
+  // "Fait et bien fait": the formula rewrites itself, the ink fades in reverse order (350 ms),
   // the parchment folds up, and the Parapet comes back up (`up` transition).
   leave() {
     if (this.leaving) return;

@@ -70,6 +70,13 @@ export default {
 };
 ```
 
+Key contract (every screen): arrows move the single focus; OK opens (`okdown` shows the press); long OK or Menu opens the
+focused item's Remembrall when it has one, else the settings; Back goes up one level and is never a trap; long Back (2 s)
+asks "Nox ?" on the Parapet (the settings and Ollivanders send there, never a silent switch); Home resets the Parapet
+(`onHome()` on the screen, else `Router.replace` of the mode's home; debounced 700 ms); long Back 6 s is native (HomeActivity
+rescue screen). A screen may expose `settle()`: main.js calls it on any uncaught error and when the page goes hidden
+(the launched app took the screen), then frees the keys; keys pressed meanwhile are dropped on return (`Input.flush`).
+
 Rules:
 - Exactly one element in focus at a time; it carries the `is-focus` class. Never a mouse.
 - Units: everything in `cqw` inside the stage (1 cqw = 1% of the TV screen width; at 1080p, 1 cqw = 19.2 px). Type scale from base.css tokens

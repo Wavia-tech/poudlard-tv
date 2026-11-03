@@ -256,6 +256,8 @@ export default {
     void host;
   },
   dim() { if (this.root) this.root.classList.add('is-dim'); },
+  // Everything released (main.js error boundary, hand-over to another app): the banner withdraws, keys are free.
+  settle() { const b = this.root && this.root.querySelector('.cls-banner'); if (b) b.classList.remove('is-in'); this.release(); },
   undim() { if (!this.root || !this.root.classList.contains('is-dim')) return false; this.root.classList.remove('is-dim'); return true; },
 
   // "Réglages" and "Lumos" tiles: constant SVG glyph (no data), name in EB Garamond.
@@ -567,7 +569,7 @@ export default {
       case 'longok':
         if (it && it.kind === 'app') this.options(it.app);
         return true;
-      case 'menu': ctx.router.go('settings', {}, 'iris'); return true;
+      case 'menu': if (it && it.kind === 'app') this.options(it.app); else ctx.router.go('settings', {}, 'iris'); return true;   // Menu = the tile's Remembrall
       case 'longback': this.toPoudlard(); return true;
       case 'back': return true;     // nothing: no trap
       default: return false;

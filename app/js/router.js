@@ -61,7 +61,9 @@ export const Router = {
   init(stageEl, context) { stage = stageEl; ctx = context; },
   register(name, screen) { screens.set(name, screen); },
   current() { return active ? active.name : null; },
-  go(name, params, transition = 'fade') { return swap(name, params, transition, true); },
+  // `go` pushes the current screen for Back, unless it is already on top of the stack (Map → home → Map never grows it).
+  go(name, params, transition = 'fade') { const top = stack[stack.length - 1]; return swap(name, params, transition, !(active && top === active.name)); },
+  activeScreen() { return active ? active.screen : null; },
   replace(name, params, transition = 'fade') { stack.length = 0; return swap(name, params, transition, false); },
   back(transition = 'fade') {
     const name = stack.pop();
@@ -70,5 +72,18 @@ export const Router = {
   },
   canGoBack() { return stack.length > 0; },
   // Screens can ask to hand the keys back to the active screen (e.g. after a confirmation dialog).
-  refocus() { Input.setHandler((a) => { if (!active || !active.screen.onKey) return; if (!active.screen.onKey(a, active.ctx) && a === 'back' && active.name !== 'home') Router.go('home', {}, 'fade'); }); },
+  // Home: the screen's onHome() when it has one (the Parapet resets itself), otherwise the home of the current mode.
+  refocus() {
+    Input.setHandler((a) => {
+      if (!active || !active.screen.onKey) return;
+      if (a === 'home' && !(active.screen.onHome && active.screen.onHome())) {
+        if (active.screen.onKey(a, active.ctx)) return;
+        const mode = ctx && ctx.config ? ctx.config().mode : 'poudlard';
+        Router.replace(mode === 'classique' ? 'classic' : 'home', {}, 'fade');
+        return;
+      }
+      if (a === 'home') return;
+      if (!active.screen.onKey(a, active.ctx) && a === 'back' && active.name !== 'home') Router.go('home', {}, 'fade');
+    });
+  },
 };

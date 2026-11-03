@@ -16,6 +16,7 @@ import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.Button;
+import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
@@ -37,9 +38,13 @@ public final class HomeActivity extends Activity {
     private static final String JS_KEY =
             "(function(k,t){try{document.dispatchEvent(new KeyboardEvent(t,{key:k,bubbles:true,cancelable:true,repeat:%s}))}catch(e){}})('%s','%s');";
 
+    /** Back held this long opens the native rescue screen, whatever the page is doing (a frozen WebView included). */
+    private static final long RESCUE_HOLD_MS = 6000;
+
     private WebView web;
     private Apps apps;
     private WebAssets assets;
+    private View rescue;
 
     @Override
     protected void onCreate(Bundle saved) {
@@ -142,8 +147,14 @@ public final class HomeActivity extends Activity {
 
     @Override
     public boolean dispatchKeyEvent(KeyEvent event) {
-        // Without a WebView (native fallback screen), keys go to the native buttons.
-        if (web == null) return super.dispatchKeyEvent(event);
+        // Without a WebView (native fallback screen), or while the rescue screen is up, keys go to the native buttons.
+        if (web == null || rescue != null) return super.dispatchKeyEvent(event);
+        // Back held 6 s: the rescue screen, native, independent of the page.
+        if (event.getKeyCode() == KeyEvent.KEYCODE_BACK && event.getAction() == KeyEvent.ACTION_DOWN
+                && event.getRepeatCount() > 0 && event.getEventTime() - event.getDownTime() >= RESCUE_HOLD_MS) {
+            showRescue();
+            return true;
+        }
         String key = null;
         switch (event.getKeyCode()) {
             case KeyEvent.KEYCODE_BACK:
@@ -289,6 +300,67 @@ public final class HomeActivity extends Activity {
         box.addView(retry);
         original.requestFocus();
         return box;
+    }
+
+    /**
+     * The rescue screen (Back held 6 s): four buttons over the WebView, nothing else can fail here.
+     *  « Reprendre » closes it; « Recharger Poudlard TV » rebuilds the WebView; « Ouvrir l'accueil d'origine »
+     *  gives the Home key back; « Réglages de la télé » opens the TV's own settings.
+     */
+    private void showRescue() {
+        if (rescue != null) return;
+        LinearLayout box = column();
+        box.addView(label(getString(R.string.rescue_title), 28, 0xFFF1D58A));
+        Button resume = button(getString(R.string.rescue_resume), new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                hideRescue();
+            }
+        });
+        Button reload = button(getString(R.string.rescue_reload), new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                hideRescue();
+                dropWebView();
+                recreate();
+            }
+        });
+        Button original = button(getString(R.string.crashed_button), new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                HomeMode.giveBackHome(HomeActivity.this);
+                hideRescue();
+            }
+        });
+        Button settings = button(getString(R.string.rescue_settings), new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                hideRescue();
+                apps.openSystem("settings", null);
+            }
+        });
+        box.addView(resume);
+        box.addView(reload);
+        box.addView(original);
+        box.addView(settings);
+        FrameLayout over = new FrameLayout(this);
+        over.setBackgroundColor(0xE6070B14);
+        over.addView(box, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        rescue = over;
+        addContentView(over, new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        resume.requestFocus();
+    }
+
+    private void hideRescue() {
+        if (rescue == null) return;
+        View v = rescue;
+        rescue = null;
+        try {
+            if (v.getParent() instanceof ViewGroup) ((ViewGroup) v.getParent()).removeView(v);
+        } catch (RuntimeException e) {
+            Log.w("closing the rescue screen", e);
+        }
+        if (web != null) web.requestFocus();
     }
 
     private View noticeView(String text) {

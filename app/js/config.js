@@ -82,6 +82,8 @@ export const DEFAULT_CONFIG = Object.freeze({
   music: 'auto',                // background music: 'auto' (personal file if present, otherwise celesta) | 'celesta' | 'aucune'
   motion: 'auto',               // 'auto' | 'reduit' | 'economie'
   sky: 'auto',                  // the Parapet's sky: 'auto' (dusk, night, deep night, dawn by the hour) | 'nuit' (always a clear night)
+  motionSystem: 'follow',       // 'follow' the system's reduced-motion flag | 'ignore' it
+  text: 'normal',               // 'normal' | 'grand' (every type token × 1.25)
   idleSeconds: 0,               // sleep (Nox); 0 = never (Corentin's choice: sleep OFF by default)
   lastApp: null,
   firstRunDone: false,
@@ -129,6 +131,8 @@ export function sanitize(raw) {
   if (['auto', 'celesta', 'aucune'].includes(raw.music)) c.music = raw.music;
   if (['auto', 'reduit', 'economie'].includes(raw.motion)) c.motion = raw.motion;
   if (['auto', 'nuit'].includes(raw.sky)) c.sky = raw.sky;
+  if (['follow', 'ignore'].includes(raw.motionSystem)) c.motionSystem = raw.motionSystem;
+  if (['normal', 'grand'].includes(raw.text)) c.text = raw.text;
   if (Number.isInteger(raw.idleSeconds) && raw.idleSeconds >= 0 && raw.idleSeconds <= 3600) c.idleSeconds = raw.idleSeconds;
   if (typeof raw.lastApp === 'string' && knows(raw.lastApp)) c.lastApp = raw.lastApp;
   if (raw.firstRunDone === true) c.firstRunDone = true;
@@ -215,8 +219,10 @@ export function addCustomApp(name, pkg) {
 export function removeCustomApp(id) {
   updateConfig({ custom: current.custom.filter((a) => a.id !== id), dock: current.dock.filter((x) => x !== id), hidden: current.hidden.filter((x) => x !== id) });
 }
-// Reduced motion: decided by the interface setting only. On a TV, the system accessibility setting
-// (prefers-reduced-motion) must not freeze Hedwig (Hedwige) without the user knowing.
+// Reduced motion: the interface setting, plus the system's accessibility setting (prefers-reduced-motion) when
+// `motionSystem` says to follow it (the default: honest accessibility). "Suivre le système : Non" lets Hedwig fly
+// on a TV whose system flag is set without the person knowing.
 export function isReduced() {
-  return current.motion !== 'auto';
+  if (current.motion !== 'auto') return true;
+  return current.motionSystem !== 'ignore' && typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
 }

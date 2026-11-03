@@ -115,6 +115,19 @@ export default {
     if (ctx.params.askClassic) this.timers.push(setTimeout(() => this.plate(true), 750));
   },
 
+  // The Home key (router.js): the Parapet goes back to its entry state, whatever it was doing. True = handled.
+  onHome() {
+    if (!this.root) return false;
+    if (this.mode === 'nox') { this.wake(); return true; }
+    if (this.busy) { this.cancelLaunch(); return true; }
+    if (this.mode === 'plate') this.plate(false);
+    if (this.mode === 'move') this.leaveMove();
+    this.zone = 'dock'; this.syncBar(); this.layout(true); this.armHint();
+    return true;
+  },
+  // Everything released (main.js error boundary, hand-over to another app): the launch settles at once.
+  settle() { if (this.busy && this.launchDone) this.launchDone(); },
+
   // The leaving screen's flourish (router.js): the owl lifts off before the crane, the candle goes out before the Room.
   onLeave(transition) {
     if (transition === 'crane' && this.owl) this.owl.liftOff(450);
@@ -391,6 +404,7 @@ export default {
     at(CANCEL_MS, async () => {
       this.cancelUntil = 0;
       held = true; Input.hold();
+      if (fx.ambientHold) { fx.ambientHold(true, 'launch'); timers.push(setTimeout(() => fx.ambientHold(false, 'launch'), 6000)); }
       const r = Platform.launch(app);
       if (r.status === 'failed') {
         clearTimeout(showCard);
@@ -458,6 +472,7 @@ export default {
     this.mode = 'nox';
     const root = this.root; root.classList.add('nox');
     this.ctx.fx.setRate(66);
+    if (this.ctx.fx.ambientHold) this.ctx.fx.ambientHold(true, 'nox');     // the waltz waits
     if (this.ctx.fx.cue) this.ctx.fx.cue('nox');
     if (this.owl) this.owl.sleep();
     const order = [...this.windows].sort(() => Math.random() - 0.5);
@@ -483,6 +498,7 @@ export default {
     this.noxTimers.forEach(clearTimeout); this.noxTimers = [];
     if (this.noxAnim) { this.noxAnim.cancel(); this.noxAnim = null; }
     this.ctx.fx.setRate(getConfig().motion === 'economie' ? 66 : 33);
+    if (this.ctx.fx.ambientHold) this.ctx.fx.ambientHold(false, 'nox');
     const root = this.root; root.classList.remove('nox');
     const sorted = [...this.windows].sort((a, b) => a.x - b.x);
     sorted.forEach((p, n) => setTimeout(() => { p.lit = 1; }, (n / Math.max(1, sorted.length)) * 700));
@@ -571,9 +587,9 @@ export default {
     if (action === 'left') { if (this.i > 0) { this.i--; this.layout(false); ctx.fx.cue ? ctx.fx.cue('move', { dir: -1 }) : ctx.fx.chime(1046, 0.02); } else if (this.owl) this.owl.nod(); return true; }
     if (action === 'ok') { if (n) this.launch(); else this.goMap(ctx); return true; }
     if (action === 'longok') { if (n) this.rappeltout(); return true; }
+    if (action === 'menu') { if (n) this.rappeltout(); else ctx.router.go('settings', {}, 'snuff'); return true; }   // Menu = the focused item's Remembrall
     if (action === 'down') { if (ctx.fx.cue) ctx.fx.cue('enter'); else ctx.fx.chime(880, 0.03); ctx.router.go('library', {}, 'crane'); return true; }   // onLeave lifts the owl
     if (action === 'up') { this.zone = 'bar'; this.syncBar(); this.layout(true); return true; }
-    if (action === 'menu') { ctx.router.go('settings', {}, 'snuff'); return true; }
     if (action === 'longback') { this.plate(true); return true; }
     return false;
   },

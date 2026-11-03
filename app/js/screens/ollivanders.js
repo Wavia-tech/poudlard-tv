@@ -131,18 +131,22 @@ export default {
     // The link opens right away (inside the OK gesture, otherwise the browser blocks the tab); the light dresses the wait.
     const r = Platform.openContent(app, it);
     const dim = root.querySelector('.olv-dim');
-    const settle = () => { dim.classList.remove('show'); root.classList.remove('is-launch'); this.busy = false; Input.release(); };
+    const settle = () => { dim.classList.remove('show'); root.classList.remove('is-launch'); this.busy = false; this.settleFn = null; Input.release(); };
+    this.settleFn = settle;
     if (r.status === 'failed') {                      // the TV refused: the light goes out at once, the Howler says why
       this.timers.push(setTimeout(async () => { settle(); if (fx.cue) fx.cue('error'); const b = await loadBeuglante(); if (b) b(root, { message: r.error }); }, 200 * k));
       return;
     }
     const L = LOGOS[app.id] || monogram(app.name);
     dim.innerHTML = `<div class="olv-launch-logo app-logo lit${L.luma ? ' luma' : ''}" style="--m:url('${L.src}')"><i class="l-ext"></i><i class="l-rimD"></i><i class="l-rimL"></i><i class="l-base"></i><i class="l-shine"></i></div><div class="olv-launch-title"></div><div class="olv-launch-sub engraved gold-text"></div>`;
-    dim.querySelector('.olv-launch-title').textContent = `Harry Potter ${it.title.charAt(0).toLowerCase()}${it.title.slice(1)}`;
+    dim.querySelector('.olv-launch-title').textContent = `${it.title} · ${it.year}`;
     dim.querySelector('.olv-launch-sub').textContent = `sur ${app.name}`;
     this.timers.push(setTimeout(() => dim.classList.add('show'), 450 * k));
     this.timers.push(setTimeout(settle, (r.status === 'bridge' ? 4000 : 2600) * k));
   },
+
+  // Everything released (main.js error boundary, hand-over to another app).
+  settle() { if (this.settleFn) this.settleFn(); },
 
   async rappeltout() {
     const fn = await loadRappeltout(); if (!fn) return;
@@ -162,7 +166,7 @@ export default {
     if (action === 'up' || action === 'back') { if (ctx.fx.cue) ctx.fx.cue('return'); else ctx.fx.whoosh(); ctx.router.go('home', {}, 'uncrane'); return true; }
     if (action === 'home') { ctx.router.replace('home', {}, 'fade'); return true; }
     if (action === 'longback') { ctx.router.go('home', { askClassic: true }, 'uncrane'); return true; }
-    if (action === 'menu') { ctx.router.go('settings', {}, 'snuff'); return true; }
+    if (action === 'menu') { this.rappeltout(); return true; }   // Menu = the box's Remembrall
     return false;
   },
 };

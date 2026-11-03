@@ -13,6 +13,8 @@ function applyTheme(c) {
   html.dataset.mode = c.mode;
   html.dataset.house = c.house || 'none';
   html.dataset.motion = c.motion;
+  html.dataset.text = c.text || 'normal';
+  html.dataset.motionSystem = c.motionSystem || 'follow';
   // The house palette is CSS (base.css, html[data-house]): nothing inline. HOUSES stays the source of the names.
   void HOUSES;
   Fx.configure({ dust: c.motion === 'auto', sound: c.sounds, calm: c.motion !== 'auto' });
@@ -52,8 +54,22 @@ function armIdle() {
   }, c.idleSeconds * 1000);
 }
 Input.onActivity(armIdle);
-document.addEventListener('visibilitychange', () => { if (document.hidden) clearTimeout(idleTimer); else armIdle(); });
 armIdle();
+
+// Lumos can never freeze: an error anywhere releases the keys and settles the active screen; the page going hidden
+// (the launched app took the screen) settles too, and keys pressed in that app are dropped when the page comes back.
+let lastFatal = '';
+function releaseAll(message) {
+  try { const s = SCREENS[Router.current()]; if (s && s.settle) s.settle(); } catch (e) { /* the screen could not settle: the keys are freed below anyway */ }
+  Input.release();
+  if (message) import('./beuglante.js').then((m) => m.beuglante(stage, { message })).catch(() => {});
+}
+window.addEventListener('error', (e) => { const msg = String(e && e.message || e); if (msg === lastFatal) return; lastFatal = msg; console.error('fatal', e.error || e); releaseAll('Un sortilège a raté. Tout est relâché.'); });
+window.addEventListener('unhandledrejection', (e) => { console.error('fatal', e.reason); releaseAll('Un sortilège a raté. Tout est relâché.'); });
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) { clearTimeout(idleTimer); releaseAll(null); }
+  else { Input.flush(); armIdle(); }
+});
 
 // Background music: starts on the first user gesture (the browser requires it), follows the setting and the Sound button.
 let ambientStarted = false;

@@ -90,6 +90,20 @@ The Admission Letter (Lettre d'admission) does all of this in four pages on firs
 
 Plain mode is there for the others: the family, the guest, the evening when the TV is sluggish. Hold Back for two seconds from any screen, and the same gesture to come back.
 
+**The keys**, the same on every screen:
+
+| Key | Does |
+|---|---|
+| Arrows | Move the single focus |
+| OK | Open (the press is visible before the light rises) |
+| OK held 700 ms, or Menu | The focused item's options (Remembrall) |
+| Back | Up one level; never a trap, never a forced exit |
+| Back held 2 s | "Nox ?" → plain mode; the same gesture lights Poudlard again |
+| Back held 6 s | The TV's native rescue screen (resume, reload, original home, TV settings) |
+| Home | The Parapet, reset (two presses within 700 ms count as one) |
+| Settings key of the remote | The TV's own settings (except on Hisense and TCL) |
+| Back right after OK (within 350 ms) | Cancels the launch before anything is sent |
+
 ## 7. Sounds
 
 No audio files in the interface: a synthesized celesta voice, nine short phrases (move, descend, back, Lumos, Nox, wake, error, tick, confirm) and a background waltz, all original. The Sound key at the top right mutes everything at once. For music of your own: `docs/MUSIC.md`.

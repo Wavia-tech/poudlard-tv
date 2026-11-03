@@ -6,6 +6,10 @@ Poudlard TV is a personal fan project, published by Wavia on an experimental bas
 
 "Harry Potter", "Hogwarts", "Poudlard", "Wizarding World", the names of the houses, places, objects and characters, and every trademark mentioned in this repository (Netflix, Prime Video, Disney+, Canal+, Max, Apple TV, Paramount+, YouTube, france.tv, TF1+, M6+, Arte, Crunchyroll, DAZN, Twitch, Spotify, Deezer, Plex, PlayStation, Xbox, Nintendo Switch, Google TV, Android TV, Chromecast and the others) are the property of their respective owners. They are mentioned only to designate the services and devices concerned.
 
+## Names and text
+
+Every sentence shown by the interface is original copy written for this project: the Map's opening and closing lines, the Admission Letter, the captions. No passage from the books or the films, in any language, is reproduced. The single-word names kept as nominative labels are: Poudlard, Lumos, Nox, Hedwige, Gryffondor, Serpentard, Serdaigle, Poufsouffle, Ollivanders, Rappeltout, Beuglante, Choixpeau (in the house section only), the Carte du Maraudeur and the Salle sur Demande as screen names. They designate the theme; they are not licensed by this repository, and the product name itself is the owner's decision (it lives in one place: `app_name` in `android/res/values/strings.xml` and the README).
+
 ## What the repository does not contain
 
 - **No official assets** from the films, books or games: no photo, no clip, no official crest, no lightning-bolt lettering, no font derived from the posters. The scenery (castle, parchment, mist, owl), the crests and the glyphs are generated or drawn for this project.

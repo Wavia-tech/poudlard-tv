@@ -117,8 +117,8 @@ export default {
   // Page I: the house.
   page0(sheet, line) {
     line(el('h2', 'sort-title', 'Choisissez votre maison'));
-    line(el('p', 'sort-text', 'Cher sorcier, chère sorcière, nous avons le plaisir de vous informer que votre téléviseur est admis à Poudlard.'));
-    line(el('p', 'sort-text', 'Le Choixpeau attend votre réponse : la cire de votre maison scellera chaque réglage.'));
+    line(el('p', 'sort-text', 'Votre téléviseur a été admis. Choisissez votre maison et vos sortilèges.'));
+    line(el('p', 'sort-text', 'La cire de votre maison scellera chaque réglage.'));
     const row = line(el('div', 'sort-shields'));
     const items = [];
     Object.keys(HOUSES).forEach((id) => {

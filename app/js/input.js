@@ -6,9 +6,11 @@
 const KEYMAP = {
   ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'down',
   Enter: 'ok', ' ': 'ok', Escape: 'back', Backspace: 'back', BrowserBack: 'back', GoBack: 'back',
-  m: 'menu', M: 'menu', ContextMenu: 'menu', Home: 'home', MediaPlayPause: 'ok',
+  m: 'menu', M: 'menu', ContextMenu: 'menu', Home: 'home',
 };
 const REPEAT_MS = 110;       // remotes auto-repeat very fast: smooth it out
+const HOME_DEBOUNCE_MS = 700; // two Home presses within 700 ms are one (the TV sends a double on some remotes)
+let lastHome = -1e9;
 const LONG_OK_MS = 700;
 const LONG_BACK_MS = 2000;
 
@@ -20,6 +22,7 @@ let queue = null;            // null = pass-through; array = queue
 
 function dispatch(action) {
   if (action === 'okdown') { if (!queue && handler) handler(action); return; }   // cosmetic: never queued, never activity
+  if (action === 'home') { const now = performance.now(); if (now - lastHome < HOME_DEBOUNCE_MS) return; lastHome = now; }
   activity.forEach((fn) => fn(action));
   if (queue) { if (queue.length < 4) queue.push(action); return; }
   if (handler) handler(action);
@@ -30,9 +33,12 @@ export const Input = {
   setHandler(fn) { handler = fn; },
   onActivity(fn) { activity.add(fn); return () => activity.delete(fn); },
   press(action) { dispatch(action); },
-  // Queue: hold() during a blocking animation, release() replays the keys received meanwhile.
+  // Queue: hold() during a blocking animation, release() replays the keys received meanwhile (idempotent: a second
+  // release does nothing and also clears any long-press timer), flush() drops them (keys pressed in another app).
   hold() { if (!queue) queue = []; },
-  release() { const q = queue || []; queue = null; q.forEach((a) => handler && handler(a)); },
+  release() { const q = queue || []; queue = null; for (const h of Object.values(holds)) { clearTimeout(h.timer); h.timer = 0; h.fired = false; } q.forEach((a) => handler && handler(a)); },
+  flush() { queue = null; for (const h of Object.values(holds)) { clearTimeout(h.timer); h.timer = 0; h.fired = false; } },
+  held() { return queue !== null; },
 
   install() {
     document.addEventListener('keydown', (e) => {

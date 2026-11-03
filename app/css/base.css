@@ -15,7 +15,8 @@
   --title: var(--display); --serif: var(--body); --book: var(--fell);
   --ui: "Segoe UI", system-ui, sans-serif;
   /* Type scale at 3 m: nothing below --t-hint. Safe area: nothing closer to an edge than --safe-x / --safe-y. */
-  --t-hint: 1.5cqw; --t-body: 1.85cqw; --t-label: 2.05cqw; --t-title: 2.4cqw; --t-clock: 6cqw;
+  --text-scale: 1;
+  --t-hint: calc(var(--text-scale) * 1.5cqw); --t-body: calc(var(--text-scale) * 1.85cqw); --t-label: calc(var(--text-scale) * 2.05cqw); --t-title: calc(var(--text-scale) * 2.4cqw); --t-clock: calc(var(--text-scale) * 6cqw);
   --safe-x: 5cqw; --safe-y: 4.5cqw; --track-wide: .2em; --track-tight: .14em;
   /* Focus grammar (focus.css): rest → focus → press → land. */
   --t-focus: 250ms; --t-press-in: 90ms; --t-press-out: 160ms; --t-land: 180ms;
@@ -24,6 +25,7 @@
   color-scheme: dark;
 }
 :root[data-slow="1"] { --k: 3; }
+html[data-text="grand"] { --text-scale: 1.25; }   /* "Taille du texte : Grand" (config.text) */
 /* The four houses: wax (seals), glow (candle, focus rings), ink (strokes on parchment), night (the Parapet's shade). */
 html[data-house="gryffondor"] { --wax: #7a1f1f; --house-glow: #ffb457; --house-ink: #3a1810; --house-night: #140a0c; }
 html[data-house="serpentard"] { --wax: #1f4a2e; --house-glow: #9fe3b8; --house-ink: #10261a; --house-night: #07130d; }

@@ -9,6 +9,11 @@
     <string name="crashed_body">L\'accueil d\'origine de la télé a repris la touche Home. Rien d\'autre n\'a été modifié.\n« Réessayer » rouvre Poudlard TV tout de suite ; pour lui rendre la touche Home, ouvrez ensuite Salle sur Demande → Accueil de la télé → Touche Home : « Poudlard TV », et confirmez quand la télé le demande.</string>
     <string name="crashed_button">Ouvrir l\'accueil d\'origine</string>
     <string name="crashed_retry">Réessayer Poudlard TV</string>
+    <!-- Rescue screen (Back held 6 s): native, over the WebView, four buttons. -->
+    <string name="rescue_title">Issue de secours</string>
+    <string name="rescue_resume">Reprendre</string>
+    <string name="rescue_reload">Recharger Poudlard TV</string>
+    <string name="rescue_settings">Réglages de la télé</string>
     <!-- Page missing from the APK (assets/web empty): never a black screen. -->
     <string name="missing_web">Les fichiers de l\'interface manquent dans l\'application (assets/web). L\'APK doit être reconstruit.</string>
 </resources>
