@@ -10,7 +10,7 @@ import { LOGOS } from '../../assets/logos.js';
 import { monogram } from '../monogram.js';
 
 // Each collection of LIBRARY (config.js) is a window: its `scene` gives the backdrop, its pixel size and one
-// selection polygon per film. Right at the last box opens the next window, Left at the first the previous one.
+// selection polygon per film. The windows stack under the Parapet: Down opens the next one, Up the previous one.
 let IMG = { w: 1672, h: 941 };
 const HOLE = 1.25;    // the hole's box is 1.25 × the film box (the soft edge lives in the mask gradient): framed, not spilling
 const BEAM_W = 14, BEAM_H = 60, WARM_W = 18, WARM_H = 36;   // cqw: the base sizes of the beam and the warmth (CSS), scaled per box
@@ -30,7 +30,7 @@ export default {
     const boxes = coll.scene.boxes;
     IMG = { w: coll.scene.w, h: coll.scene.h };
     this.items = coll.items.slice(0, boxes.length).map((it, n) => ({ ...it, box: boxes[n], key: `${coll.id}:${it.content}` }));
-    this.i = ctx.params && ctx.params.from === 'end' ? this.items.length - 1 : 0;
+    this.i = 0;
     root.innerHTML = `
       <div class="olv-scene">
         <img class="olv-bg" alt="">
@@ -39,15 +39,16 @@ export default {
         <div class="olv-warmth"></div>
       </div>
       <div class="olv-caption"><div class="olv-caption-kicker"></div><div class="olv-caption-title"></div><div class="olv-caption-sub"></div></div>
-      <div class="keyhint olv-hint"><span><b>◀ ▶</b>Choisir</span><span><b>OK</b>Ouvrir le film</span><span><b>▲</b>Parapet</span><span class="olv-hint-next"><b>▶</b></span></div>
+      <div class="keyhint olv-hint"><span><b>◀ ▶</b>Choisir</span><span><b>OK</b>Ouvrir le film</span><span class="olv-hint-up"><b>▲</b>Parapet</span><span class="olv-hint-next"><b>▼</b></span></div>
       <div class="olv-dim"></div>`;
     const bg = root.querySelector('.olv-bg');
     bg.addEventListener('error', () => root.classList.add('no-image'));
     bg.src = coll.scene.image;
     root.querySelector('.olv-caption-kicker').textContent = coll.title;
     const next = windows[this.ci + 1], prev = windows[this.ci - 1];
-    const hintNext = root.querySelector('.olv-hint-next');
-    if (next) hintNext.append(`${next.title}, au bout`); else if (prev) { hintNext.querySelector('b').textContent = '◀'; hintNext.append(`${prev.title}, au bout`); } else hintNext.remove();
+    const hintNext = root.querySelector('.olv-hint-next'), hintUp = root.querySelector('.olv-hint-up');
+    if (next) hintNext.append(next.title); else hintNext.remove();
+    if (prev) { hintUp.lastChild.textContent = prev.title; }
     this.timers.push(setTimeout(() => root.classList.add('is-in'), 60));
     this.focus(this.i, true);
     this.dust();
@@ -164,18 +165,18 @@ export default {
     if (action === 'okdown') { if (!this.busy) this.root.querySelector('.olv-scene').classList.add('is-press'); return true; }
     if (this.busy) return true;
     this.root.querySelector('.olv-scene').classList.remove('is-press');
-    if (action === 'right') {
-      if (this.i < this.items.length - 1) { this.focus(this.i + 1); ctx.fx.cue ? ctx.fx.cue('move', { dir: 1 }) : ctx.fx.chime(1175, 0.02); }
-      else if (this.windows[this.ci + 1]) { ctx.fx.cue ? ctx.fx.cue('enter') : ctx.fx.chime(1175, 0.02); ctx.router.replace('library', { collection: this.windows[this.ci + 1].id }, 'fade'); }   // the next window
-      return true;
-    }
-    if (action === 'left') {
-      if (this.i > 0) { this.focus(this.i - 1); ctx.fx.cue ? ctx.fx.cue('move', { dir: -1 }) : ctx.fx.chime(1046, 0.02); }
-      else if (this.windows[this.ci - 1]) { ctx.fx.cue ? ctx.fx.cue('return') : ctx.fx.chime(1046, 0.02); ctx.router.replace('library', { collection: this.windows[this.ci - 1].id, from: 'end' }, 'fade'); }
+    if (action === 'right') { if (this.i < this.items.length - 1) { this.focus(this.i + 1); ctx.fx.cue ? ctx.fx.cue('move', { dir: 1 }) : ctx.fx.chime(1175, 0.02); } return true; }
+    if (action === 'left') { if (this.i > 0) { this.focus(this.i - 1); ctx.fx.cue ? ctx.fx.cue('move', { dir: -1 }) : ctx.fx.chime(1046, 0.02); } return true; }
+    // The windows stack vertically under the Parapet: Down goes to the next one (the crane keeps descending), Up to
+    // the previous one, and Up from the first climbs back to the Parapet.
+    if (action === 'down') {
+      const next = this.windows[this.ci + 1];
+      if (next) { ctx.fx.cue ? ctx.fx.cue('enter') : ctx.fx.chime(880, 0.03); ctx.router.replace('library', { collection: next.id }, 'crane'); }
       return true;
     }
     if (action === 'ok') { this.launch(); return true; }
     if (action === 'longok') { this.rappeltout(); return true; }
+    if (action === 'up' && this.windows[this.ci - 1]) { ctx.fx.cue ? ctx.fx.cue('return') : ctx.fx.whoosh(); ctx.router.replace('library', { collection: this.windows[this.ci - 1].id }, 'uncrane'); return true; }
     if (action === 'up' || action === 'back') { if (ctx.fx.cue) ctx.fx.cue('return'); else ctx.fx.whoosh(); ctx.router.go('home', {}, 'uncrane'); return true; }
     if (action === 'home') { ctx.router.replace('home', {}, 'fade'); return true; }
     if (action === 'longback') { ctx.router.go('home', { askClassic: true }, 'uncrane'); return true; }

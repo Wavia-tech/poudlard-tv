@@ -73,9 +73,10 @@ export const LIBRARY = [
       [[45, 262], [345, 262], [345, 500], [45, 500]], [[368, 252], [662, 252], [662, 500], [368, 500]], [[682, 262], [978, 262], [978, 506], [682, 506]],
     ] },
     items: [
-      { n: 1, title: 'Les Animaux fantastiques', year: 2016, symbol: 'suitcase', color: '#1d3b4a', app: 'max', content: 'fb1', url: 'https://www.max.com/fr/fr/search?q=Les+Animaux+fantastiques' },
-      { n: 2, title: 'Les Crimes de Grindelwald', year: 2018, symbol: 'skull', color: '#2a2a2a', app: 'max', content: 'fb2', url: 'https://www.max.com/fr/fr/search?q=Les+Animaux+fantastiques+Les+Crimes+de+Grindelwald' },
-      { n: 3, title: 'Les Secrets de Dumbledore', year: 2022, symbol: 'phoenix', color: '#3d2f1a', app: 'max', content: 'fb3', url: 'https://www.max.com/fr/fr/search?q=Les+Animaux+fantastiques+Les+Secrets+de+Dumbledore' },
+      // Netflix title pages (ids read from netflix.com, November 2026); availability depends on the country.
+      { n: 1, title: 'Les Animaux fantastiques', year: 2016, symbol: 'suitcase', color: '#1d3b4a', app: 'netflix', content: 'fb1', url: 'https://www.netflix.com/title/80111501' },
+      { n: 2, title: 'Les Crimes de Grindelwald', year: 2018, symbol: 'skull', color: '#2a2a2a', app: 'netflix', content: 'fb2', url: 'https://www.netflix.com/title/80997275' },
+      { n: 3, title: 'Les Secrets de Dumbledore', year: 2022, symbol: 'phoenix', color: '#3d2f1a', app: 'netflix', content: 'fb3', url: 'https://www.netflix.com/title/81516447' },
     ],
   },
 ];
