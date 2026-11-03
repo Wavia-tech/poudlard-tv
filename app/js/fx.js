@@ -47,8 +47,8 @@ let last = 0;
 function drawDust(now, dt) {
   if (!ctx2d || !W) return;
   if (!enabled.dust || reduced()) { if (parts.length || dirty) { parts.length = 0; ctx2d.clearRect(0, 0, W, H); dirty = false; } return; }
-  if (parts.filter((p) => p.amb).length < 40) {
-    parts.push({ amb: true, x: Math.random() * W, y: H * (0.5 + Math.random() * 0.55), vx: (Math.random() - 0.5) * 6, vy: -(5 + Math.random() * 12), life: 0, max: 5 + Math.random() * 6, s: 0.6 + Math.random() * 1.3 });
+  if (parts.filter((p) => p.amb).length < 22) {
+    parts.push({ amb: true, x: Math.random() * W, y: H * (0.5 + Math.random() * 0.55), vx: (Math.random() - 0.5) * 4, vy: -(3 + Math.random() * 8), life: 0, max: 7 + Math.random() * 7, s: 0.5 + Math.random() * 1 });
   }
   if (!parts.length && !dirty) return;
   ctx2d.clearRect(0, 0, W, H); dirty = false;
@@ -61,7 +61,7 @@ function drawDust(now, dt) {
     p.vy += (p.g || 0) * dt; p.x += p.vx * dt; p.y += p.vy * dt;
     const k = p.life / p.max;
     const tw = p.amb ? 0.5 + 0.5 * Math.sin(t * 5 + j) : 1;
-    ctx2d.globalAlpha = (k < 0.15 ? k / 0.15 : 1 - (k - 0.15) / 0.85) * 0.9 * tw;
+    ctx2d.globalAlpha = (k < 0.15 ? k / 0.15 : 1 - (k - 0.15) / 0.85) * (p.amb ? 0.5 : 0.75) * tw;
     const s = p.s * W / 900;
     ctx2d.drawImage(glow, p.x - s * 3, p.y - s * 3, s * 6, s * 6);
   }
@@ -117,10 +117,10 @@ export const Fx = {
     host.appendChild(el);
     const tr = (s) => `translate(${x}px, ${y}px) scale(${s})`;
     const anim = el.animate([
-      { opacity: 1, transform: tr(0.2) }, { opacity: 1, transform: tr(6), offset: 0.35 }, { opacity: 0, transform: tr(40) }
-    ], { duration: reduced() ? 1 : ms, easing: 'ease-out' });
+      { opacity: 0.8, transform: tr(0.2) }, { opacity: 0.7, transform: tr(5), offset: 0.35 }, { opacity: 0, transform: tr(32) }
+    ], { duration: reduced() ? 1 : ms * 1.2, easing: 'cubic-bezier(.3,.6,.2,1)' });
     anim.onfinish = () => el.remove();
-    this.burst(x, y, 60, 140);
+    this.burst(x, y, 36, 110);
   },
 
   // ----- Soundtrack (see sound.js) -----

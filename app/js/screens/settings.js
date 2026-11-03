@@ -36,6 +36,7 @@ const TEXT = [['normal', 'Normale'], ['grand', 'Grande']];
 // see docs/MUSIC.md) if it exists, otherwise the celesta waltz. The notes speak to the person holding the
 // remote: never a file path on screen.
 const MUSIC = [['auto', 'Auto'], ['celesta', 'Célesta'], ['aucune', 'Aucune']];
+const MUSIC_NOX = [['pause', 'Se tait'], ['continue', 'Continue']];
 const MUSIC_NOTE = { auto: 'Votre propre musique si vous en avez déposé une (voir la documentation), sinon une valse de célesta originale, très bas.', celesta: 'Une valse lente de célesta, harpe et cordes, composée pour le parapet. Jamais un thème des films.', aucune: 'Les clochettes seulement, sans musique.' };
 const MOTION_NOTE = { auto: 'Vol de la chouette, parallaxe, grain, scintillement : tout.', reduit: 'Fondus de 200 ms, rien de plus. Aussi forcé par le système si demandé.', economie: 'Sans grain ni particules ; scintillement ralenti, parallaxe sur un plan.' };
 const IDLE = [[90, '1,5 min'], [180, '3 min'], [300, '5 min'], [600, '10 min'], [0, 'Jamais']];
@@ -490,6 +491,8 @@ export default {
       // Background music: defensive read (config.music may not exist yet → 'Auto'), sound.js follows live.
       this.enumRow(body, 'Musique de fond', MUSIC, () => getConfig().music || 'auto', (v) => { updateConfig({ music: v }); this.ctx.fx.ambient(v); },
         (v) => MUSIC_NOTE[v]),
+      this.enumRow(body, 'Musique en veille', MUSIC_NOX, () => getConfig().musicNox || 'pause', (v) => { updateConfig({ musicNox: v }); if (this.ctx.fx.ambientHold && v === 'continue') this.ctx.fx.ambientHold(false, 'nox'); },
+        (v) => (v === 'continue' ? 'Le château s’endort, la musique continue, très bas.' : 'Quand le château s’endort, la musique se tait ; elle reprend au réveil.')),
     ];
     return { items, axis: 'v', start: 0 };
   },

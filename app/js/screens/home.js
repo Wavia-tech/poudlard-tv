@@ -220,7 +220,7 @@ export default {
         const cell = `${xx >> 3}:${y >> 3}`;
         if (seen.has(cell)) continue;
         seen.add(cell);
-        pts.push({ x: xx / iw, y: y / ih, a: 0.18 + Math.random() * 0.22, ph: Math.random() * 6.28, sp: 0.35 + Math.random() * 1.1, r: 0.7 + Math.random() * 0.6, lit: 1 });
+        pts.push({ x: xx / iw, y: y / ih, a: 0.12 + Math.random() * 0.16, ph: Math.random() * 6.28, sp: 0.25 + Math.random() * 0.7, r: 0.7 + Math.random() * 0.5, lit: 1 });
       }
     }
     this.windows = pts.slice(0, 140);
@@ -383,8 +383,8 @@ export default {
       logoEl.classList.add('molten');
       if (this.owl) this.owl.liftOff(500);
       if (fx.cue) fx.cue('lumos'); else fx.arpeggio();
-      disc.animate([{ opacity: 0.95, transform: `translate(${cx}px, ${cy}px) scale(.15)` }, { opacity: 0.9, transform: `translate(${cx}px, ${cy}px) scale(9)`, offset: 0.55 }, { opacity: 0, transform: `translate(${cx}px, ${cy}px) scale(34)` }], { duration: 700 * k, easing: 'cubic-bezier(.2,.7,.3,1)' });
-      bloom.animate([{ opacity: 0 }, { opacity: 0.6, offset: 0.4 }, { opacity: 0 }], { duration: 900 * k, easing: 'ease-in-out' });
+      disc.animate([{ opacity: 0.7, transform: `translate(${cx}px, ${cy}px) scale(.15)` }, { opacity: 0.55, transform: `translate(${cx}px, ${cy}px) scale(9)`, offset: 0.55 }, { opacity: 0, transform: `translate(${cx}px, ${cy}px) scale(30)` }], { duration: 900 * k, easing: 'cubic-bezier(.3,.6,.2,1)' });
+      bloom.animate([{ opacity: 0 }, { opacity: 0.32, offset: 0.45 }, { opacity: 0 }], { duration: 1100 * k, easing: 'ease-in-out' });
     });
     const L = logoOf(app);
     const lg = box.querySelector('.home-launch-logo'), banner = box.querySelector('.home-launch-banner');
@@ -481,7 +481,7 @@ export default {
     this.mode = 'nox';
     const root = this.root; root.classList.add('nox');
     this.ctx.fx.setRate(66);
-    if (this.ctx.fx.ambientHold) this.ctx.fx.ambientHold(true, 'nox');     // the waltz waits
+    if (this.ctx.fx.ambientHold && getConfig().musicNox !== 'continue') this.ctx.fx.ambientHold(true, 'nox');   // the music waits, unless asked to go on
     if (this.ctx.fx.cue) this.ctx.fx.cue('nox');
     if (this.owl) this.owl.sleep();
     const order = [...this.windows].sort(() => Math.random() - 0.5);

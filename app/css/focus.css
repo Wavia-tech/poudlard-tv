@@ -10,6 +10,6 @@
 .set-btn.is-focus.is-press, .sort-btn.is-focus.is-press { transform: scale(.98); }
 .home-bar-item.is-focus.is-press { transform: scale(1.1); }
 .home-app.is-land { animation: focus-land calc(var(--k) * var(--t-land)) var(--ease-settle); }
-@keyframes focus-land { 0% { transform: scale(1.28); } 50% { transform: scale(1.31); } 100% { transform: scale(1.28); } }
+@keyframes focus-land { 0% { transform: scale(1.28); } 50% { transform: scale(1.295); } 100% { transform: scale(1.28); } }
 html:not([data-motion="auto"]) .is-land { animation: none; }
 html:not([data-motion="auto"]) .is-focus.is-press, html:not([data-motion="auto"]) .is-focus:not(.is-press) { transition-duration: calc(var(--k) * 200ms); }

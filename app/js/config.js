@@ -91,6 +91,7 @@ export const DEFAULT_CONFIG = Object.freeze({
   owl: 'vive',                  // 'vive' | 'calme' | 'absente'
   sounds: false,
   music: 'auto',                // background music: 'auto' (personal file if present, otherwise celesta) | 'celesta' | 'aucune'
+  musicNox: 'pause',            // during Nox (sleep): 'pause' the music | 'continue' it
   motion: 'auto',               // 'auto' | 'reduit' | 'economie'
   sky: 'auto',                  // the Parapet's sky: 'auto' (dusk, night, deep night, dawn by the hour) | 'nuit' (always a clear night)
   motionSystem: 'follow',       // 'follow' the system's reduced-motion flag | 'ignore' it
@@ -141,6 +142,7 @@ export function sanitize(raw) {
   if (['vive', 'calme', 'absente'].includes(raw.owl)) c.owl = raw.owl;
   if (typeof raw.sounds === 'boolean') c.sounds = raw.sounds;
   if (['auto', 'celesta', 'aucune'].includes(raw.music)) c.music = raw.music;
+  if (['pause', 'continue'].includes(raw.musicNox)) c.musicNox = raw.musicNox;
   if (['auto', 'reduit', 'economie'].includes(raw.motion)) c.motion = raw.motion;
   if (['auto', 'nuit'].includes(raw.sky)) c.sky = raw.sky;
   if (['follow', 'ignore'].includes(raw.motionSystem)) c.motionSystem = raw.motionSystem;
