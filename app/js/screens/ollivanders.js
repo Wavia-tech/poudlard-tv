@@ -22,6 +22,7 @@ const BOXES = [
 ];
 const FEATHER = 22;   // blur of the spotlight edge (image units)
 const loadRappeltout = () => import('../rappeltout.js').then((m) => m.rappeltout).catch(() => null);
+const loadBeuglante = () => import('../beuglante.js').then((m) => m.beuglante).catch(() => null);
 
 export default {
   root: null, ctx: null, items: [], i: 0, busy: false, timers: [], hiddenKeys: new Set(), raf: 0, cur: null, dustTimer: 0,
@@ -121,14 +122,19 @@ export default {
     fx.lumos(root, c.x, c.y, 800);
     if (fx.cue) fx.cue('lumos'); else fx.arpeggio();
     // The link opens right away (inside the OK gesture, otherwise the browser blocks the tab); the light dresses the wait.
-    const result = Platform.openContent(app, it);
+    const r = Platform.openContent(app, it);
     const dim = root.querySelector('.olv-dim');
+    const settle = () => { dim.classList.remove('show'); root.classList.remove('is-launch'); this.busy = false; Input.release(); };
+    if (r.status === 'failed') {                      // the TV refused: the light goes out at once, the Howler says why
+      this.timers.push(setTimeout(async () => { settle(); if (fx.cue) fx.cue('error'); const b = await loadBeuglante(); if (b) b(root, { message: r.error }); }, 200 * k));
+      return;
+    }
     const L = LOGOS[app.id] || monogram(app.name);
     dim.innerHTML = `<div class="olv-launch-logo app-logo lit${L.luma ? ' luma' : ''}" style="--m:url('${L.src}')"><i class="l-ext"></i><i class="l-rimD"></i><i class="l-rimL"></i><i class="l-base"></i><i class="l-shine"></i></div><div class="olv-launch-title"></div><div class="olv-launch-sub engraved gold-text"></div>`;
     dim.querySelector('.olv-launch-title').textContent = `Harry Potter ${it.title.charAt(0).toLowerCase()}${it.title.slice(1)}`;
     dim.querySelector('.olv-launch-sub').textContent = `sur ${app.name}`;
     this.timers.push(setTimeout(() => dim.classList.add('show'), 450 * k));
-    this.timers.push(setTimeout(() => { dim.classList.remove('show'); root.classList.remove('is-launch'); this.busy = false; Input.release(); }, (result === 'simulated' ? 2600 : 4000) * k));
+    this.timers.push(setTimeout(settle, (r.status === 'bridge' ? 4000 : 2600) * k));
   },
 
   async rappeltout() {

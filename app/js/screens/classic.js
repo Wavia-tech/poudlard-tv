@@ -19,8 +19,9 @@ import { Input } from '../input.js';
 import { LOGOS } from '../../assets/logos.js';
 import { monogram } from '../monogram.js';
 import { beuglante } from '../beuglante.js';
+import { HOME_MODES, HOME_HINT, HOME_NOTE_MOCK, TV_SCREENS, TV_ONLY } from './settings.js';
 
-const COLS = 6;                  // tiles per visual row (the CSS grid has the same column count)
+const COLS = 6;                 // tiles per visual row (the CSS grid has the same column count)
 const BANNER_MS = 1200;          // "Ouverture de X" banner in the mockup
 const BRIDGE_MS = 3000;          // on the TV: time for the app to take the screen
 const SMOKE_MS = 900;            // the Hogwarts → classic switch
@@ -36,11 +37,15 @@ const CATEGORIES = [
   ['passage', 'Passages'],
 ];
 
-// Glyphs of the two special tiles (inline SVG, ivory strokes): a quill for Settings, a candle for Lumos.
+// Glyphs of the special tiles (inline SVG, ivory strokes): a quill for Settings, a candle for Lumos,
+// a screen for the TV's own settings, a door for the Home key.
 const GLYPHS = {
   settings: '<svg viewBox="0 0 48 48" aria-hidden="true"><path d="M38 8c-9 1-17 8-21 18l-3 9 9-3c10-4 17-12 18-21z"/><path d="M14 35 9 40"/><path d="M22 22l8 8"/></svg>',
   lumos: '<svg viewBox="0 0 48 48" aria-hidden="true"><path d="M24 6c-4 6-6 9-6 13a6 6 0 0 0 12 0c0-4-2-7-6-13z"/><path d="M18 26h12v14H18z"/><path d="M12 40h24"/></svg>',
+  tv: '<svg viewBox="0 0 48 48" aria-hidden="true"><rect x="6" y="10" width="36" height="24" rx="2"/><path d="M18 40h12M24 34v6"/><path d="M14 22h8M14 27h12"/></svg>',
+  home: '<svg viewBox="0 0 48 48" aria-hidden="true"><path d="M8 22L24 8l16 14"/><path d="M12 20v20h24V20"/><path d="M20 40V28h8v12"/></svg>',
 };
+const SPECIAL_NAMES = { settings: 'Réglages', lumos: 'Lumos', tv: 'Télé', home: 'Touche Home' };
 
 // The Remembrall module is being written in parallel by a colleague: dynamic import, and if it is missing, ignore it.
 // `dismissRappeltout` is also kept to close an open sphere when the screen unmounts.
@@ -156,7 +161,7 @@ export default {
       if (list.length) rows.push(...sliceRows(title, list.map((app) => ({ kind: 'app', app }))));
     }
 
-    rows.push({ title: 'Poudlard TV', items: [{ kind: 'settings' }, { kind: 'lumos' }], cont: false, tail: true });
+    rows.push({ title: 'Poudlard TV', items: [{ kind: 'settings' }, { kind: 'tv' }, { kind: 'home' }, { kind: 'lumos' }], cont: false, tail: true });
     return rows;
   },
 
@@ -244,9 +249,55 @@ export default {
     plate.appendChild(g);
     const name = document.createElement('div');
     name.className = 'cls-name';
-    name.textContent = kind === 'settings' ? 'Réglages' : 'Lumos';
+    name.textContent = SPECIAL_NAMES[kind] || kind;
     el.append(plate, name);
     return el;
+  },
+
+  // Short message in the banner (outside launches): what the TV answered, or "TV only" in the mockup.
+  say(text) {
+    const banner = this.root.querySelector('.cls-banner'); if (!banner) return;
+    banner.querySelector('.cls-banner-text').textContent = text;
+    banner.classList.add('is-in');
+    clearTimeout(this.sayTimer);
+    this.sayTimer = setTimeout(() => { if (!this.busy && banner.isConnected) banner.classList.remove('is-in'); }, 2600 * this.k());
+    this.timers.push(this.sayTimer);
+  },
+
+  // The "Télé" tile: the TV's own screens in a Remembrall (same eleven lines as the Room of Requirement).
+  async tvMenu(it) {
+    const rappeltout = await loadRappeltout();
+    if (!rappeltout || this.busy) return;
+    const choice = await this.ask(rappeltout, it, 'Réglages de la télé', TV_SCREENS.map(([id, label]) => ({ id, label })));
+    if (!choice) return;
+    const r = Platform.openSystem(choice);
+    if (r.status === 'simulated') this.say(TV_ONLY);
+    else if (r.status === 'failed') this.say(r.error);
+  },
+
+  // The "Touche Home" tile: who answers the Home key (Platform.setHome, hints from settings.js).
+  async homeMenu(it) {
+    const rappeltout = await loadRappeltout();
+    if (!rappeltout || this.busy) return;
+    const mode = Platform.homeMode();
+    if (mode === 'simulated') { this.say(HOME_NOTE_MOCK); return; }
+    const choice = await this.ask(rappeltout, it, 'Touche Home', HOME_MODES.map(([id, label]) => ({ id, label: (mode === id ? '● ' : '') + label })));
+    if (!choice) return;
+    const r = Platform.setHome(choice);
+    if (r.status === 'failed') { this.msg = beuglante(this.root, { message: r.error }); return; }
+    this.say(choice === 'original' ? 'La touche Home revient à l’accueil d’origine.' : (HOME_HINT[r.hint] || HOME_HINT['press-home']));
+  },
+
+  // A Remembrall anchored on a tile; `busy` while it is open (it takes the keys itself).
+  async ask(rappeltout, it, title, options) {
+    const rr = this.root.getBoundingClientRect(), tr = it.el.getBoundingClientRect();
+    const anchor = { x: tr.left - rr.left + tr.width / 2, y: tr.top - rr.top + tr.height / 2 };
+    this.busy = true;
+    let choice = null;
+    try { choice = await rappeltout(this.root, { title, options, anchor }); } catch (e) { choice = null; }
+    if (!this.root || !this.root.isConnected) return null;
+    this.busy = false;
+    return choice;
   },
 
   // An app is "installed" unless the TV says otherwise. Passages (HDMI) are not packages.
@@ -386,12 +437,12 @@ export default {
     if (!this.isInstalled(app)) { this.complain(app); return; }
     this.hold();
     updateConfig({ lastApp: app.id });
-    const result = Platform.launch(app);
-    // On the TV, if nothing took the screen (added app without a package, or package gone in the meantime): Howler, no banner.
-    if (Platform.isTV() && result === 'simulated') {
+    const r = Platform.launch(app);
+    // The TV refused (app gone, source not connected, no path): Howler with its own sentence, no banner, keys back at once.
+    if (r.status === 'failed') {
       this.release();
-      const message = app.custom && !app.pkg ? 'La Carte ne connaît pas le chemin de cette appli.' : `${app.name} n'est plus installé.`;
-      this.msg = beuglante(this.root, { message });
+      const action = r.missing && app.pkg ? { label: getConfig().dock.includes(app.id) ? 'Retirer du parapet' : 'Masquer', onChoose: () => (getConfig().dock.includes(app.id) ? this.undock(app) : this.hide(app)) } : undefined;
+      this.msg = beuglante(this.root, { message: r.error, action });
       return;
     }
     const banner = this.root.querySelector('.cls-banner');
@@ -399,7 +450,7 @@ export default {
     banner.classList.add('is-in');
     // On the TV, the app takes the screen; in the mockup, the banner withdraws on its own after 1.2 s.
     const k = this.k();
-    this.timers.push(setTimeout(() => { banner.classList.remove('is-in'); this.release(); }, (result === 'bridge' ? BRIDGE_MS : BANNER_MS) * k));
+    this.timers.push(setTimeout(() => { banner.classList.remove('is-in'); this.release(); }, (r.status === 'bridge' ? BRIDGE_MS : BANNER_MS) * k));
   },
 
   // Howler "X n'est plus installé." (X is no longer installed) with at most one action: unpin from the parapet (or hide if it is not on it).
@@ -453,17 +504,13 @@ export default {
       { id: 'hide', label: 'Masquer' },
     ];
     if (app.custom) options.push({ id: 'remove', label: 'Supprimer cette appli' });   // a hand-added app can leave again
-    const rr = this.root.getBoundingClientRect(), tr = it.el.getBoundingClientRect();
-    const anchor = { x: tr.left - rr.left + tr.width / 2, y: tr.top - rr.top + tr.height / 2 };
-    this.busy = true;
-    let choice = null;
-    try { choice = await rappeltout(this.root, { title: app.name, options, anchor }); } catch (e) { choice = null; }
-    if (!this.root || !this.root.isConnected) return;   // screen unmounted in the meantime: nothing to touch
-    this.busy = false;
+    if (app.pkg && Platform.isTV()) options.push({ id: 'appinfo', label: 'Infos de l’appli' });   // the TV's own page: uninstall, force stop
+    const choice = await this.ask(rappeltout, it, app.name, options);
     if (choice === 'undock') this.undock(app);
     else if (choice === 'pin') this.pin(app);
     else if (choice === 'hide') this.hide(app);
     else if (choice === 'remove' && app.custom) { removeCustomApp(app.id); this.rebuild(); }
+    else if (choice === 'appinfo') { const r = Platform.openSystem('appinfo', app.pkg); if (r.status === 'failed') this.say(r.error); }
   },
 
   // Relight Hogwarts: the preference is persisted, then the home screen replays the Lumos boot.
@@ -488,6 +535,8 @@ export default {
         if (!it) return true;
         if (it.kind === 'settings') ctx.router.go('settings', {}, 'iris');
         else if (it.kind === 'lumos') this.toPoudlard();
+        else if (it.kind === 'tv') this.tvMenu(it);
+        else if (it.kind === 'home') this.homeMenu(it);
         else this.launch(it.app);
         return true;
       case 'longok':

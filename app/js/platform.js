@@ -1,26 +1,74 @@
 // Platform adapter: the only door from the interface to the outside world.
 // On the web (mock-up): everything is simulated, except film links (opened in a new tab, for testing).
 // In the Android launcher: a `window.Android` bridge exposed by the WebView, limited to explicit actions
-// (launch an app by package, switch HDMI input, open an allow-listed link in the app that owns it).
+// (launch an app by package, switch HDMI input, open an allow-listed link in the app that owns it, open one of
+// the TV's own settings screens, take or give back the Home key).
 // No arbitrary URL, no network access, no data transmitted beyond the app name and the configured link.
+//
+// Every action returns the same shape, so a screen never compares raw strings:
+//   { status: 'bridge' | 'failed' | 'simulated' | 'opened', error: string | null, hint: string | null, missing?: true }
+//   - 'bridge'    the TV took the call ({ok:true} from Bridge.java); `hint` carries its optional hint
+//   - 'failed'    the TV answered {ok:false} or did not answer at all; `error` is the sentence for the Howler
+//   - 'simulated' no bridge (the mock-up): nothing happened, the screen plays its animation alone
+//   - 'opened'    the mock-up opened the link in a new tab
+// Lists read from the TV (installed apps, HDMI inputs, banners) are cached until Platform.refresh(), which the
+// router calls before every screen mount: one bridge call per screen, never one per cell.
 
 const bridge = () => (typeof window !== 'undefined' && window.Android && typeof window.Android.launch === 'function') ? window.Android : null;
 // Allowed hosts for content links (config.js). Any other link is refused, even if it comes from storage.
 const URL_HOSTS = new Set(['www.max.com', 'play.max.com', 'www.netflix.com', 'www.primevideo.com', 'www.disneyplus.com', 'www.youtube.com']);
+const NO_ANSWER = 'La télé n’a pas répondu.';
+const PKG_RE = /^[a-zA-Z][\w]*(\.[a-zA-Z][\w]*)+$/;
 
 function allowedUrl(url) {
   try { const u = new URL(String(url)); return (u.protocol === 'https:' && URL_HOSTS.has(u.hostname)) ? u.href : null; } catch (e) { return null; }
 }
 
+const simulated = () => ({ status: 'simulated', error: null, hint: null });
+const failed = (error, extra) => ({ status: 'failed', error: error || NO_ANSWER, hint: null, ...(extra || {}) });
+
+// Calls a bridge method and turns its JSON answer into a result object. Never throws.
+function call(fn, ...args) {
+  try {
+    const raw = fn(...args);
+    const r = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    if (r && r.ok) return { status: 'bridge', error: null, hint: typeof r.hint === 'string' ? r.hint : null };
+    const error = r && typeof r.error === 'string' && r.error ? r.error : NO_ANSWER;
+    return failed(error, /install/i.test(error) ? { missing: true } : null);
+  } catch (e) {
+    return failed(NO_ANSWER);
+  }
+}
+
+// Reads a JSON array from a bridge method; null if the method is missing or the answer is not an array.
+function readList(b, method) {
+  if (!b || typeof b[method] !== 'function') return null;
+  try { const v = JSON.parse(b[method]()); return Array.isArray(v) ? v : null; } catch (e) { return null; }
+}
+
+let appsCache;        // undefined = not read since the last refresh; null = no list; array of { pkg, label, system }
+let inputsCache;      // idem for the HDMI inputs: array of { id, port, label, connected }
+const iconCache = new Map();
+
 export const Platform = {
   isTV: () => Boolean(bridge()),
+  status: (r) => (r && typeof r.status === 'string' ? r.status : 'simulated'),
 
-  // Launches an app. Returns 'bridge' if the TV took over, 'simulated' otherwise.
+  // Forgets the lists read from the TV (called by the router before each mount).
+  refresh() { appsCache = undefined; inputsCache = undefined; },
+
+  // Launches an app (package) or switches to its HDMI input.
   launch(app) {
     const b = bridge();
-    if (b && app.pkg) { b.launch(String(app.pkg)); return 'bridge'; }
-    if (b && app.input && typeof b.switchInput === 'function') { b.switchInput(String(app.input)); return 'bridge'; }
-    return 'simulated';
+    if (!b) return simulated();
+    if (app && app.pkg) {
+      const inst = this.installed();
+      if (inst && !inst.has(app.pkg)) return failed(`${app.name || 'Cette appli'} n'est plus installé.`, { missing: true });
+      return call(b.launch, String(app.pkg));
+    }
+    if (app && app.input && typeof b.switchInput === 'function') return call(b.switchInput, String(app.input));
+    if (app && app.live && typeof b.liveTv === 'function') return call(b.liveTv);
+    return failed(app && app.custom ? 'La Carte ne connaît pas le chemin de cette appli.' : 'Cette source n’est pas raccordée.');
   },
 
   // Opens a specific piece of content: `item.url` (host allow-list) in the app that owns it.
@@ -28,17 +76,56 @@ export const Platform = {
   openContent(app, item) {
     const url = item && allowedUrl(item.url);
     const b = bridge();
-    if (url && b && typeof b.openUrl === 'function') { b.openUrl(url, String(app.pkg || '')); return 'bridge'; }
-    if (url) { try { const w = window.open(url, '_blank', 'noopener'); if (w) return 'opened'; } catch (e) { /* window blocked: simulate */ } }
+    if (url && b && typeof b.openUrl === 'function') return call(b.openUrl, url, String(app.pkg || ''));
+    if (url) { try { const w = window.open(url, '_blank', 'noopener'); if (w) return { status: 'opened', error: null, hint: null }; } catch (e) { /* window blocked: simulate */ } }
     return this.launch(app);
   },
 
-  // List of the apps actually installed (the real launcher provides it; the mock-up says "all").
-  installed() {
+  // The apps actually installed, with the label the TV gives them: [{ pkg, label, system }], or null in the mock-up.
+  apps() {
+    if (appsCache !== undefined) return appsCache;
     const b = bridge();
-    if (b && typeof b.installedPackages === 'function') {
-      try { return new Set(JSON.parse(b.installedPackages())); } catch (e) { return null; }
-    }
-    return null;
+    let list = readList(b, 'installedApps');
+    if (!list) { const pkgs = readList(b, 'installedPackages'); list = pkgs ? pkgs.map((p) => ({ pkg: p, label: '' })) : null; }
+    appsCache = list ? list.filter((a) => a && typeof a.pkg === 'string' && PKG_RE.test(a.pkg))
+      .map((a) => ({ pkg: a.pkg, label: typeof a.label === 'string' ? a.label.trim() : '', system: Boolean(a.system) })) : null;
+    return appsCache;
   },
+  // Set of installed packages (the mock-up says "all": null).
+  installed() { const a = this.apps(); return a ? new Set(a.map((x) => x.pkg)) : null; },
+  installedPackages() { return this.installed(); },
+
+  // The TV's HDMI ports: [{ id, port, label, connected }] sorted by port, or null in the mock-up.
+  inputs() {
+    if (inputsCache !== undefined) return inputsCache;
+    const list = readList(bridge(), 'inputs');
+    inputsCache = list ? list.filter((p) => p && typeof p.id === 'string' && Number.isInteger(p.port) && p.port > 0 && p.port < 100)
+      .map((p) => ({ id: p.id, port: p.port, label: typeof p.label === 'string' && p.label.trim() ? p.label.trim().slice(0, 20) : `HDMI ${p.port}`, connected: p.connected !== false }))
+      .sort((a, b) => a.port - b.port) : null;
+    return inputsCache;
+  },
+  hasLiveTv() { const b = bridge(); try { return Boolean(b && typeof b.hasLiveTv === 'function' && String(b.hasLiveTv()) === 'true'); } catch (e) { return false; } },
+  liveTv() { const b = bridge(); return b && typeof b.liveTv === 'function' ? call(b.liveTv) : simulated(); },
+
+  // The app's banner as a data URI (TV only), memoised; null when the TV has none.
+  appIcon(pkg) {
+    const b = bridge();
+    if (!b || typeof b.appIcon !== 'function' || !PKG_RE.test(String(pkg))) return null;
+    if (iconCache.has(pkg)) return iconCache.get(pkg);
+    let uri = null;
+    try { const v = b.appIcon(String(pkg)); uri = typeof v === 'string' && v.startsWith('data:image/') ? v : null; } catch (e) { uri = null; }
+    iconCache.set(pkg, uri);
+    return uri;
+  },
+
+  // Home key: 'poudlard' asks the system for the HOME role, 'original' gives it back. `hint` says what the TV did.
+  setHome(mode) { const b = bridge(); return b && typeof b.setHome === 'function' ? call(b.setHome, String(mode)) : simulated(); },
+  homeMode() { const b = bridge(); try { return b && typeof b.homeMode === 'function' ? String(b.homeMode()) : 'simulated'; } catch (e) { return 'original'; } },
+
+  // One of the TV's own settings screens (Apps.SYSTEM keys: settings, wifi, bluetooth, picture, sound, apps, date,
+  // language, accessibility, update, about, appinfo + package). Opens the TV's screen; changes nothing itself.
+  openSystem(key, arg) { const b = bridge(); return b && typeof b.openSystem === 'function' ? call(b.openSystem, String(key), arg == null ? '' : String(arg)) : simulated(); },
+  // The TV's app store (Play Store, or Amazon's on Fire TV).
+  store() { const b = bridge(); return b && typeof b.store === 'function' ? call(b.store) : simulated(); },
+  version() { const b = bridge(); try { return b && typeof b.version === 'function' ? String(b.version()) : null; } catch (e) { return null; } },
 };

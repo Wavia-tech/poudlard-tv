@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- The only native texts: everything else lives in the web mock-up. Register: formal "vous", as in docs/INSTALLATION.md.
-     The settings labels quoted here are those of the mock-up's Réglages → À propos screen (settings.js):
-     « Faire de Poudlard l'accueil » and « Rendre l'accueil Google ». -->
+     The settings labels quoted here are those of the mock-up's Salle sur Demande → Accueil de la télé section (settings.js):
+     the « Touche Home » row, « Poudlard TV » / « Accueil d'origine ». -->
 <resources>
     <string name="app_name">Poudlard TV</string>
     <!-- Fallback screen of the safeguard (Watchdog): shown instead of the WebView after 3 crashes in 5 minutes. -->
     <string name="crashed_title">Poudlard TV s\'est éteint trois fois de suite.</string>
-    <string name="crashed_body">L\'accueil d\'origine de la télé a repris la touche Home. Rien d\'autre n\'a été modifié.\n« Réessayer » rouvre Poudlard TV tout de suite ; pour lui rendre la touche Home, ouvrez ensuite Réglages → À propos → « Faire de Poudlard l\'accueil », puis appuyez sur Home et choisissez Poudlard TV.</string>
+    <string name="crashed_body">L\'accueil d\'origine de la télé a repris la touche Home. Rien d\'autre n\'a été modifié.\n« Réessayer » rouvre Poudlard TV tout de suite ; pour lui rendre la touche Home, ouvrez ensuite Salle sur Demande → Accueil de la télé → Touche Home : « Poudlard TV », et confirmez quand la télé le demande.</string>
     <string name="crashed_button">Ouvrir l\'accueil d\'origine</string>
     <string name="crashed_retry">Réessayer Poudlard TV</string>
     <!-- Page missing from the APK (assets/web empty): never a black screen. -->

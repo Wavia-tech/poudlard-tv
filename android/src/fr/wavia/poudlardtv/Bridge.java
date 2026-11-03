@@ -1,5 +1,6 @@
 package fr.wavia.poudlardtv;
 
+import android.app.Activity;
 import android.content.Context;
 import android.webkit.JavascriptInterface;
 
@@ -7,7 +8,10 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.lang.ref.WeakReference;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
 /**
  * The `window.Android` JavaScript bridge, as platform.js expects it. It is the ONLY door between the web mock-up and
@@ -15,18 +19,27 @@ import java.util.List;
  * `{ok:false, error:"…"}` that the Howler (Beuglante) displays).
  *
  * The @JavascriptInterface methods run on a WebView thread, not on the main thread:
- * startActivity and PackageManager cope with that; nothing here touches a view.
+ * startActivity and PackageManager cope with that; nothing here touches a view. The one exception is the HOME
+ * role request (setHome("poudlard")), which needs the activity: it is posted on the UI thread and this thread
+ * waits for its hint (500 ms at most).
  *
  * Contract (platform.js):
  *   launch(pkg)            → launches the app
  *   switchInput(input)     → "HDMI 1" or an input id
  *   openUrl(url, pkg)      → allow-listed https link, in the app `pkg` (otherwise on its home screen)
- *   installedPackages()    → JSON array of packages
+ *   installedPackages()    → JSON array of packages (kept for compatibility)
+ *   installedApps()        → JSON array of {pkg, label, system}
  *   appIcon(pkg)           → PNG data URI or null
  *   setHome(mode)          → "poudlard" | "original"; for "poudlard", the response carries `hint`:
- *                            "press-home" (press Home, the TV will offer both home screens, choose "Always")
- *                            or "settings" (the system's chooser screen has opened)
+ *                            "held" (Poudlard already answers the Home key), "role" (the system's confirmation
+ *                            dialog is on screen), "settings" (the system's chooser screen has opened),
+ *                            "press-home" (press Home, the TV will offer both home screens, choose "Always"),
+ *                            "fire" (Fire TV: the Home key stays with Amazon)
  *   homeMode()             → "poudlard" | "original" (current state, for the settings)
+ *   openSystem(key, arg)   → one of the TV's own settings screens (Apps.SYSTEM), or "appinfo" + package
+ *   inputs()               → JSON array of {id, port, label, connected} (HDMI ports)
+ *   hasLiveTv()            → "true" | "false"; liveTv() → opens live television
+ *   store()                → the TV's app store
  *   version()              → APK version (for the settings screen)
  *
  * The error messages returned to JavaScript are shown on the TV by the Howler, so they stay in French.
@@ -34,14 +47,24 @@ import java.util.List;
 final class Bridge {
     private final Context app;
     private final Apps apps;
+    private final WeakReference<HomeActivity> activity;
 
-    Bridge(Context context, Apps apps) {
-        this.app = context.getApplicationContext();
+    Bridge(HomeActivity activity, Apps apps) {
+        this.app = activity.getApplicationContext();
         this.apps = apps;
+        this.activity = new WeakReference<>(activity);
     }
 
     private static String ok() {
         return "{\"ok\":true}";
+    }
+
+    private static String okHint(String hint) {
+        try {
+            return new JSONObject().put("ok", true).put("hint", hint).toString();
+        } catch (JSONException e) {
+            return ok();
+        }
     }
 
     private static String fail(String error) {
@@ -101,6 +124,16 @@ final class Bridge {
     }
 
     @JavascriptInterface
+    public String installedApps() {
+        try {
+            return apps.installedApps().toString();
+        } catch (Throwable t) {
+            Log.w("installedApps", t);
+            return "[]";
+        }
+    }
+
+    @JavascriptInterface
     public String appIcon(String pkg) {
         try {
             return apps.appIcon(pkg);
@@ -118,13 +151,29 @@ final class Bridge {
                 return ok();
             }
             if (HomeMode.POUDLARD.equals(mode)) {
-                String hint = HomeMode.takeHome(app);
-                if (hint == null) return fail("La porte d'accueil de Poudlard TV n'a pas pu être réactivée.");
-                try {
-                    return new JSONObject().put("ok", true).put("hint", hint).toString();
-                } catch (JSONException e) {
-                    return ok();
+                final HomeActivity a = activity.get();
+                if (a == null) {
+                    String hint = HomeMode.takeHome(app);
+                    return hint == null ? fail("La porte d'accueil de Poudlard TV n'a pas pu être réactivée.") : okHint(hint);
                 }
+                // The role request opens a system dialog: it must start from the activity, on the UI thread.
+                final String[] hint = new String[1];
+                final CountDownLatch done = new CountDownLatch(1);
+                a.runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        try {
+                            hint[0] = HomeMode.requestHome(a);
+                        } catch (RuntimeException e) {
+                            Log.w("requestHome", e);
+                            hint[0] = null;
+                        }
+                        done.countDown();
+                    }
+                });
+                boolean answered = done.await(500, TimeUnit.MILLISECONDS);
+                if (!answered) return okHint(HomeMode.HINT_PRESS_HOME);
+                return hint[0] == null ? fail("La porte d'accueil de Poudlard TV n'a pas pu être réactivée.") : okHint(hint[0]);
             }
             return fail("Mode inconnu.");
         } catch (Throwable t) {
@@ -139,6 +188,55 @@ final class Bridge {
             return HomeMode.mode(app);
         } catch (Throwable t) {
             return HomeMode.ORIGINAL;
+        }
+    }
+
+    @JavascriptInterface
+    public String openSystem(String key, String arg) {
+        try {
+            return result(apps.openSystem(key, arg));
+        } catch (Throwable t) {
+            Log.w("openSystem", t);
+            return fail("Cette télé n'a pas cet écran.");
+        }
+    }
+
+    @JavascriptInterface
+    public String inputs() {
+        try {
+            return apps.inputs().toString();
+        } catch (Throwable t) {
+            Log.w("inputs", t);
+            return "[]";
+        }
+    }
+
+    @JavascriptInterface
+    public String hasLiveTv() {
+        try {
+            return apps.hasLiveTv() ? "true" : "false";
+        } catch (Throwable t) {
+            return "false";
+        }
+    }
+
+    @JavascriptInterface
+    public String liveTv() {
+        try {
+            return result(apps.liveTv());
+        } catch (Throwable t) {
+            Log.w("liveTv", t);
+            return fail("Cette télé n'ouvre pas ses chaînes depuis un launcher.");
+        }
+    }
+
+    @JavascriptInterface
+    public String store() {
+        try {
+            return result(apps.store());
+        } catch (Throwable t) {
+            Log.w("store", t);
+            return fail("Pas de boutique sur cette télé.");
         }
     }
 

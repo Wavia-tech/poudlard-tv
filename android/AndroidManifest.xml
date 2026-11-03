@@ -61,6 +61,31 @@
             <action android:name="android.intent.action.VIEW" />
             <data android:scheme="https" />
         </intent>
+        <!-- The TV's own settings screens (Apps.SYSTEM): the Android TV Settings app and the generic actions -->
+        <package android:name="com.android.tv.settings" />
+        <intent>
+            <action android:name="android.settings.SETTINGS" />
+        </intent>
+        <intent>
+            <action android:name="com.google.android.intent.action.CONNECT_INPUT" />
+        </intent>
+        <intent>
+            <action android:name="android.settings.APPLICATION_DETAILS_SETTINGS" />
+            <data android:scheme="package" />
+        </intent>
+        <!-- HDMI ports and tuner (Apps.inputs / liveTv), and the TV's own live-TV apps -->
+        <intent>
+            <action android:name="android.media.tv.TvInputService" />
+        </intent>
+        <package android:name="com.google.android.tv" />
+        <package android:name="com.tcl.tv" />
+        <package android:name="com.mediatek.wwtv.tvcenter" />
+        <package android:name="com.sony.dtv.tvx" />
+        <package android:name="com.smartdevice.livetv" />
+        <package android:name="com.amazon.tv.livetv" />
+        <!-- The store (Apps.store): Play Store, or Amazon's on Fire TV -->
+        <package android:name="com.android.vending" />
+        <package android:name="com.amazon.venezia" />
     </queries>
 
     <application

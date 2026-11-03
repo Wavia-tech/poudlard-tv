@@ -83,28 +83,30 @@ an APK meant for other people is built from a clean clone.
    On TCL, allow running in the background:
    `adb shell "appops set fr.wavia.poudlardtv AUTO_START allow || appops set fr.wavia.poudlardtv APP_AUTO_START allow"`.
 3. On the TV: open **Poudlard TV** in the app list (that is the `.Start` alias). The Admission Letter (Lettre d'admission) plays.
-4. In the Poudlard TV settings → À propos (About) → **« Faire de Poudlard l'accueil »** (make Poudlard the home): the launcher re-enables its
-   HOME entry point (it already is on first install). Then press the **Home** key: the TV has two home screens
-   and shows its chooser, "Google TV" or "Poudlard TV"; pick Poudlard TV and **"Always"**. From then
-   on, the Home key leads to the Parapet (home).
-   If no chooser appears (some models remember the Google home without asking), the only other way is the
-   command line: `adb shell cmd package set-home-activity fr.wavia.poudlardtv/.Home`. It is the only command
-   in this document that touches a TV setting, and it is reversible (see below).
-
-   Note: the Android TV / Google TV Settings have no "Home app" screen (it is a phone screen). The launcher
-   tries to open it anyway; if it exists on the model, it shows up, otherwise the instruction is the one above
-   (press Home).
+4. The Admission Letter's last page, « Les issues de secours », offers **« Faire de Poudlard l'accueil »**; later, the
+   same thing lives in Salle sur Demande → **Accueil de la télé** → Touche Home : **« Poudlard TV »**. The launcher
+   re-enables its HOME entry point (it already is on first install) and asks the system for the HOME role
+   (`RoleManager`, Android 10+): the TV shows its own confirmation dialog, OK on "Poudlard TV". From then on,
+   the Home key leads to the Parapet (home). The row's note tells what the TV did (`hint`: `held`, `role`,
+   `settings`, `press-home`, `fire`).
+   On older sets (Android 8/9) there is no role dialog: press the **Home** key, the TV has two home screens
+   and shows its chooser; pick Poudlard TV and **"Always"**. If no chooser appears (some models remember the
+   original home without asking), the only other way is the command line:
+   `adb shell cmd package set-home-activity fr.wavia.poudlardtv/.Home`. It is the only command in this document
+   that touches a TV setting, and it is reversible (see below). Fire TV never hands the Home key over: Poudlard TV
+   opens from the app list there.
 
 Advice taken from the project README: try on a Google TV dongle first, before the living-room TV.
 
 ## Going back
 
 Three paths, from the gentlest to the most radical. None of them touches other apps. The labels are those of the
-mock-up's Réglages (Settings) → À propos (About) screen.
+mock-up's Salle sur Demande → Accueil de la télé section.
 
-1. **From Poudlard TV**: Réglages → À propos → **« Rendre l'accueil Google »** (give the home back to Google). The launcher disables its own
-   HOME entry point (the `.Home` alias) and relaunches the original home; the Home key goes back there. Poudlard TV stays in the
-   app list to come back later (Réglages → À propos → « Faire de Poudlard l'accueil », then Home).
+1. **From Poudlard TV**: Salle sur Demande → Accueil de la télé → Touche Home : **« Accueil d'origine »** (a confirmation,
+   focus on « Non »). The launcher disables its own HOME entry point (the `.Home` alias) and relaunches the original home;
+   the Home key goes back there. Poudlard TV stays in the app list to come back later (same row, « Poudlard TV »).
+   Plain mode has the same choice on its « Touche Home » tile.
    *Expected from the documentation (the HOME role is reassigned when the component disappears), not yet verified on
    a device: see the "Test status" box.*
 2. **From the computer**, without a remote: hand the home back to the TV's Google TV component. Find it first
@@ -119,8 +121,8 @@ mock-up's Réglages (Settings) → À propos (About) screen.
 
 And the safeguard: if the home crashes **three times in five minutes**, it hands over to the original home
 on its own and shows a plain screen with two buttons: « Ouvrir l'accueil d'origine » (open the original home) and « Réessayer Poudlard TV » (retry Poudlard TV)
-(which clears the counter and reopens the interface, without reopening the HOME entry point: you have to redo « Faire de Poudlard
-l'accueil » to get it back). Without that button, reopening Poudlard TV from the app list shows the fallback
+(which clears the counter and reopens the interface, without reopening the HOME entry point: you have to set « Touche Home :
+Poudlard TV » again to get it back). Without that button, reopening Poudlard TV from the app list shows the fallback
 screen again until the five minutes have elapsed.
 
 ## The `window.Android` bridge

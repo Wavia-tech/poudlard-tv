@@ -42,6 +42,9 @@
 .sort-title { margin: 0 0 .8cqw; font-family: var(--fell); font-weight: 400; font-size: 3.2cqw; line-height: 1.1; color: var(--ink); }
 .sort-text { margin: 0 0 .55cqw; max-width: 62cqw; font-family: var(--fell); font-size: 1.7cqw; line-height: 1.32; color: var(--ink); }
 .sort-text-dim { opacity: .62; font-style: italic; }
+/* Page IV, the emergency exits: the key in Cinzel small caps, the effect in IM Fell after it. */
+.sort-keys { margin: .3cqw 0 .3cqw 1cqw; }
+.sort-keys b { font-family: var(--display); font-weight: 600; font-size: 1.5cqw; letter-spacing: .14em; text-transform: uppercase; margin-right: .6cqw; white-space: nowrap; }
 
 /* Footer: the discreet link, present on every page. */
 .sort-foot { position: absolute; left: 4.6cqw; right: 4.2cqw; bottom: 2cqw; display: flex; justify-content: flex-end; z-index: 2; }

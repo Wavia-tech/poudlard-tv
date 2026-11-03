@@ -10,6 +10,8 @@ export const HOUSES = {
 
 // Catalog: stable id, display name, category, Android package (for the real launcher), deep-link scheme when known.
 // `input`: HDMI input for Passages (consoles, set-top boxes); the real launcher reads it through TvInputManager.
+// Passages are `in<port>`: on the TV the Map lists the real ports (Platform.inputs()) under the same ids, and
+// `config.passages[id].name` holds the name the person gave a port. The mock-up shows four generic consoles.
 export const CATALOG = [
   { id: 'netflix', name: 'Netflix', cat: 'video', pkg: 'com.netflix.ninja', deeplink: 'nflx://www.netflix.com/title/{id}' },
   { id: 'prime', name: 'Prime Video', cat: 'video', pkg: 'com.amazon.amazonvideo.livingroom' },
@@ -29,14 +31,18 @@ export const CATALOG = [
   { id: 'spotify', name: 'Spotify', cat: 'autres', pkg: 'com.spotify.tv.android' },
   { id: 'deezer', name: 'Deezer', cat: 'autres', pkg: 'deezer.android.tv' },
   { id: 'plex', name: 'Plex', cat: 'autres', pkg: 'com.plexapp.android' },
-  { id: 'ps5', name: 'PlayStation 5', cat: 'passage', input: 'HDMI 1' },
-  { id: 'ps4', name: 'PlayStation 4', cat: 'passage', input: 'HDMI 2' },
-  { id: 'xbox', name: 'Xbox', cat: 'passage', input: 'HDMI 3' },
-  { id: 'switch', name: 'Switch', cat: 'passage', input: 'HDMI 4' },
+  { id: 'in1', name: 'Console 1', cat: 'passage', input: 'HDMI 1' },
+  { id: 'in2', name: 'Console 2', cat: 'passage', input: 'HDMI 2' },
+  { id: 'in3', name: 'Console 3', cat: 'passage', input: 'HDMI 3' },
+  { id: 'in4', name: 'Console 4', cat: 'passage', input: 'HDMI 4' },
 ];
 const IDS = new Set(CATALOG.map((a) => a.id));
-const isKnownId = (id) => IDS.has(id) || /^c_\d{1,6}$/.test(id);
+const PASSAGE_RE = /^in\d{1,2}$/;                 // a real HDMI port of the TV may go beyond the four of the mock-up
+const isKnownId = (id) => IDS.has(id) || /^c_\d{1,6}$/.test(id) || PASSAGE_RE.test(id);
 export const DOCK_MAX = 8;
+export const PASSAGES_MAX = 12;
+// Ids of the passages before config version 4 (named consoles): kept so an old parapet keeps its HDMI entries.
+const OLD_PASSAGES = { ps5: 'in1', ps4: 'in2', xbox: 'in3', switch: 'in4' };
 
 // Library collections. `symbol`: motif engraved on the cover; `app`: the app that owns the title;
 // `content`: identifier for the deep link (never a URL typed on screen).
@@ -64,10 +70,11 @@ export const LIBRARY = [
 ];
 
 export const DEFAULT_CONFIG = Object.freeze({
-  version: 3,
+  version: 4,
   mode: 'poudlard',             // 'poudlard' | 'classique'
   house: null,                  // null until the Admission Letter has been completed
-  dock: ['netflix', 'prime', 'disney', 'canal', 'max', 'appletv', 'youtube', 'ps5'],   // order = display order, 8 max
+  dock: ['netflix', 'prime', 'disney', 'canal', 'max', 'appletv', 'youtube', 'in1'],   // order = display order, 8 max
+  passages: {},                 // names given to HDMI ports: { in2: { name: 'Salon' } }
   hidden: [],                   // apps hidden from the Map (never lost: they can be shown again)
   owl: 'vive',                  // 'vive' | 'calme' | 'absente'
   sounds: false,
@@ -102,17 +109,25 @@ export function sanitize(raw) {
     c.custom = raw.custom.filter((a) => a && typeof a === 'object' && /^c_\d{1,6}$/.test(String(a.id)) && NAME_RE.test(String(a.name)) && !seen.has(a.id) && seen.add(a.id))
       .slice(0, 12).map((a) => ({ id: a.id, name: String(a.name).trim(), ...(typeof a.pkg === 'string' && PKG_RE.test(a.pkg) ? { pkg: a.pkg } : {}) }));
   }
+  // Named HDMI ports: `in<n>` keys only, a plain short name, 12 at most.
+  if (raw.passages && typeof raw.passages === 'object' && !Array.isArray(raw.passages)) {
+    for (const [k, v] of Object.entries(raw.passages)) {
+      if (Object.keys(c.passages).length >= PASSAGES_MAX) break;
+      if (PASSAGE_RE.test(k) && v && typeof v === 'object' && NAME_RE.test(String(v.name))) c.passages[k] = { name: String(v.name).trim() };
+    }
+  }
   const known = new Set([...IDS, ...c.custom.map((a) => a.id)]);
+  const knows = (id) => known.has(id) || PASSAGE_RE.test(id);
   if (raw.mode === 'classique') c.mode = 'classique';
   if (typeof raw.house === 'string' && HOUSES[raw.house]) c.house = raw.house;
-  if (Array.isArray(raw.dock)) c.dock = idList(raw.dock, known, DOCK_MAX);
-  if (Array.isArray(raw.hidden)) c.hidden = idList(raw.hidden, known).filter((id) => !c.dock.includes(id));
+  if (Array.isArray(raw.dock)) c.dock = idList(raw.dock, { has: knows }, DOCK_MAX);
+  if (Array.isArray(raw.hidden)) c.hidden = idList(raw.hidden, { has: knows }).filter((id) => !c.dock.includes(id));
   if (['vive', 'calme', 'absente'].includes(raw.owl)) c.owl = raw.owl;
   if (typeof raw.sounds === 'boolean') c.sounds = raw.sounds;
   if (['auto', 'celesta', 'aucune'].includes(raw.music)) c.music = raw.music;
   if (['auto', 'reduit', 'economie'].includes(raw.motion)) c.motion = raw.motion;
   if (Number.isInteger(raw.idleSeconds) && raw.idleSeconds >= 0 && raw.idleSeconds <= 3600) c.idleSeconds = raw.idleSeconds;
-  if (typeof raw.lastApp === 'string' && known.has(raw.lastApp)) c.lastApp = raw.lastApp;
+  if (typeof raw.lastApp === 'string' && knows(raw.lastApp)) c.lastApp = raw.lastApp;
   if (raw.firstRunDone === true) c.firstRunDone = true;
   const lib = raw.library && typeof raw.library === 'object' ? raw.library : {};
   if (Array.isArray(lib.hidden)) c.library.hidden = [...new Set(lib.hidden.filter((k) => typeof k === 'string' && CONTENT_KEYS.has(k)))];
@@ -128,6 +143,17 @@ export function loadConfig() {
     const parsed = raw ? JSON.parse(raw) : null;
     // Migration: before version 3, sleep defaulted to 90 s; Corentin wants it disabled.
     if (parsed && typeof parsed === 'object' && !(Number(parsed.version) >= 3)) { parsed.idleSeconds = 0; parsed.version = 3; }
+    // Migration: before version 4, the passages were named consoles (ps5…); they become HDMI ports (in1…).
+    if (parsed && typeof parsed === 'object' && !(Number(parsed.version) >= 4)) {
+      const mig = (id) => OLD_PASSAGES[id] || id;
+      if (Array.isArray(parsed.dock)) parsed.dock = parsed.dock.map(mig);
+      if (Array.isArray(parsed.hidden)) parsed.hidden = parsed.hidden.map(mig);
+      if (typeof parsed.lastApp === 'string') parsed.lastApp = mig(parsed.lastApp);
+      parsed.version = 4;
+      current = sanitize(parsed);
+      try { localStorage.setItem(KEY, JSON.stringify(current)); } catch (e) { /* storage unavailable: migrated in memory only */ }
+      return current;
+    }
     current = sanitize(parsed);
   } catch (e) {
     current = structuredClone(DEFAULT_CONFIG);
@@ -150,11 +176,30 @@ export function onConfigChange(fn) { listeners.add(fn); return () => listeners.d
 const byId = Object.fromEntries(CATALOG.map((a) => [a.id, a]));
 // An app added by hand has the category 'perso' and no official logo (see monogram.js).
 const customApp = (a) => ({ ...a, cat: 'perso', custom: true });
-export function appById(id) { return byId[id] || (current.custom.find((a) => a.id === id) ? customApp(current.custom.find((a) => a.id === id)) : null); }
+// A passage (HDMI port) wears the name the person gave it; a port beyond the catalog's four is built on the fly.
+function passage(id) {
+  const base = byId[id] || (PASSAGE_RE.test(id) ? { id, name: `HDMI ${id.slice(2)}`, cat: 'passage', input: `HDMI ${id.slice(2)}` } : null);
+  if (!base || base.cat !== 'passage') return base;
+  const named = current.passages[id];
+  return named ? { ...base, name: named.name } : base;
+}
+export function appById(id) {
+  if (typeof id !== 'string') return null;
+  if (PASSAGE_RE.test(id)) return passage(id);
+  return byId[id] || (current.custom.find((a) => a.id === id) ? customApp(current.custom.find((a) => a.id === id)) : null);
+}
 export function dockApps() { return current.dock.map(appById).filter(Boolean); }
 // Every known app (catalog, then custom additions), with its state (on the Parapet / hidden).
 export function allApps() {
-  return [...CATALOG, ...current.custom.map(customApp)].map((a) => ({ ...a, onDock: current.dock.includes(a.id), hidden: current.hidden.includes(a.id) }));
+  return [...CATALOG.map((a) => (a.cat === 'passage' ? passage(a.id) : a)), ...current.custom.map(customApp)]
+    .map((a) => ({ ...a, onDock: current.dock.includes(a.id), hidden: current.hidden.includes(a.id) }));
+}
+// Gives a name to an HDMI port (`in<n>`); an empty name removes it.
+export function namePassage(id, name) {
+  if (!PASSAGE_RE.test(String(id))) return;
+  const passages = { ...current.passages };
+  if (name && NAME_RE.test(String(name))) passages[id] = { name: String(name).trim() }; else delete passages[id];
+  updateConfig({ passages });
 }
 // Adds an app by hand and places it on the Parapet if there is room left. Returns its id.
 export function addCustomApp(name, pkg) {

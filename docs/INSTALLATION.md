@@ -72,9 +72,9 @@ The Android app (`android/`, pure Java, no Gradle) embeds the web mock-up in a W
 
 The first three return `{ ok, error }`: a failure shows a Howler (Beuglante) on screen, never a crash.
 
-**What the Java bridge exposes on top** (`android/src/fr/wavia/poudlardtv/Bridge.java`), not yet called by the screens: `appIcon(pkg)` (the app's banner or icon as a data URI, or `null`; see `tools/README.md`), `setHome('poudlard' | 'original')` (`{ ok, error }`, the home switch described below), `homeMode()` (`"poudlard"` or `"original"`) and `version()`. The details of each return value are in `android/README.md`.
+**What the Java bridge exposes on top** (`android/src/fr/wavia/poudlardtv/Bridge.java`): `installedApps()` (packages with the labels the TV gives them), `appIcon(pkg)` (the app's banner or icon as a data URI, or `null`; see `tools/README.md`, not yet shown by the screens), `setHome('poudlard' | 'original')` (the home switch described below), `homeMode()`, `openSystem(key, arg)` (the TV's own settings screens, and an app's system page), `inputs()` (the HDMI ports with their CEC names), `hasLiveTv()` / `liveTv()`, `store()` and `version()`. The details of each return value are in `android/README.md`.
 
-> **Current state of the Settings screen.** In this version, the About section of the mock-up does not yet have the two buttons **Home → Poudlard** and **Home → Original**: it shows a « Rendre l'accueil Google » button which, in the mock-up, only displays a note. Wiring it to `setHome()` is planned (see `app/CONTRACT.md`, "To do on the screens side"). Until then, the switch is done from the TV's settings or with `adb` (below); both paths are equivalent.
+> **The Settings screen.** The mock-up's first section, « Accueil de la télé », holds the « Touche Home » row (Poudlard TV / Accueil d'origine) wired to `setHome()`; the second, « Réglages de la télé », opens the TV's own screens. In the mock-up both only write a note: there is no TV behind it.
 
 ### What the APK does not ask for
 
@@ -134,9 +134,9 @@ Try it first on a Google TV dongle or a secondary device before the main televis
 Four paths, from the gentlest to the most radical. None requires resetting the TV.
 
 1. **Classic mode**, without leaving Poudlard TV: hold Back for 2 s from any screen → « Nox ? » → Yes. A sober home screen, same apps, no scenery. The same gesture lights Poudlard up again.
-2. **Home → Original**: the launcher disables its own home entry (the `.Home` alias, an operation allowed without permission on its own components) and relaunches the original home. The system is left with a single candidate, the Google home, and the Home key goes back to it. Poudlard TV stays in the app list (`.Start` alias) to come back. From the mock-up (once the button exists): Settings → About → Home → Original; from the TV: Settings → Apps → Home → Google TV; from the command line: `adb shell pm disable-user --user 0 fr.wavia.poudlardtv/.Home` (and `enable` for the opposite).
+2. **Home → Original**: the launcher disables its own home entry (the `.Home` alias, an operation allowed without permission on its own components) and relaunches the original home. The system is left with a single candidate, the original home, and the Home key goes back to it. Poudlard TV stays in the app list (`.Start` alias) to come back. From the launcher: Salle sur Demande → Accueil de la télé → Touche Home → « Accueil d'origine » (or plain mode's « Touche Home » tile); from the TV: Settings → Apps → Home → the original home; from the command line: `adb shell pm disable-user --user 0 fr.wavia.poudlardtv/.Home` (and `enable` for the opposite).
 3. **Uninstall**: Settings → Apps → Poudlard TV → Uninstall, or `adb uninstall fr.wavia.poudlardtv`. The configuration, stored in the app's private data, goes with it.
-4. **Safety net**: if the launcher closes abnormally three times in five minutes (a dying WebView engine counts too), it hands control back to the original home by itself and shows a plain screen saying so (a principle taken from Free My TV, without adb). It does not try again until you redo Home → Poudlard. At worst, rebooting the TV (unplug for 10 s) is enough to get back a system that boots.
+4. **Safety net**: if the launcher closes abnormally three times in five minutes (a dying WebView engine counts too), it hands control back to the original home by itself and shows a plain screen saying so (a principle taken from Free My TV, without adb). It does not try again until you set « Touche Home : Poudlard TV » again. At worst, rebooting the TV (unplug for 10 s) is enough to get back a system that boots.
 
 Nothing is modified in the system: no root, no partition touched, no app disabled. The Google launcher stays installed and up to date.
 

@@ -129,6 +129,12 @@
 .map-cell.is-absent .map-ink-logo { opacity: .35; }
 .map-cell.is-absent .map-name { opacity: .45; }
 .map-cell.is-absent .map-frame-outer, .map-cell.is-absent .map-frame-corners { opacity: .45; }
+/* HDMI port with nothing plugged in (is-pale, map.js): pale ink, the port number stays readable. OK refuses. */
+.map-cell.is-pale .map-ink-logo, .map-cell.is-pale .map-name { opacity: .4; }
+.map-cell.is-pale .map-sub { opacity: .7; }
+.map-cell.is-pale .map-frame-outer, .map-cell.is-pale .map-frame-corners { opacity: .5; }
+/* "Boutique" (TV only): the dotted frame of "Ajouter", a small star instead of the quill. */
+.map-store-cell .map-ink-logo.no-mask { font-size: 3.2cqw; opacity: .7; }
 
 /* ---- The "Settings" candle: drawn in ink, its flame lights up when the candle is in focus ----
    The halo lives INSIDE the cartouche (mask + transform = isolated group): no mix-blend-mode here, it would not see the

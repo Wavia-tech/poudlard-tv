@@ -1,18 +1,31 @@
-// The Admission Letter (Lettre d'admission): first run, three parchment pages written in IM Fell.
-// 1) Choose your house  2) Your spells (the parapet apps)  3) Does Hedwig come along?
+// The Admission Letter (Lettre d'admission): first run, four parchment pages written in IM Fell.
+// 1) Choose your house  2) Your spells (the parapet apps)  3) Does Hedwig come along?  4) The emergency exits
+// (how to leave Poudlard from the remote alone; on the TV, the button that asks for the Home key).
 // Nothing is saved before "Lumos" (or "Rester en mode classique" / stay in classic mode): the draft lives here.
 // Back = previous page, never a forced exit. If no app is ticked, the parapet gets YouTube.
 // Passages (consoles, HDMI) and hand-added apps (V4) already on the parapet are not in the Letter:
 // they are kept as they are (the spell grid remains the catalog's, and fits on the sheet).
+// Params: { page, only } opens one page alone (Settings → À propos → "Les issues de secours"): Back returns,
+// nothing is saved, the classic-mode link is not offered.
 import { CATALOG, HOUSES, DOCK_MAX, getConfig, updateConfig, allApps, appById, isReduced } from '../config.js';
+import { Platform } from '../platform.js';
 import { LOGOS } from '../../assets/logos.js';
 import { monogram } from '../monogram.js';
+import { HOME_HINT } from './settings.js';
 
 const PRESET = ['netflix', 'prime', 'disney', 'youtube', 'canal', 'max'];   // six pre-ticked, in this order
 const FALLBACK_DOCK = ['youtube'];
 const OWL = [['vive', 'Vive'], ['calme', 'Calme'], ['absente', 'Absente']];
 const YESNO = [[true, 'Oui'], [false, 'Non']];
-const STEPS = ['I · La maison', 'II · Les sortilèges', 'III · Hedwige'];
+const STEPS = ['I · La maison', 'II · Les sortilèges', 'III · Hedwige', 'IV · Les issues de secours'];
+const LAST = STEPS.length - 1;
+// The four ways out, [key, effect]. Original copy: the keys of the remote, nothing else.
+const EXITS = [
+  ['Retour maintenu 2 s', 'mode classique, sans décor ni chouette'],
+  ['Touche Réglages', 'les réglages de la télé (ou Salle sur Demande → Réglages de la télé)'],
+  ['Salle sur Demande → Accueil de la télé', 'rendre la touche Home à l’accueil d’origine'],
+  ['Retour maintenu 6 s', 'l’écran de secours de la télé'],
+];
 const isPassage = (id) => { const a = CATALOG.find((x) => x.id === id); return Boolean(a && a.cat === 'passage'); };
 // Kept outside the Letter: a Passage, or a hand-added app (id c_<n>, see config.js).
 const isKept = (id) => isPassage(id) || /^c_\d{1,6}$/.test(String(id));
@@ -32,10 +45,11 @@ const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls)
 const clamp = (v, lo, hi) => Math.min(Math.max(v, lo), hi);
 
 export default {
-  root: null, ctx: null, page: 0, grid: [], r: 0, c: 0, cm: 0, d: null, kept: [], room: DOCK_MAX, timers: [], reduced: false, done: false, turning: false, armed: false,
+  root: null, ctx: null, page: 0, grid: [], r: 0, c: 0, cm: 0, d: null, kept: [], room: DOCK_MAX, timers: [], reduced: false, done: false, turning: false, armed: false, only: false,
 
   async mount(root, ctx) {
     this.root = root; this.ctx = ctx; this.timers = []; this.done = false; this.turning = false; this.armed = false;
+    this.only = Boolean(ctx.params && ctx.params.only);
     this.reduced = isReduced();
     root.classList.toggle('is-reduced', this.reduced);
     // Draft: taken from the settings if the Letter is relaunched, otherwise the values of a brand-new TV.
@@ -60,7 +74,8 @@ export default {
         <div class="keyhint"><span><b>◀▶▲▼</b><em>Choisir</em></span><span><b>OK</b><em></em></span><span><b>Retour</b><em>Page précédente</em></span></div>
       </div>`;
     this.paintSeal();
-    this.page = 0;
+    this.page = this.only ? clamp(Number(ctx.params.page) || 0, 0, LAST) : 0;
+    if (this.only) root.querySelector('.sort-foot').style.display = 'none';   // one page alone: Back returns, nothing is saved
     this.render();
     requestAnimationFrame(() => root.classList.add('is-open'));
     if (c.sounds || this.d.sounds) ctx.fx.initAudio();
@@ -91,9 +106,9 @@ export default {
     let lines = 0;
     const line = (node) => { node.classList.add('sort-line'); node.style.setProperty('--i', String(lines++)); sheet.appendChild(node); return node; };
     this['page' + this.page](sheet, line);
-    // The "Rester en mode classique" link is the last navigable row of every page.
+    // The "Rester en mode classique" link is the last navigable row of every page (not when a page is shown alone).
     const link = this.root.querySelector('.sort-link');
-    this.grid.push([{ el: link, ok: () => this.stayClassic() }]);
+    if (!this.only) this.grid.push([{ el: link, ok: () => this.stayClassic() }]);
     this.setFocus(this.r, this.c);
     sheet.classList.remove('is-turn'); void sheet.offsetWidth; sheet.classList.add('is-turn');
     this.updateHint();
@@ -194,7 +209,7 @@ export default {
     this.writeIn(c);
   },
 
-  // Page III: Hedwig and the sounds, then Lumos.
+  // Page III: Hedwig and the sounds.
   page2(sheet, line) {
     line(el('h2', 'sort-title', 'Hedwige vous accompagne ?'));
     line(el('p', 'sort-text', 'Elle se pose sur l’appli choisie et s’envole à chaque pas. Calme, elle ne vole que pour les longs trajets. Absente, le médaillon s’allume seul.'));
@@ -202,9 +217,38 @@ export default {
     this.grid.push([this.enumLine(line, 'Sons', YESNO, () => this.d.sounds, (v) => { this.d.sounds = v; if (v) this.ctx.fx.initAudio(); })]);
     line(el('p', 'sort-text sort-text-dim', 'Les sons sont des clochettes synthétisées, jamais de musique. Tout se change plus tard dans la Salle sur Demande.'));
     const foot = line(el('div', 'sort-btns'));
-    const lumos = el('div', 'sort-btn sort-lumos'); lumos.appendChild(el('span', null, 'Lumos')); foot.appendChild(lumos);
-    this.grid.push([{ el: lumos, ok: () => this.finish() }]);
-    this.r = 2;   // focus starts on Lumos: two OK presses are enough for a brand-new TV
+    const next = el('div', 'sort-btn'); next.appendChild(el('span', null, 'Continuer')); foot.appendChild(next);
+    this.grid.push([{ el: next, ok: () => this.turn(3) }]);
+    this.r = 2;   // focus starts on "Continuer": three OK presses are enough for a brand-new TV
+  },
+
+  // Page IV: the emergency exits, then (on the TV) the button that asks for the Home key, then Lumos.
+  page3(sheet, line) {
+    line(el('h2', 'sort-title', 'Les issues de secours'));
+    line(el('p', 'sort-text', 'Poudlard ne retient personne. Quatre gestes de la télécommande suffisent, à tout moment :'));
+    EXITS.forEach(([key, effect]) => {
+      const p = line(el('p', 'sort-text sort-keys'));
+      p.appendChild(el('b', null, key));
+      p.appendChild(el('span', null, effect));
+    });
+    const onTV = Platform.isTV() && Platform.homeMode() !== 'simulated';
+    const note = line(el('p', 'sort-text sort-text-dim', onTV
+      ? 'La touche Home est encore à l’accueil d’origine : Poudlard peut la demander maintenant, ou plus tard dans la Salle sur Demande.'
+      : 'Désinstaller Poudlard TV rend toujours la télé telle qu’elle était : rien n’est désactivé.'));
+    const foot = line(el('div', 'sort-btns'));
+    if (onTV && Platform.homeMode() !== 'poudlard') {
+      const ask = el('div', 'sort-btn'); ask.appendChild(el('span', null, 'Faire de Poudlard l’accueil')); foot.appendChild(ask);
+      this.grid.push([{ el: ask, ok: () => {
+        const r = Platform.setHome('poudlard');
+        note.textContent = r.status === 'failed' ? r.error : (HOME_HINT[r.hint] || HOME_HINT['press-home']);
+        this.writeIn(note);
+        this.ctx.fx.chime(1319, 0.03);
+      } }]);
+      this.r = this.grid.length - 1;                       // focus starts on the button
+    }
+    const lumos = el('div', 'sort-btn sort-lumos'); lumos.appendChild(el('span', null, this.only ? 'Fermer' : 'Lumos')); foot.appendChild(lumos);
+    this.grid.push([{ el: lumos, ok: () => (this.only ? this.ctx.router.back('fade') : this.finish()) }]);
+    if (!(onTV && Platform.homeMode() !== 'poudlard')) this.r = this.grid.length - 1;   // otherwise Lumos: two presses for a new TV
   },
   // "label: option · option · option" row, the current option circled in ink.
   enumLine(line, label, options, get, set) {
@@ -269,7 +313,7 @@ export default {
   turn(p) {
     if (this.turning || this.done) return;
     this.turning = true;
-    this.page = clamp(p, 0, 2);
+    this.page = clamp(p, 0, LAST);
     const sheet = this.root.querySelector('.sort-sheet');
     sheet.classList.add('is-leave');
     this.ctx.fx.whoosh();
@@ -321,8 +365,10 @@ export default {
     const it = this.grid[this.r] && this.grid[this.r][this.c];
     const okEm = h.querySelectorAll('em')[1];
     const cls = it ? it.el.className : '';
-    okEm.textContent = cls.includes('sort-shield') ? 'Choisir' : cls.includes('sort-cell') ? 'Cocher' : cls.includes('sort-enum') ? 'Changer' : cls.includes('sort-lumos') ? 'Allumer' : 'Valider';
-    h.querySelectorAll('span')[2].style.opacity = this.page > 0 ? '' : '0';
+    okEm.textContent = cls.includes('sort-shield') ? 'Choisir' : cls.includes('sort-cell') ? 'Cocher' : cls.includes('sort-enum') ? 'Changer' : cls.includes('sort-lumos') ? (this.only ? 'Fermer' : 'Allumer') : 'Valider';
+    const back = h.querySelectorAll('span')[2];
+    back.style.opacity = (this.page > 0 || this.only) ? '' : '0';
+    back.querySelector('em').textContent = this.only ? 'Salle sur Demande' : 'Page précédente';
   },
 
   // ---- Keys -------------------------------------------------------------------------------------------------
@@ -330,6 +376,7 @@ export default {
     void ctx;
     if (this.done) return true;
     if (this.turning || this.armed) return true;
+    if (this.only && (action === 'back' || action === 'home' || action === 'longback' || action === 'menu')) { this.done = true; this.ctx.router.back('fade'); return true; }
     if (action === 'back') { if (this.page > 0) this.turn(this.page - 1); else this.nudge(this.root.querySelector('.sort-letter')); return true; }
     // Long Back: the escape route leads to the "Rester en mode classique" link (never a forced exit).
     if (action === 'longback') { this.cm = 0; this.setFocus(this.grid.length - 1, 0); return true; }

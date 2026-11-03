@@ -2,6 +2,7 @@
 // One active screen at a time; a stack for "back"; transitions through CSS classes (fade, up, down, iris).
 
 import { Input } from './input.js';
+import { Platform } from './platform.js';
 
 const screens = new Map();
 const stack = [];
@@ -35,6 +36,7 @@ async function swap(name, params, transition, push) {
   active = { name, screen: instance, el, ctx: screenCtx };
   Input.setHandler(null);                       // while mounting, keys are ignored (never sent to a half-built screen)
   if (prev && push) stack.push(prev.name);
+  Platform.refresh();                           // the lists read from the TV are re-read once per screen
   // The transition starts right away; mounting (which may wait for images) does not delay it.
   requestAnimationFrame(() => {
     el.classList.remove(`enter-${transition}`);

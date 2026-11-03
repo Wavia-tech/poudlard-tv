@@ -22,13 +22,17 @@
 // Accepted parameters (optional): ctx.params.app  = id of the app in focus on the parapet (initial focus);
 //                                 ctx.params.from = { x, y } screen fractions (0..1) the footprints start from.
 
-import { allApps, appById, getConfig, updateConfig, addCustomApp, removeCustomApp, isReduced, DOCK_MAX } from '../config.js';
+import { allApps, appById, getConfig, updateConfig, addCustomApp, removeCustomApp, namePassage, isReduced, DOCK_MAX } from '../config.js';
 import { Platform } from '../platform.js';
 import { Input } from '../input.js';
 import { LOGOS } from '../../assets/logos.js';
 import { monogram } from '../monogram.js';
 import { rappeltout, dismissRappeltout } from '../rappeltout.js';
 import { beuglante } from '../beuglante.js';
+import { TV_SCREENS, TV_ONLY } from './settings.js';
+
+const PAGE = 8;              // installed apps offered per Remembrall page ("Suivants ›" turns the page)
+const NOT_CONNECTED = 'Cette source n’est pas raccordée.';
 
 const COLS = 5;              // grid columns
 const ROWS_VISIBLE = 3;      // visible rows per page (further pages downwards)
@@ -237,7 +241,8 @@ export default {
     const catalog = all.filter((a) => a.cat !== 'passage' && !a.custom).map((a) => ({ kind: 'app', app: a }));
     const custom = all.filter((a) => a.custom).map((a) => ({ kind: 'app', app: a }));
     const apps = [...catalog, ...custom, { kind: 'add' }];
-    const passages = all.filter((a) => a.cat === 'passage').map((a) => ({ kind: 'app', app: a }));
+    if (Platform.isTV()) apps.push({ kind: 'store' });                    // the TV's store, to install what the Map lacks
+    const passages = this.passages(all).map((a) => ({ kind: 'app', app: a }));
     const rows = [];
     for (let i = 0; i < apps.length; i += COLS) rows.push({ title: null, cells: apps.slice(i, i + COLS) });
     const candle = { kind: 'candle' };
@@ -250,6 +255,22 @@ export default {
       rows.push({ title: null, cells: [candle] });
     }
     return rows;
+  },
+
+  // The Passages: on the TV, its real HDMI ports (CEC name when a device is connected, the name given in the
+  // Remembrall first), plus the tuner as "Télé" when the TV has one; in the mock-up, the four catalog consoles.
+  passages(all) {
+    const ports = Platform.inputs();
+    if (!ports) return all.filter((a) => a.cat === 'passage');
+    const cfg = getConfig();
+    const list = ports.map((p) => {
+      const id = `in${p.port}`;
+      const named = cfg.passages[id];
+      return { id, name: named ? named.name : p.label, cat: 'passage', input: p.id, port: p.port, connected: p.connected,
+        onDock: cfg.dock.includes(id), hidden: cfg.hidden.includes(id) };
+    });
+    if (Platform.hasLiveTv()) list.push({ id: 'tv', name: 'Télé', cat: 'passage', live: true, connected: true, onDock: false, hidden: false });
+    return list;
   },
 
   findCell(pred) {
@@ -280,7 +301,7 @@ export default {
         rowEl.appendChild(t);
       }
       row.cells.forEach((cell, c) => {
-        const el = cell.kind === 'candle' ? this.renderCandle() : cell.kind === 'add' ? this.renderAdd() : this.renderApp(cell.app);
+        const el = cell.kind === 'candle' ? this.renderCandle() : cell.kind === 'add' ? this.renderAdd() : cell.kind === 'store' ? this.renderStore() : this.renderApp(cell.app);
         el.dataset.r = r; el.dataset.c = c;
         const isFresh = Boolean(fresh && cell.kind === 'app' && cell.app.id === fresh);
         if (quiet && !isFresh) el.classList.add('is-quiet');
@@ -314,11 +335,22 @@ export default {
       logo.textContent = (app.name || '?').charAt(0);
     }
     el.querySelector('.map-name').textContent = app.name;
-    el.querySelector('.map-sub').textContent = app.input ? app.input : app.custom ? 'Perso' : '';
+    el.querySelector('.map-sub').textContent = app.live ? 'Antenne' : app.port ? `HDMI ${app.port}` : app.input ? app.input : app.custom ? 'Perso' : '';
     el.querySelector('.map-tag').textContent = 'caché';
     // Added app whose package is no longer on the TV: drawn anyway (so it can be deleted), in faded ink.
     const inst = Platform.installed();
     if (app.custom && inst && app.pkg && !inst.has(app.pkg)) el.classList.add('is-absent');
+    if (app.connected === false) el.classList.add('is-pale');            // HDMI port with nothing plugged in
+    return el;
+  },
+
+  // "Boutique" (TV only): the store, to install an app the Map does not have yet. Same dotted frame as "Ajouter".
+  renderStore() {
+    const el = document.createElement('div');
+    el.className = 'map-cell map-add-cell map-store-cell';
+    el.innerHTML = `${FRAME_SVG}<div class="map-ink-logo no-mask"></div><div class="map-name"></div>${UNDERLINE_SVG}`;
+    el.querySelector('.map-ink-logo').textContent = '✦';
+    el.querySelector('.map-name').textContent = 'Boutique';
     return el;
   },
 
@@ -491,7 +523,9 @@ export default {
     if (!cell || this.busy) return;
     if (cell.kind === 'candle') { this.ctx.fx.chime(988, 0.04); this.ctx.router.go('settings', {}, 'iris'); return; }
     if (cell.kind === 'add') { this.openSpell(); return; }
+    if (cell.kind === 'store') { this.openStore(); return; }
     const app = cell.app;
+    if (app.connected === false) { this.nudge('down'); this.ctx.fx.chime(440, 0.03); this.say(NOT_CONNECTED); return; }
     const fx = this.ctx.fx;
     this.busy = true;
     clearTimeout(this.toastTimer);
@@ -506,7 +540,7 @@ export default {
     light.classList.add('is-on');
     fx.lumos(this.root, p.x, p.y, 900);
     fx.chime(1046, 0.04); fx.chime(1318, 0.03); fx.chime(1568, 0.025);     // a chord, not an arpeggio
-    toast.textContent = app.input ? `Passage vers ${app.input}` : `Ouverture de ${app.name}`;
+    toast.textContent = app.live ? 'Passage vers la Télé' : app.input ? `Passage vers ${app.port ? `HDMI ${app.port}` : app.input}` : `Ouverture de ${app.name}`;
 
     const L = { app, sent: false, held: false, intentTimer: 0, endTimer: 0 };
     this.launching = L;
@@ -521,20 +555,16 @@ export default {
     L.intentTimer = this.after(INTENT_MS, () => {
       if (this.launching !== L) return;
       L.sent = true;
-      updateConfig({ lastApp: app.id });
-      const inst = Platform.installed();
-      const gone = Boolean(inst && app.pkg && !inst.has(app.pkg));
-      const result = gone ? 'simulated' : Platform.launch(app);
-      if (Platform.isTV() && result === 'simulated') {       // the TV did not take over: gentle Howler, no plate
+      if (app.id !== 'tv') updateConfig({ lastApp: app.id });
+      const r = Platform.launch(app);
+      if (r.status === 'failed') {                           // the TV did not take over: its sentence in a Howler, no plate
         settle();
-        const message = app.cat === 'passage' || app.input ? "Cette source n'est pas raccordée."
-          : app.custom && !app.pkg ? 'La Carte ne connaît pas le chemin de cette appli.'
-            : `${app.name} n'est plus installé.`;
-        beuglante(this.root, { message });
+        const action = r.missing && app.pkg && getConfig().dock.includes(app.id) ? { label: 'Retirer du parapet', onChoose: () => this.apply('unpin', app.id) } : undefined;
+        beuglante(this.root, { message: r.error, action });
         return;
       }
       L.held = true; Input.hold();                           // once the intent is sent, keys wait and will be replayed
-      L.endTimer = this.after((result === 'bridge' ? 4000 : 2200) - INTENT_MS, settle);
+      L.endTimer = this.after((r.status === 'bridge' ? 4000 : 2200) - INTENT_MS, settle);
     });
   },
 
@@ -551,7 +581,9 @@ export default {
   // Long OK or Menu: the Remembrall sphere of the focused app, placed under the piece.
   async contextMenu() {
     const cell = this.focusedCell();
-    if (!cell || cell.kind !== 'app' || this.busy || this.menuOpen) return;
+    if (!cell || this.busy || this.menuOpen) return;
+    if (cell.kind === 'candle') { this.tvMenu(); return; }                 // long OK on the candle: the TV's own screens
+    if (cell.kind !== 'app' || cell.app.live) return;
     const cfg = getConfig();
     const id = cell.app.id;
     const onDock = cfg.dock.includes(id), hidden = cfg.hidden.includes(id), full = cfg.dock.length >= DOCK_MAX;
@@ -565,15 +597,40 @@ export default {
       options.push(hidden ? { id: 'show', label: 'Afficher' } : { id: 'hide', label: 'Masquer' });
     }
     if (cell.app.custom) options.push({ id: 'remove', label: 'Supprimer cette appli' });   // an added app can leave again
+    if (cell.app.cat === 'passage') options.push({ id: 'rename', label: 'Renommer' });    // an HDMI port takes the name of what is behind it
+    if (cell.app.pkg && Platform.isTV()) options.push({ id: 'appinfo', label: 'Infos de l’appli' });   // the TV's page: uninstall, force stop
+    const choice = await this.ask(cell.app.name, options);
+    if (!choice) return;
+    this.apply(choice, id);
+  },
+
+  // A Remembrall under the focused piece. Anchor: the bottom edge of the frame (3.5 cqw below its centre) plus a
+  // breath; `edge: 'below'` places the TOP of the sphere there.
+  async ask(title, options) {
     const p = this.focusCenterPx();
     const W = this.root.clientWidth || 1;
     this.menuOpen = true;
     this.ctx.fx.chime(1319, 0.03);
-    // Anchor: the bottom edge of the frame (3.5 cqw below its centre) plus a breath; `edge: 'below'` places the TOP of the sphere there.
-    const choice = await rappeltout(this.root, { title: cell.app.name, options, anchor: { x: p.x, y: p.y + W * (FRAME_H / 2 + 0.4) / 100, edge: 'below' } });
+    const choice = await rappeltout(this.root, { title, options, anchor: { x: p.x, y: p.y + W * (FRAME_H / 2 + 0.4) / 100, edge: 'below' } });
     this.menuOpen = false;
-    if (!this.root || !choice) return;
-    this.apply(choice, id);
+    return this.root ? choice : null;
+  },
+
+  // The TV's own screens (same eleven lines as the Room of Requirement), from the candle.
+  async tvMenu() {
+    const choice = await this.ask('Réglages de la télé', TV_SCREENS.map(([id, label]) => ({ id, label })));
+    if (!choice) return;
+    const r = Platform.openSystem(choice);
+    if (r.status === 'simulated') this.say(TV_ONLY);
+    else if (r.status === 'failed') this.say(r.error);
+  },
+
+  // The TV's store (Play Store, or Amazon's): the Map cannot install, the store can.
+  openStore() {
+    const r = Platform.store();
+    if (r.status === 'failed') { beuglante(this.root, { message: r.error }); return; }
+    if (r.status === 'simulated') this.say(TV_ONLY);
+    else this.ctx.fx.chime(1319, 0.03);
   },
 
   // Applies a Remembrall choice. Everything goes through updateConfig: sanitize() guarantees dock ≤ DOCK_MAX and dock ∩ hidden = ∅.
@@ -598,6 +655,15 @@ export default {
       this.ctx.fx.chime(1175, 0.03);
     } else if (choice === 'move') {
       this.enterMove(id);
+    } else if (choice === 'rename') {
+      // The name is written with the quill, then kept in config.passages (sanitize: in<n> keys, plain names).
+      const app = this.focusedCell() && this.focusedCell().app;
+      if (!app || !this.arrived) return;
+      this.openKeyboard({ title: `Renommer ${app.name}`, onDone: (name) => { namePassage(id, name); this.rebuildRows(id); this.refreshStates(id); this.say(`${name} : c’est noté`); this.ctx.fx.chime(1568, 0.04); } });
+    } else if (choice === 'appinfo') {
+      const app = appById(id) || (this.focusedCell() && this.focusedCell().app);
+      const r = Platform.openSystem('appinfo', app && app.pkg);
+      if (r.status === 'failed') this.say(r.error);
     } else if (choice === 'remove') {
       // The added app leaves the Map, the parapet and the hidden list (removeCustomApp); the grid tightens up.
       const app = appById(id);
@@ -616,39 +682,43 @@ export default {
     if (this.spell || this.busy || this.menuOpen || this.move) return;
     if (!this.arrived) return;                           // the parchment is not unfolded yet: the quill waits
     if (getConfig().custom.length >= CUSTOM_MAX) { this.say('La Carte garde douze formules au plus.'); this.ctx.fx.chime(440, 0.03); return; }
-    const inst = Platform.installed();
-    if (inst && inst.size) { this.chooseInstalled(inst); return; }
+    const apps = Platform.apps();
+    if (apps && apps.length) { this.chooseInstalled(apps, 0); return; }
     this.openKeyboard();
   },
 
-  async chooseInstalled(inst) {
+  // The TV's own list, with the labels it gives its apps, eight per page; "Suivants ›" turns the page.
+  async chooseInstalled(apps, from) {
     const known = new Set(allApps().map((a) => a.pkg).filter(Boolean));
     // Only well-formed packages (those sanitize() will keep) still unknown to the Map are offered.
-    const candidates = [...inst].filter((p) => typeof p === 'string' && PKG_RE.test(p) && !known.has(p)).slice(0, 8);
-    const options = candidates.map((p) => ({ id: `pkg:${p}`, label: pkgLabel(p) }));
+    const candidates = apps.filter((a) => PKG_RE.test(a.pkg) && !known.has(a.pkg));
+    const page = candidates.slice(from, from + PAGE);
+    const options = page.map((a) => ({ id: `pkg:${a.pkg}`, label: a.label || pkgLabel(a.pkg) }));
+    if (from + PAGE < candidates.length) options.push({ id: 'more', label: 'Suivants ›' });
     options.push({ id: 'write', label: 'Écrire le nom à la plume' });
-    const p = this.focusCenterPx();
-    const W = this.root.clientWidth || 1;
-    this.menuOpen = true;
-    this.ctx.fx.chime(1319, 0.03);
-    const choice = await rappeltout(this.root, { title: 'Applis installées', options, anchor: { x: p.x, y: p.y + W * (FRAME_H / 2 + 0.4) / 100, edge: 'below' } });
-    this.menuOpen = false;
-    if (!this.root || !choice) return;
+    const choice = await this.ask('Applis installées', options);
+    if (!choice) return;
     if (choice === 'write') { this.openKeyboard(); return; }
+    if (choice === 'more') { this.chooseInstalled(apps, from + PAGE); return; }
     const pkg = choice.slice(4);
+    const chosen = page.find((a) => a.pkg === pkg);
     // Same guard as "C'est fait": never two frames with the same name; suffix ("App 2") rather than refuse.
-    const name = freeName(pkgLabel(pkg));
+    // The TV's label is kept when sanitize() accepts it (NAME_RE), otherwise the package's readable tail.
+    const raw = chosen && chosen.label && /^[\p{L}\p{N} .+'&-]{1,20}$/u.test(chosen.label) ? chosen.label : pkgLabel(pkg);
+    const name = freeName(raw);
     if (!name) { this.say('La Carte a déjà ce nom trop de fois.'); this.ctx.fx.chime(440, 0.03); return; }
     this.commitApp(name, pkg);
   },
 
   // The keyboard is drawn once per opening; the grid fades behind it (is-spell class on the section).
-  openKeyboard() {
+  // `opts.onDone(name)`: what to do with the written name (default: add an app); `opts.title`: the question asked.
+  openKeyboard(opts = {}) {
     const panel = this.root.querySelector('.map-spell');
     const keys = this.root.querySelector('.map-spell-keys');
     keys.textContent = '';
     this.root.querySelector('.map-spell-name').textContent = '';
     this.root.querySelector('.map-spell-msg').textContent = '';
+    this.root.querySelector('.map-spell-title').textContent = opts.title || 'Quelle appli ajouter ?';
     const rows = [];
     let index = 0;
     KEY_ROWS.forEach((keyRow) => {
@@ -670,7 +740,7 @@ export default {
       keys.appendChild(rowEl);
       rows.push(row);
     });
-    this.spell = { name: '', r: 1, c: 0, cm: 0, rows, busy: false };
+    this.spell = { name: '', r: 1, c: 0, cm: 0, rows, busy: false, onDone: typeof opts.onDone === 'function' ? opts.onDone : null };
     // One focus at a time (contract): the "Ajouter" frame hands its class over to the keyboard; closeSpell() gives it back.
     const cell = this.focusedCell();
     if (cell && cell.el) cell.el.classList.remove('is-focus');
@@ -751,12 +821,13 @@ export default {
     const name = s.name.trim();
     const done = s.rows[s.rows.length - 1].find((k) => k.id === 'done');
     if (!name) { this.nudge('right', done && done.el); this.ctx.fx.chime(440, 0.03); return; }
-    if (nameTaken(name)) {
+    if (!s.onDone && nameTaken(name)) {
       this.root.querySelector('.map-spell-msg').textContent = 'Cette appli est déjà sur la Carte.';
       this.nudge('right', done && done.el); this.ctx.fx.chime(440, 0.03);
       return;
     }
     s.busy = true;
+    const onDone = s.onDone;
     const seal = this.root.querySelector('.map-spell-seal');
     seal.classList.remove('is-pressed'); void seal.offsetWidth; seal.classList.add('is-pressed');
     this.ctx.fx.chime(1046, 0.04); this.ctx.fx.chime(1318, 0.03); this.ctx.fx.chime(1568, 0.025);
@@ -764,12 +835,12 @@ export default {
       if (!this.spell) return;
       this.closeSpell();
       seal.classList.remove('is-pressed');
-      this.commitApp(name);
+      if (onDone) onDone(name); else this.commitApp(name);
     });
   },
 
   // addCustomApp (config.js) places the app on the parapet if there is room left; the grid rebuilds, the new
-  // frame appears in ink with its monogram, its seal presses, and the plate says where it went.
+  // frame appears in ink with its monogram, its seal presses, the focus lands on it and the plate says where it went.
   commitApp(name, pkg) {
     const id = addCustomApp(name, pkg);
     const app = appById(id);                            // no onDock field (only allApps() sets it): read the config
@@ -777,9 +848,9 @@ export default {
     this.rebuildRows(id);
     this.refreshStates(id);
     const onDock = getConfig().dock.includes(id);
-    if (!onDock) this.say('Le parapet est plein, la Carte la garde');
-    else this.say(`${app.name} rejoint le parapet`);
+    this.say(onDock ? 'Ajoutée au parapet' : 'Ajoutée à la Carte (parapet plein)');
     this.ctx.fx.chime(1568, 0.04);
+    return { id, onDock };
   },
 
   // Keys during the spell: arrows on the keyboard (column memory, rows of different lengths scaled),

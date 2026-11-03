@@ -22,10 +22,12 @@ app/
   js/main.js                 start-up: config → theme → screens → router → sleep → background music on the first gesture
   js/config.js               CATALOG, LIBRARY, HOUSES, DOCK_MAX, DEFAULT_CONFIG; loadConfig/getConfig/updateConfig/resetConfig/onConfigChange;
                              appById(id), dockApps(), allApps() (with onDock/hidden), addCustomApp/removeCustomApp, isReduced()
-  js/platform.js             Platform.launch(app) / openContent(app, item) / installed() — the only door to the outside; returns 'bridge' | 'simulated' | 'opened'.
-                             Android bridge called today: window.Android.launch(pkg), switchInput(input), openUrl(url, pkg) → { ok, error }; installedPackages() → JSON array.
-                             Exposed by Bridge.java but not yet called: appIcon(pkg) → data URI | null, setHome('poudlard'|'original') → { ok, error },
-                             homeMode() → 'poudlard' | 'original', version() → string (android/README.md, docs/FREE-MY-TV.md)
+  js/platform.js             The only door to the outside. Every action returns { status: 'bridge'|'failed'|'simulated'|'opened', error, hint, missing? }:
+                             launch(app), openContent(app, item), setHome(mode), openSystem(key, arg), liveTv(), store(). Reads, cached until
+                             Platform.refresh() (called by the router before each mount): apps() → [{pkg,label,system}] | null, installed() → Set | null,
+                             inputs() → [{id,port,label,connected}] | null, hasLiveTv(), appIcon(pkg), homeMode() → 'poudlard'|'original'|'simulated', version().
+                             Android bridge (Bridge.java): launch, switchInput, openUrl, installedPackages, installedApps, appIcon, setHome (hint: held |
+                             role | settings | press-home | fire), homeMode, openSystem, inputs, hasLiveTv, liveTv, store, version (docs/FREE-MY-TV.md).
   js/input.js                actions: left right up down ok back menu longok longback home; Input.press(a); Input.hold()/release() (queue)
   js/router.js               Router.go(name, params, transition) / replace / back / current / refocus; transitions: fade | up | down | iris
   js/fx.js                   Fx.burst(x, y, n, power) / Fx.lumos(host, x, y, ms) / Fx.cue(name) / Fx.ambient(mode) / Fx.chime / Fx.whoosh() / Fx.initAudio()
@@ -49,9 +51,11 @@ Screens and transitions (D-pad grammar):
 - `home` (the Parapet): down → `library` (Ollivanders, `up` transition), up → top bar (Sound · Map · Settings; down comes back), menu → `settings` (`iris`), OK → Lumos + Platform.launch, long OK → Remembrall (Rappeltout), long Back → classic mode ("Nox?" plate). Lumos, boot-up and Nox (sleep) live INSIDE home.js (as states), not in separate screens.
 - `library` (Ollivanders, `js/screens/ollivanders.js`, `.olv-` classes): the film collection displayed as a wand shop window; up or Back → `home` (`down`). OK → Platform.openContent(app, item). Replaces the former Library (dropped, out of the repo).
 - `map` (Marauder's Map): Back, or down from the last row, or up from the first → `home` (`up`). Candle → `settings`.
-- `settings` (Room of Requirement): Back → previous screen (`ctx.router.back()`), or `home` if the stack is empty. "Mode classique" section → `updateConfig({mode:'classique'})` then `router.replace('classic')`. "Chouette et sons" section: Owl (vive / calme / absente), Sounds (yes / no), Background music (Auto / Célesta / Aucune → `config.music`, applied live by `Fx.ambient`). "Veille" section: `idleSeconds` (1.5 / 3 / 5 / 10 min / never), **0 (never) by default** since config version 3. "À propos" section: network, version, "Rendre l'accueil Google" (a plain mention in the mock-up, see "To do on the screens side"), "Réinitialiser" (three presses), "Relancer la Lettre d'admission".
-- `sorting` (Admission Letter, first launch): 3 pages; at the end `updateConfig({firstRunDone:true, house, dock, owl, sounds})` then `router.replace('home', {boot:true})`.
-- `classic` (classic mode): a plain grid; up on the first row → `settings`; long Back → `updateConfig({mode:'poudlard'})` then `replace('home', {boot:true})`.
+- `settings` (Room of Requirement): Back → previous screen (`ctx.router.back()`), or `home` if the stack is empty. First section "Accueil de la télé": one row "Touche Home" (Poudlard TV / Accueil d'origine → `Platform.setHome`, giving it back asks a confirmation with focus on "Non"; the hint from the TV is written in the message band; the row repaints on the `poudlard:home` document event; read-only in the mock-up). Second section "Réglages de la télé": eleven buttons → `Platform.openSystem(key)` (`TV_SCREENS`, exported for classic mode and the Map). "Mode classique" section → `updateConfig({mode:'classique'})` then `router.replace('classic')`. "Chouette et sons" section: Owl (vive / calme / absente), Sounds (yes / no), Background music (Auto / Célesta / Aucune → `config.music`, applied live by `Fx.ambient`). "Veille" section: `idleSeconds` (1.5 / 3 / 5 / 10 min / never), **0 (never) by default** since config version 3. "À propos" section: network, version, Home key, "Les issues de secours" (→ `sorting` page IV alone), "Réinitialiser" (three presses), "Relancer la Lettre d'admission".
+- `sorting` (Admission Letter, first launch): 4 pages (house, spells, owl, emergency exits + "Faire de Poudlard l'accueil" on the TV); at the end `updateConfig({firstRunDone:true, house, dock, owl, sounds})` then `router.replace('home', {boot:true})`. Params `{ page, only }` open one page alone: Back returns, nothing is saved.
+- `classic` (classic mode): a plain grid; up on the first row → `settings`; tail row Réglages · Télé (the TV's screens) · Touche Home · Lumos; long Back → `updateConfig({mode:'poudlard'})` then `replace('home', {boot:true})`.
+- Passages (HDMI): ids `in<port>`; on the TV the Map lists `Platform.inputs()` (CEC name, pale when nothing is plugged in, OK refused) plus "Télé" when `hasLiveTv()`; the mock-up shows the four catalog consoles. `config.passages[id].name` (Remembrall → "Renommer", `namePassage()`), 12 at most. Old ids ps5/ps4/xbox/switch migrate to in1–in4 (config version 4).
+- Errors: a `status: 'failed'` result settles the launch at once (no card, no `Input.hold`) and the Howler reads `error`; `missing: true` adds the "Retirer du parapet" action. Apps with a package on the TV get "Infos de l'appli" in their Remembrall (`openSystem('appinfo', pkg)`); the Map's "Boutique" piece (TV only) opens the store.
 
 ## A screen
 
@@ -145,10 +149,6 @@ export function beuglante(host, { message, action?: { label, onChoose } }) → {
 
 ## To do on the screens side (port)
 
-- `platform.js`: add `Platform.setHome(mode)` → `window.Android.setHome('poudlard' | 'original')` and `Platform.homeMode()`; in the mock-up, return `'simulated'`.
-- `settings.js`, "À propos" section: replace "Rendre l'accueil Google" with two buttons, **Accueil → Poudlard** (`setHome('poudlard')`, opens the system
-  picker) and **Accueil → Origine** (`setHome('original')`, disables the `.Home` alias and relaunches the original home), with the current state read from `homeMode()`.
-  Same labels as `docs/INSTALLATION.md` and `android/README.md`.
 - Classic mode: `appIcon(pkg)` as the image source, monogram as the fallback.
 - Fonts: `assets/fonts/` + `@font-face` in `base.css`, OFL licence included.
 - `tv.html`: the stage alone, without the test bench, loaded by the APK if it exists (`build.sh`).

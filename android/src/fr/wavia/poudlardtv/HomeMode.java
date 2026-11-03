@@ -1,11 +1,14 @@
 package fr.wavia.poudlardtv;
 
+import android.app.Activity;
+import android.app.role.RoleManager;
 import android.content.ActivityNotFoundException;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
+import android.os.Build;
 import android.provider.Settings;
 
 import java.util.ArrayList;
@@ -19,13 +22,13 @@ import java.util.List;
  * (`pm disable-user`). We do neither: a socket requires the INTERNET permission, and disabling the Google home
  * is forbidden by the project rules. Instead:
  *
- *  - setHome("poudlard") = takeHome(): re-enables our HOME entry point (the `.Home` alias) and clears the safeguard counter.
- *    That is all an app without permissions can do; the final choice belongs to the SYSTEM and to the person:
- *    on the next Home key press, the TV has two candidate home screens and shows its chooser
- *    ("Google TV" or "Poudlard TV", with "Always" to remember). On a phone there is a
- *    "Home app" screen (Settings.ACTION_HOME_SETTINGS); the Android TV / Google TV Settings generally do
- *    NOT have one. So we try that screen, but its absence is not a failure: the JSON returned tells the mock-up
- *    which instruction to show (`hint`: "settings" if the screen opened, "press-home" otherwise).
+ *  - setHome("poudlard") = requestHome(activity): re-enables our HOME entry point (the `.Home` alias), clears the
+ *    safeguard counter, then ASKS the system for the HOME role (Android 10+: RoleManager.createRequestRoleIntent,
+ *    the system shows its own confirmation dialog; no permission needed, the person confirms with OK). The hint
+ *    returned tells the mock-up what to show: "held" (already ours), "role" (the dialog is on screen), "fire"
+ *    (Fire TV never hands the Home key over), and on older sets "settings" (the system's "Home app" screen
+ *    opened) or "press-home" (press Home, the TV offers both homes, choose "Always"). Never a failure for an
+ *    absent screen: the choice belongs to the system and to the person.
  *  - setHome("original") = giveBackHome(): disables our `.Home` alias (allowed without permission on one's own
  *    components). The system then has only one candidate for the Home key: the original home. Then we launch it.
  *    The `.Start` alias (app list) stays enabled: Poudlard TV is still there to go back.
@@ -40,8 +43,77 @@ final class HomeMode {
     static final String HINT_SETTINGS = "settings";
     /** Hint returned by takeHome: press Home, the TV will offer both home screens. */
     static final String HINT_PRESS_HOME = "press-home";
+    /** Hint: Poudlard already holds the HOME role. */
+    static final String HINT_HELD = "held";
+    /** Hint: the system's role dialog is on screen (RoleManager, Android 10+). */
+    static final String HINT_ROLE = "role";
+    /** Hint: Fire TV keeps the Home key for Amazon's home; Poudlard opens from the app list. */
+    static final String HINT_FIRE = "fire";
+    /** Request code of the role dialog (HomeActivity.onActivityResult). */
+    static final int REQUEST_ROLE = 1;
 
     private HomeMode() {}
+
+    static boolean fireTv() {
+        return "Amazon".equalsIgnoreCase(Build.MANUFACTURER);
+    }
+
+    private static RoleManager roleManager(Context c) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return null;
+        try {
+            RoleManager rm = (RoleManager) c.getSystemService(Context.ROLE_SERVICE);
+            return rm != null && rm.isRoleAvailable(RoleManager.ROLE_HOME) ? rm : null;
+        } catch (RuntimeException e) {
+            return null;
+        }
+    }
+
+    /** Does Poudlard hold the HOME role (Android 10+)? Null when the role API is not there. */
+    static Boolean roleHeld(Context c) {
+        RoleManager rm = roleManager(c);
+        if (rm == null) return null;
+        try {
+            return rm.isRoleHeld(RoleManager.ROLE_HOME);
+        } catch (RuntimeException e) {
+            return null;
+        }
+    }
+
+    /**
+     * Asks the system for the Home key, from the activity (the role dialog needs one). Returns the hint for the
+     * person, or null if our HOME entry point could not be re-enabled (the only real failure).
+     * Must run on the UI thread.
+     */
+    static String requestHome(Activity a) {
+        try {
+            setHomeAlias(a, true);
+        } catch (RuntimeException e) {
+            Log.w("could not re-enable the HOME entry point", e);
+            return null;
+        }
+        Watchdog.clear(a);
+        if (fireTv()) return HINT_FIRE;
+        RoleManager rm = roleManager(a);
+        if (rm != null) {
+            Boolean held = roleHeld(a);
+            if (Boolean.TRUE.equals(held)) return HINT_HELD;
+            try {
+                a.startActivityForResult(rm.createRequestRoleIntent(RoleManager.ROLE_HOME), REQUEST_ROLE);
+                Log.i("HOME role requested: the system asks the person");
+                return HINT_ROLE;
+            } catch (ActivityNotFoundException | SecurityException | IllegalStateException e) {
+                Log.w("role dialog unavailable, falling back to the settings screens", e);
+            }
+        }
+        if (openHomeSettings(a)) return HINT_SETTINGS;
+        try {
+            a.startActivity(new Intent(Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+            return HINT_SETTINGS;
+        } catch (ActivityNotFoundException | SecurityException e) {
+            Log.i("no default-apps screen either: hint \"press Home\"");
+        }
+        return HINT_PRESS_HOME;
+    }
 
     private static ComponentName homeAlias(Context c) {
         return new ComponentName(c.getPackageName(), c.getPackageName() + ".Home");
@@ -74,7 +146,10 @@ final class HomeMode {
 
     /** What the JavaScript shows in the settings: "poudlard" if we are the current home, "original" otherwise. */
     static String mode(Context c) {
-        return homeAliasEnabled(c) && c.getPackageName().equals(currentHomePackage(c)) ? POUDLARD : ORIGINAL;
+        if (!homeAliasEnabled(c)) return ORIGINAL;
+        Boolean held = roleHeld(c);                      // Android 10+: the role is the truth
+        if (held != null) return held ? POUDLARD : ORIGINAL;
+        return c.getPackageName().equals(currentHomePackage(c)) ? POUDLARD : ORIGINAL;
     }
 
     /**

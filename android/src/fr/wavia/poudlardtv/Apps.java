@@ -14,14 +14,23 @@ import android.media.tv.TvContract;
 import android.media.tv.TvInputInfo;
 import android.media.tv.TvInputManager;
 import android.net.Uri;
+import android.os.Build;
+import android.provider.Settings;
 import android.util.Base64;
 import android.util.DisplayMetrics;
+
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
 
 import java.io.ByteArrayOutputStream;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
@@ -54,6 +63,49 @@ final class Apps {
             "www.max.com", "play.max.com", "www.netflix.com", "www.primevideo.com", "www.disneyplus.com", "www.youtube.com"));
     /** Leanback banner size (320x180 dp) at xxxhdpi density, as in Free My TV: 384x216 is enough at 3 m. */
     private static final int BANNER_W = 384, BANNER_H = 216;
+    /** Factory and hotel menus that pass the LAUNCHER query on some sets (Free My TV's FACTORY filter): never offered. */
+    private static final Pattern FACTORY = Pattern.compile("(?i)factory|fac_|hotel|mfg|aging|burn.?in|engineer|demo");
+    /** Google TV services that have a launcher entry but are not apps a person opens (Free My TV's HIDDEN). */
+    private static final Set<String> HIDDEN = new HashSet<>(Arrays.asList(
+            "com.google.android.play.games", "com.google.android.videos", "com.xiaomi.mitv.manualhelp", "com.Smartdevice.emanual"));
+    /** The TV's own "live TV" apps, when the set has no tuner input to open through TvContract (Free My TV's list). */
+    private static final String[] LIVE_TV_APPS = {
+            "com.google.android.tv", "com.tcl.tv", "com.mediatek.wwtv.tvcenter", "com.sony.dtv.tvx", "com.smartdevice.livetv", "com.amazon.tv.livetv"};
+    private static final String TV_SETTINGS = "com.android.tv.settings";
+    private static final String CONNECT_INPUT = "com.google.android.intent.action.CONNECT_INPUT";
+
+    /**
+     * The TV's own settings screens, keyed as platform.js names them, each with its fallbacks in order. Field-tested
+     * by Free My TV (its SettingsActivity): the Android TV Settings component first, then the generic action.
+     * Every intent is tried inside a try/catch (openSystem): no resolveActivity() pre-filter, which package
+     * visibility makes lie on Android 11+.
+     */
+    static final Map<String, Intent[]> SYSTEM;
+    static {
+        Map<String, Intent[]> m = new LinkedHashMap<>();
+        m.put("settings", new Intent[] {
+                new Intent(Settings.ACTION_SETTINGS),
+                new Intent().setComponent(new android.content.ComponentName(TV_SETTINGS, TV_SETTINGS + ".MainSettings")) });
+        m.put("wifi", new Intent[] {
+                new Intent(Settings.ACTION_WIFI_SETTINGS).setPackage(TV_SETTINGS),
+                new Intent(Settings.ACTION_WIFI_SETTINGS), new Intent(Settings.ACTION_WIRELESS_SETTINGS) });
+        m.put("bluetooth", new Intent[] {
+                new Intent(CONNECT_INPUT).setPackage(TV_SETTINGS), new Intent(Settings.ACTION_BLUETOOTH_SETTINGS) });
+        m.put("picture", new Intent[] {
+                new Intent(Settings.ACTION_DISPLAY_SETTINGS).setPackage(TV_SETTINGS), new Intent(Settings.ACTION_DISPLAY_SETTINGS) });
+        m.put("sound", new Intent[] {
+                new Intent().setComponent(new android.content.ComponentName(TV_SETTINGS, TV_SETTINGS + ".device.sound.SoundActivity")),
+                new Intent(Settings.ACTION_SOUND_SETTINGS) });
+        m.put("apps", new Intent[] {
+                new Intent(Settings.ACTION_MANAGE_ALL_APPLICATIONS_SETTINGS), new Intent(Settings.ACTION_MANAGE_APPLICATIONS_SETTINGS) });
+        m.put("date", new Intent[] { new Intent(Settings.ACTION_DATE_SETTINGS) });
+        m.put("language", new Intent[] { new Intent(Settings.ACTION_LOCALE_SETTINGS) });
+        m.put("accessibility", new Intent[] { new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS) });
+        m.put("update", new Intent[] {
+                new Intent("android.settings.SYSTEM_UPDATE_SETTINGS"), new Intent(Settings.ACTION_DEVICE_INFO_SETTINGS) });
+        m.put("about", new Intent[] { new Intent(Settings.ACTION_DEVICE_INFO_SETTINGS) });
+        SYSTEM = Collections.unmodifiableMap(m);
+    }
 
     private final Context app;
     private final Map<String, String> iconCache = new HashMap<>();
@@ -87,6 +139,44 @@ final class Apps {
         }
         out.remove(app.getPackageName());
         return new ArrayList<>(out);
+    }
+
+    /**
+     * The same list with the label each app gives the system (Free My TV's launchable(): Leanback first, then
+     * side-loaded "phone" apps), without us, without factory menus (FACTORY) and without Google TV's service
+     * entries (HIDDEN). One JSON array [{pkg, label, system}]: the Map reads it once per screen.
+     */
+    JSONArray installedApps() {
+        PackageManager pm = app.getPackageManager();
+        LinkedHashMap<String, ResolveInfo> seen = new LinkedHashMap<>();
+        for (ResolveInfo ri : query(pm, Intent.CATEGORY_LEANBACK_LAUNCHER)) {
+            if (ri.activityInfo != null && !seen.containsKey(ri.activityInfo.packageName)) seen.put(ri.activityInfo.packageName, ri);
+        }
+        for (ResolveInfo ri : query(pm, Intent.CATEGORY_LAUNCHER)) {
+            if (ri.activityInfo == null || seen.containsKey(ri.activityInfo.packageName)) continue;
+            if ((ri.activityInfo.applicationInfo.flags & ApplicationInfo.FLAG_SYSTEM) != 0) continue;
+            seen.put(ri.activityInfo.packageName, ri);
+        }
+        JSONArray out = new JSONArray();
+        for (Map.Entry<String, ResolveInfo> e : seen.entrySet()) {
+            String pkg = e.getKey();
+            if (pkg.equals(app.getPackageName()) || HIDDEN.contains(pkg)) continue;
+            String label;
+            try {
+                CharSequence l = e.getValue().loadLabel(pm);
+                label = l == null ? "" : l.toString().trim();
+            } catch (RuntimeException ex) {
+                label = "";
+            }
+            if (FACTORY.matcher(pkg).find() || FACTORY.matcher(label).find()) continue;
+            boolean system = (e.getValue().activityInfo.applicationInfo.flags & ApplicationInfo.FLAG_SYSTEM) != 0;
+            try {
+                out.put(new JSONObject().put("pkg", pkg).put("label", label).put("system", system));
+            } catch (JSONException ignored) {
+                // an unencodable label: the app is simply left out
+            }
+        }
+        return out;
     }
 
     private static List<ResolveInfo> query(PackageManager pm, String category) {
@@ -168,7 +258,144 @@ final class Apps {
         }
     }
 
+    // ---------------------------------------------------------------- the TV's own screens
+
+    /**
+     * Opens one of the TV's settings screens (SYSTEM keys), or the system page of an app ("appinfo" + package:
+     * uninstall, force stop, permissions). Each candidate intent is tried in order; the first that starts wins.
+     * Returns null when a screen opened, otherwise a readable message. Changes nothing itself.
+     */
+    String openSystem(String key, String arg) {
+        if (key == null) return "Écran inconnu.";
+        Intent[] candidates;
+        if ("appinfo".equals(key)) {
+            if (!validPackage(arg)) return "Nom de package invalide.";
+            candidates = new Intent[] { new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + arg)) };
+        } else {
+            candidates = SYSTEM.get(key);
+            if (candidates == null) return "Écran inconnu.";
+        }
+        for (Intent candidate : candidates) {
+            Intent intent = new Intent(candidate).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            try {
+                app.startActivity(intent);
+                return null;
+            } catch (ActivityNotFoundException | SecurityException | IllegalStateException e) {
+                Log.i("settings screen " + key + ": " + e.getClass().getSimpleName() + ", next candidate");
+            }
+        }
+        return "Cette télé n'a pas cet écran.";
+    }
+
+    /** The TV's store: Amazon's on Fire TV, the Play Store elsewhere. */
+    String store() {
+        String pkg = "Amazon".equalsIgnoreCase(Build.MANUFACTURER) ? "com.amazon.venezia" : "com.android.vending";
+        String err = launch(pkg);
+        return err == null ? null : "Pas de boutique sur cette télé.";
+    }
+
     // ---------------------------------------------------------------- HDMI inputs
+
+    /**
+     * The TV's HDMI ports (port of Free My TV's HomeApps.inputs()): one entry per physical port, with the name the
+     * person gave it in the TV's settings (custom label), else the CEC name of the device plugged in, else "HDMI n";
+     * `connected` follows the input state (Allwinner sets report CONNECTED_STANDBY for a sleeping device).
+     * Returns a JSON array [{id, port, label, connected}] sorted by port; empty when the TV exposes nothing.
+     */
+    JSONArray inputs() {
+        JSONArray out = new JSONArray();
+        TvInputManager tim = (TvInputManager) app.getSystemService(Context.TV_INPUT_SERVICE);
+        if (tim == null) return out;
+        List<TvInputInfo> all;
+        try {
+            all = tim.getTvInputList();
+        } catch (RuntimeException e) {
+            return out;
+        }
+        if (all == null) return out;
+        boolean allwinner = Build.MANUFACTURER != null && Build.MANUFACTURER.toLowerCase(Locale.ROOT).contains("allwinner");
+        // Physical ports first, in the TV's order; CEC devices (children) are attached to their port afterwards.
+        List<TvInputInfo> ports = new ArrayList<>();
+        Map<String, String> cec = new HashMap<>();
+        for (TvInputInfo info : all) {
+            if (info.getType() != TvInputInfo.TYPE_HDMI) continue;
+            if (info.getParentId() == null) {
+                ports.add(info);
+            } else {
+                CharSequence l = null;
+                try { l = info.loadLabel(app); } catch (RuntimeException ignored) { l = null; }
+                if (l != null && l.length() > 0 && !cec.containsKey(info.getParentId())) cec.put(info.getParentId(), l.toString().trim());
+            }
+        }
+        List<JSONObject> rows = new ArrayList<>();
+        for (int i = 0; i < ports.size(); i++) {
+            TvInputInfo info = ports.get(i);
+            Integer port = hdmiPort(info);
+            int number = port != null && port >= 1 && port <= 12 ? port : i + 1;
+            int state;
+            try { state = tim.getInputState(info.getId()); } catch (RuntimeException e) { state = TvInputManager.INPUT_STATE_DISCONNECTED; }
+            boolean connected = state == TvInputManager.INPUT_STATE_CONNECTED
+                    || (allwinner && state == TvInputManager.INPUT_STATE_CONNECTED_STANDBY);
+            String label = null;
+            try {
+                CharSequence custom = info.loadCustomLabel(app);
+                if (custom != null && custom.length() > 0) label = custom.toString().trim();
+            } catch (RuntimeException ignored) {
+                label = null;
+            }
+            if (label == null && connected && cec.containsKey(info.getId())) label = cec.get(info.getId());
+            if (label == null) label = "HDMI " + number;
+            try {
+                rows.add(new JSONObject().put("id", info.getId()).put("port", number).put("label", label).put("connected", connected));
+            } catch (JSONException ignored) {
+                // nothing to add for this port
+            }
+        }
+        Collections.sort(rows, new Comparator<JSONObject>() {
+            @Override
+            public int compare(JSONObject a, JSONObject b) {
+                return Integer.compare(a.optInt("port"), b.optInt("port"));
+            }
+        });
+        for (JSONObject row : rows) out.put(row);
+        return out;
+    }
+
+    /** The intent that opens live television: the first tuner input, else the first installed "live TV" app. */
+    private Intent liveTvIntent() {
+        TvInputManager tim = (TvInputManager) app.getSystemService(Context.TV_INPUT_SERVICE);
+        if (tim != null) {
+            try {
+                for (TvInputInfo info : tim.getTvInputList()) {
+                    if (info.getType() == TvInputInfo.TYPE_TUNER) {
+                        return new Intent(Intent.ACTION_VIEW, TvContract.buildChannelsUriForInput(info.getId()));
+                    }
+                }
+            } catch (RuntimeException ignored) {
+                // no tuner list: the apps below
+            }
+        }
+        for (String pkg : LIVE_TV_APPS) {
+            Intent intent = launchIntent(pkg);
+            if (intent != null) return intent.addFlags(Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED);
+        }
+        return null;
+    }
+
+    boolean hasLiveTv() {
+        try {
+            return liveTvIntent() != null;
+        } catch (RuntimeException e) {
+            return false;
+        }
+    }
+
+    String liveTv() {
+        Intent intent = liveTvIntent();
+        if (intent == null) return "Cette télé n'a pas d'antenne.";
+        String err = start(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK), "la Télé");
+        return err == null ? null : "Cette télé n'ouvre pas ses chaînes depuis un launcher.";
+    }
 
     /**
      * Switches to an HDMI input. `input`: "HDMI 1" (port number, as in CATALOG) or the full id

@@ -31,7 +31,7 @@ Two open-source projects already do the heavy lifting: [Free My TV](https://gith
 **What we do**
 
 1. Clone Poudlard TV, build the APK (`android/build.sh`) and install it: `docs/INSTALLATION.md`, section 2.
-2. Choose Poudlard TV as the home in the system's picker when the TV offers it. Not before checking that "hold Back for two seconds" does bring plain mode back, and that Settings → About → Home → Original gives the Google home back.
+2. Hand the Home key to Poudlard TV from the launcher itself: Room of Requirement → "Accueil de la télé" → Touche Home: Poudlard TV (the TV shows its own confirmation; the Admission Letter offers the same button on its last page). Not before checking that "hold Back for two seconds" does bring plain mode back, and that the same row set to "Accueil d'origine" gives the original home back.
 
 **What we do not do**: disable or uninstall the original home, install an accessibility service, give the launcher a network permission. If a tutorial suggests it, walk away.
 
@@ -80,9 +80,13 @@ The films are not a list: they are a shop window. One box per film, from the pla
 
 ## 6. Settings and first launch
 
-Everything is set with the remote, in the Room of Requirement (Salle sur Demande; Menu key, or the quill at the top right): the parapet apps and their order, the house (it tints the candle, the edging, the crest under the time), the owl (lively, calm, absent), sounds and music, motion (auto, reduced, economy), standby, plain mode, and "Home → Original".
+Everything is set with the remote, in the Room of Requirement (Salle sur Demande; Menu key, or the quill at the top right): the Home key (Poudlard TV or the original home), the TV's own settings, the parapet apps and their order, the house (it tints the candle, the edging, the crest under the time), the owl (lively, calm, absent), sounds and music, motion (auto, reduced, economy), standby and plain mode.
 
-The Admission Letter (Lettre d'admission) does all of this in three pages on first launch. To replay it: Settings → About → Replay the Admission Letter.
+The Admission Letter (Lettre d'admission) does all of this in four pages on first launch; the last page, "Les issues de secours", lists the four ways out and, on the TV, asks for the Home key. To replay it: Settings → About → Replay the Admission Letter; to reread the exits alone: Settings → About → "Les issues de secours".
+
+**Réglages de la télé.** Poudlard TV has no settings of its own for picture, sound, network or remotes: it opens the TV's. The "Réglages de la télé" section lists eleven entries (all settings, network and Wi-Fi, remote and Bluetooth, picture, sound, applications, date and time, language, accessibility, update, about the TV), each opening the TV's own screen; the remote's Settings key does the same (except on Hisense and TCL, where the TV keeps that key). Plain mode has a "Télé" tile, and a long OK on the Map's candle opens the same list. If a TV lacks one of these screens, the entry says so and nothing else happens.
+
+**Uninstalling an app** = long OK on it (Parapet, Map or plain mode) → "Infos de l'appli" → the TV's own page, with its Uninstall and Force stop buttons. Installing one = the Map's "Boutique" piece, which opens the TV's store. Poudlard never installs or removes anything itself.
 
 Plain mode is there for the others: the family, the guest, the evening when the TV is sluggish. Hold Back for two seconds from any screen, and the same gesture to come back.
 
@@ -95,7 +99,7 @@ What we do not do: reuse the films' music, even modified. An arrangement is stil
 ## 8. Finishing cleanly
 
 - **Turn off USB debugging** when you are done. While it is on, any computer on the Wi-Fi can ask to connect. Turn it back on when you want to change something.
-- **Everything can be undone.** The original home was never touched; Settings → About → Home → Original puts it back; uninstalling the app puts everything back as before.
+- **Everything can be undone.** The original home was never touched; Room of Requirement → "Accueil de la télé" → "Accueil d'origine" puts it back; uninstalling the app puts everything back as before, because the launcher only ever disables its own home entry.
 - **One step at a time.** One prompt, one look at the screen, one correction in plain language. Small, precise requests work better than a giant prompt.
 - **Keep your assets folder.** Changing the backdrop, the owl or the shop window later is one short prompt.
 - **Hands off the remote during an install.** Each install restarts the home.

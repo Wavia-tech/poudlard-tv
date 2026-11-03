@@ -70,7 +70,11 @@ factory menus. For `queryIntentActivities` to see anything on Android 11+, the m
 (`MAIN` + `LEANBACK_LAUNCHER`, `MAIN` + `LAUNCHER`, `MAIN` + `HOME`), not the package list: the packages of our
 `CATALOG` (config.js) are all Leanback apps, hence visible to the query. `QUERY_ALL_PACKAGES` stays forbidden.
 
-On our side: `Apps.installedPackages()` returns a JSON array of packages; `platform.js` turns it into a `Set`.
+On our side: `Apps.installedApps()` returns a JSON array of `{pkg, label, system}` with the label each app gives the
+system (`ri.loadLabel(pm)`), minus our own package, Free My TV's `FACTORY` pattern (factory, hotel and burn-in
+menus that pass the LAUNCHER query on some sets) and its `HIDDEN` list (Google TV service entries). `platform.js`
+caches it once per screen (`Platform.apps()`, `Platform.installed()`); `installedPackages()` is kept for compatibility.
+The Map's "Ajouter une appli" offers these labels, eight per page.
 
 ## 4. Banners and icons
 
@@ -103,16 +107,24 @@ To switch to it, the standard intent, except on vendor-specific players (Allwinn
 return new Intent(Intent.ACTION_VIEW, TvContract.buildChannelUriForPassthroughInput(it.inputId));
 ```
 
-On our side: `Apps.switchInput("HDMI 1")` looks for the HDMI input whose number, read from the input identifier
-(`…/HW2`, `…/HDMI1`), matches; otherwise the n-th HDMI port in the order returned by `getTvInputList()`.
-`TvInputInfo.getHdmiDeviceInfo()` would give the exact port but it is a system API, unreachable with `android.jar`.
-Then we send that standard intent, launched inside a `try` like Free My TV (without going through `resolveActivity()`, which
-package visibility on Android 11+ can make lie). No vendor-specific player: if the TV does not respond, we
-return a readable error (« Cette télé n'ouvre pas ses entrées HDMI depuis un launcher »), never a crash. No
-CEC in this version. Known limit: on some platforms (Amlogic), `/HW5`, `/HW6`, `/HW7` stand for
-HDMI 1/2/3; the digit then matches no requested port and the list order is used instead, which is
-the right result. **To test on the target TV**: the four HDMI passages of the CATALOG; if they differ, prefer
-the order of `getTvInputList()` over reading the digit.
+On our side, `Apps.inputs()` is a port of that method: one entry per physical HDMI port (`getParentId() == null`),
+the CEC children attached to their port, `connected` from `getInputState()` with the Allwinner
+`CONNECTED_STANDBY` exception, and the label in this order: the custom label the person set in the TV's settings,
+else the CEC name when connected, else « HDMI n ». One difference: Free My TV reads the port number from the
+port's label, we read it from the input id (`…/HW2`, `…/HDMI1`) and fall back on the list position, because
+`TvInputInfo.getHdmiDeviceInfo()` is a system API, unreachable with `android.jar`. Known quirks, all inherited
+from Free My TV's field reports: Allwinner sets report a sleeping console as `CONNECTED_STANDBY`; Xiaomi ids
+number the ports 1-3 in their own order; Amlogic ids `/HW5`, `/HW6`, `/HW7` stand for HDMI 1/2/3 (the digit
+then matches no port and the list order is used, which is the right result).
+
+The Map lists these ports under the ids `in<port>` (pale and refused when nothing is plugged in, as Free My TV
+only shows connected inputs), plus « Télé » when the set has a tuner (`TvContract.buildChannelsUriForInput`) or
+one of Free My TV's `LIVE_TV_APPS`. The person can rename a port (`config.passages`), which Free My TV does not
+offer. To switch, `Apps.switchInput(id)` takes the exact input id first, else « HDMI n » by number, and sends the
+standard passthrough intent inside a `try`, like Free My TV (without `resolveActivity()`, which package visibility
+on Android 11+ can make lie). No vendor-specific player: if the TV does not respond, we return a readable error
+(« Cette télé n'ouvre pas ses entrées HDMI depuis un launcher »), never a crash. **To test on the target TV**: the
+port list, the CEC names, and one switch per port.
 
 ## 6. Home: Free My TV / Original, and why we do not do the same
 
@@ -134,16 +146,18 @@ Why not on our side:
 - disabling the Google home is precisely what the specification forbids ("never disables the Google home");
 - Free My TV's PROTECTED list took months of field feedback per brand; we do not have that feedback.
 
-What we keep of the idea, in a reversible version:
-- **The choice of home belongs to the system and to the person**: `setHome('poudlard')` merely re-enables
-  our HOME door (the `.Home` alias) and clears the crash guard's counter. On the next press of the Home key, the
-  TV has two candidate homes and shows its chooser ("Google TV" or "Poudlard TV", "Always" to
-  remember). Nothing is disabled. Caution: the "Home app" screen of the Settings
-  (`Settings.ACTION_HOME_SETTINGS`) is a phone screen; the Android TV / Google TV Settings generally do not have it.
-  The launcher tries to open it and returns the appropriate instruction to the mock-up (`hint: 'settings'` if it
-  opened, `hint: 'press-home'` otherwise), without ever counting its absence as a failure. It is in fact because
-  this chooser does not exist on TV that Free My TV goes through `cmd package set-home-activity`; on our side, this
-  command remains a fallback **from the computer** (`android/README.md`), never from the app.
+What we keep of the idea, in a reversible version. The home chooser is the one exception to "same method":
+- **On the TV, Poudlard asks for the HOME role**: `setHome('poudlard')` re-enables our HOME door (the `.Home`
+  alias), clears the crash guard's counter, then calls `RoleManager.createRequestRoleIntent(ROLE_HOME)` from the
+  activity (Android 10+, no permission). The system shows its own confirmation dialog; the person presses OK. The
+  hint returned to the mock-up says what happened: `held` (already ours), `role` (the dialog is on screen; the
+  activity's `onActivityResult` then fires the `poudlard:home` document event so the row repaints), `fire` (Fire
+  TV never hands the key over). On Android 8/9, without the role API, the launcher tries the system's "Home app"
+  screen (`ACTION_HOME_SETTINGS`, then `ACTION_MANAGE_DEFAULT_APPS_SETTINGS`; `hint: 'settings'`) and otherwise
+  says "press Home, choose Poudlard TV, then Always" (`hint: 'press-home'`). An absent screen is never a failure.
+- **From the computer**, `tools/tv.sh home poudlard` (batch 4) runs `cmd package set-home-activity`; Free My TV
+  runs the same command through its on-TV adb client. Same command, two places: ours never runs from the app.
+  Nothing is disabled on either path.
 - **Going back to the original without going through the settings**: `setHome('original')` disables the `.Home` alias with
   `PackageManager.setComponentEnabledSetting` (allowed without permission on its own components): the system is left
   with a single candidate home, the Google home, and the Home key goes back to it. The Poudlard launcher stays installed and
@@ -171,7 +185,12 @@ home) instead of adb commands. And since our interface is a WebView, the guard a
 (`onRenderProcessGone`): a dying WebView engine counts as a crash; the dead WebView is then detached
 and destroyed before the fallback screen is shown (the Android contract when returning `true`). The fallback screen has two
 buttons: « Ouvrir l'accueil d'origine » and « Réessayer Poudlard TV » (`Watchdog.clear` + `recreate()`, the HOME door
-staying closed until « Faire de Poudlard l'accueil »).
+staying closed until « Touche Home : Poudlard TV » is set again).
+
+Free My TV's revert is **sticky** (`homeReverted` in its preferences): once the guard has fired, the launcher
+stays out of the way across reboots until the person re-enables it. Ours has the same effect by construction:
+the disabled `.Home` alias survives reboots, and only the settings row re-enables it (the native counterpart,
+with a 6 s long Back rescue screen, is batch 4).
 
 ## 8. HomeActivity: what we take over
 
@@ -183,6 +202,13 @@ staying closed until « Faire de Poudlard l'accueil »).
 - `onResume` on TCL Android 11+: `setTranslucent(false)`, otherwise the previous app stays visible on top. Taken over.
 - At startup: Watchdog, then the "too many crashes" test, then the interface. Taken over in that order.
 - `android:banner` is required to appear in the Leanback list; `uses-feature leanback required=false`.
+- Free My TV has two activities, `.Start` (its settings) and `.HomeActivity` (the home); its "TV Settings" entry
+  and its Settings-key handling live in `SettingsActivity`. On our side the settings are a screen of the same
+  WebView (the Room of Requirement), and `HomeActivity.dispatchKeyEvent` maps `KEYCODE_SETTINGS` to
+  `Apps.openSystem("settings")`, the TV's own settings, except on Hisense and TCL where the TV keeps that key
+  (Free My TV's field report: their system menu answers it already). `Apps.SYSTEM` holds Free My TV's intent
+  table for the eleven entries of « Réglages de la télé » (Android TV Settings component first, generic action
+  as fallback, each tried inside a `try`, no `resolveActivity()` pre-filter).
 
 ## 9. build.sh: the recipe
 
@@ -221,7 +247,8 @@ always with `/`), which avoids the aapt2 backslash bug on Windows that Free My T
 | `house`, `owl`, `motion` | none | Specific to Poudlard TV. |
 | `library` | `watchmode_key` (open a title on its page) | For them, deep link through Watchmode; for us, allow-listed URL in `config.js`, opened by `openUrl`. |
 | `lastApp` | none (they have "Recent Apps", optional) | |
-| `firstRunDone` | `KeyPage` (single page for entering keys) | No keys for us: the Admission Letter is enough. |
+| `firstRunDone` | — | Free My TV has no first-run step: its `KeyPage` is a page for entering a TMDB key, not an onboarding. The Admission Letter (four pages, the last one listing the ways out) is an addition. |
+| `passages` (`{ in2: { name } }`) | — | Free My TV shows the CEC name or « HDMI n »; renaming a port is an addition. |
 | — | `disable_assistant`, `hide_services`, `tmdb_key`, `latitude`… | Network or app disabling: out of scope. |
 
 ## 11. What we will never do from the app (and that Free My TV does, rightly in its context)
@@ -233,6 +260,45 @@ always with `/`), which avoids the aapt2 backslash bug on Windows that Free My T
   (`NowPlaying`), no `SYSTEM_ALERT_WINDOW` (`SleepOverlay`), no `REQUEST_INSTALL_PACKAGES` (updates).
 - No `INTERNET`: no weather, no TMDB, no crypto, no update check.
 - No exported ContentProvider (`Secrets`, `PhotoInbox`).
+- No asset of theirs: Free My TV bundles brand logos (`web/icons`, `assets/logos`) that a public repository must
+  not copy; its reusable third-party assets (Material Symbols, Apache-2.0; Inter, OFL) are clean but unused here
+  (our glyphs are pen strokes, our fonts Cinzel, EB Garamond and IM Fell).
 
 The result is a launcher less capable than Free My TV, but whose verification fits in one line
 (`aapt dump permissions PoudlardTV.apk`: no permission) and whose rollback depends on no tool.
+
+## 12. What Free My TV does that we deliberately do not, and what it costs
+
+Each line: the mechanism, then what the person at the remote loses with Poudlard TV.
+
+1. **Internal adb client** (`Adb.java`, `INTERNET`): Free My TV runs shell commands on the TV from the app. Ours
+   cannot; the one command that matters (`set-home-activity`) is typed from the computer when the role dialog
+   is not enough.
+2. **`pm disable-user` of the original home, the setup app, the screensaver and a bloatware list**: Free My TV
+   makes its home the only one. Ours leaves the original home installed and able to take the key back; the TV's
+   own ads live on in that home, not in ours.
+3. **`BOOT_COMPLETED` + `MY_PACKAGE_REPLACED` verify loop** (`HomeReceiver`): Free My TV checks after every boot
+   and update that it still holds the home. Ours has no receiver: after a system update (OTA) that resets the
+   role, Poudlard may lose the Home key until the row is set again (batch 4 reads the state at each start instead).
+4. **Accessibility `RemoteKeyService`**: Free My TV catches the remote's brand buttons (Netflix, YouTube…) and
+   the Home key on Hisense and Google TV Streamer. Ours does not: brand buttons keep their OEM behaviour, and on
+   those two devices the branded Home button opens the original home.
+5. **Screensaver replacement** (`DreamService`): the TV keeps its own screensaver; Nox is only a state of the
+   home screen.
+6. **Sleep timer** (`SleepOverlay`, `SYSTEM_ALERT_WINDOW`): no overlay, no timer; the TV's own sleep settings apply.
+7. **Self-update** (`REQUEST_INSTALL_PACKAGES`, network): updates are an `adb install` from the computer.
+8. **Hikeen wake watch**: Free My TV detects a Hikeen set waking from standby and refreshes itself. Ours relies on
+   `onResume`.
+9. **TCL stall detection**: Free My TV restarts its WebView when TCL firmware freezes it. Ours keeps the
+   `setTranslucent(false)` workaround only; a stall is caught by the crash guard, not prevented.
+10. **Wi-Fi owner check** (`dumpsys wifi`): needed only because Free My TV disables apps; we disable none.
+11. **Assistant disabling**: the Google Assistant stays as the TV ships it.
+
+## 13. Why uninstalling is always safe here
+
+Poudlard TV only ever disables **its own** `.Home` alias and asks the HOME role through the system's dialog. It
+never calls `pm disable` on anything, never touches another app, the screensaver, picture, sound, network or
+accounts. So `adb uninstall fr.wavia.poudlardtv` (or Settings → Apps → Poudlard TV → Uninstall) leaves the TV
+with a single candidate home, the original one, already enabled: the Home key goes back to it on the spot.
+Free My TV, uninstalled while in "Free" mode, strands the TV with its original home still disabled (its README
+says to switch back to "Original" first); that is the trade-off of its method, and the reason ours stops short.

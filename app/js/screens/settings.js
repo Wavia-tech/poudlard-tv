@@ -4,14 +4,18 @@
 // and confirmed with a pressed wax seal. Two levels, never more.
 // Holding Back for 2 s brings up classic mode from here too (the blueprint's reversibility rule).
 import { HOUSES, DOCK_MAX, getConfig, updateConfig, resetConfig, allApps, appById, isReduced } from '../config.js';
+import { Platform } from '../platform.js';
 import { LOGOS } from '../../assets/logos.js';
 import { monogram } from '../monogram.js';
 
 // App logo: official (LOGOS) or, for a hand-added app (V4), its monogram. Null if the id is unknown.
 const logoOf = (id) => LOGOS[id] || (appById(id) ? monogram(appById(id).name) : null);
 
-// Sections of the left page (display order).
+// Sections of the left page (display order). The first two are the Free My TV pair: who answers the Home key,
+// and the TV's own settings screens (Poudlard opens them, changes nothing itself).
 const RUBRIQUES = [
+  { id: 'home', label: 'Accueil de la télé', title: 'La touche Home', sub: 'Qui répond à la touche Home : Poudlard ou l’accueil d’origine de la télé.' },
+  { id: 'tv', label: 'Réglages de la télé', title: 'La télé elle-même', sub: 'Ses propres menus : image, son, réseau, télécommandes. Poudlard n’y change rien.' },
   { id: 'dock', label: 'Parapet et applis', title: 'Le Parapet', sub: 'OK pose ou retire une appli ; Gauche et Droite changent son rang ; OK maintenu la cache dans la Carte.' },
   { id: 'house', label: 'Maison', title: 'Votre maison', sub: 'La cire, la bougie et le liseré prennent sa couleur.' },
   { id: 'owl', label: 'Chouette et sons', title: 'Hedwige', sub: 'Elle est le curseur du parapet. Les sons sont des clochettes, la musique une valse très basse.' },
@@ -33,6 +37,23 @@ const MUSIC_NOTE = { auto: 'Votre propre musique si vous en avez déposé une (v
 const MOTION_NOTE = { auto: 'Vol de la chouette, parallaxe, grain, scintillement : tout.', reduit: 'Fondus de 200 ms, rien de plus. Aussi forcé par le système si demandé.', economie: 'Sans grain ni particules ; scintillement ralenti, parallaxe sur un plan.' };
 const IDLE = [[90, '1,5 min'], [180, '3 min'], [300, '5 min'], [600, '10 min'], [0, 'Jamais']];
 const VERSION = 'Maquette 0.9 · novembre 2026';
+// Home key: the two answers, and what the TV says back when Poudlard asks for the key (Bridge.setHome hints).
+export const HOME_MODES = [['poudlard', 'Poudlard TV'], ['original', 'Accueil d’origine']];
+export const HOME_HINT = {
+  held: 'La touche Home ouvre déjà Poudlard.',
+  role: 'La télé vous demande confirmation : OK sur « Poudlard TV ».',
+  settings: 'Choisissez Poudlard TV dans l’écran qui vient de s’ouvrir.',
+  'press-home': 'Appuyez sur Home, choisissez Poudlard TV, puis « Toujours ».',
+  fire: 'Sur Fire TV la touche Home reste à Amazon : ouvrez Poudlard TV depuis vos applis.',
+};
+export const HOME_NOTE_MOCK = 'Sur la télé seulement : la maquette ne change rien.';
+// The TV's own screens, in Free My TV's order (Apps.SYSTEM keys). Shared with classic mode and the Map.
+export const TV_SCREENS = [
+  ['settings', 'Tous les réglages'], ['wifi', 'Réseau et Wi-Fi'], ['bluetooth', 'Télécommande et Bluetooth'], ['picture', 'Image'],
+  ['sound', 'Son'], ['apps', 'Applications'], ['date', 'Date et heure'], ['language', 'Langue'], ['accessibility', 'Accessibilité'],
+  ['update', 'Mise à jour'], ['about', 'À propos de la télé'],
+];
+export const TV_ONLY = 'Sur la télé seulement.';
 const SAND_MS = 320;          // the sand falls through the hourglass before the list recomposes
 
 // Hourglass: full = on the parapet, empty = in the Map. The bottom sand "falls" (scaleY) when the app is set down.
@@ -47,12 +68,15 @@ const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls)
 
 export default {
   root: null, ctx: null, rub: 0, level: 'left', row: 0, items: [], axis: 'v', timers: [], reduced: false,
-  resetStep: 0, listOff: 0, scrollList: null, sealed: null, busy: false, lastPerch: null,
+  resetStep: 0, listOff: 0, scrollList: null, sealed: null, busy: false, lastPerch: null, homeAsk: false, onHomeEvent: null,
 
   async mount(root, ctx) {
     this.root = root; this.ctx = ctx; this.timers = [];
     this.rub = 0; this.level = 'left'; this.row = 0; this.resetStep = 0; this.listOff = 0; this.scrollList = null;
-    this.sealed = new Set(); this.busy = false; this.lastPerch = null;
+    this.sealed = new Set(); this.busy = false; this.lastPerch = null; this.homeAsk = false;
+    // The TV answers the HOME role request later (system dialog): the row repaints without a key press.
+    this.onHomeEvent = () => { if (this.root && RUBRIQUES[this.rub].id === 'home' && !this.homeAsk) this.renderRight('Touche Home'); };
+    document.addEventListener('poudlard:home', this.onHomeEvent);
     this.reduced = isReduced();
     root.classList.toggle('is-reduced', this.reduced);
     // Static markup only: no data enters here through innerHTML.
@@ -96,6 +120,8 @@ export default {
 
   unmount() {
     this.timers.forEach(clearTimeout); this.timers = [];
+    if (this.onHomeEvent) document.removeEventListener('poudlard:home', this.onHomeEvent);
+    this.onHomeEvent = null;
     this.items = []; this.root = null; this.scrollList = null;
   },
 
@@ -128,6 +154,7 @@ export default {
   toLeft() {
     this.level = 'left';
     if (this.resetStep) { this.resetStep = 0; this.renderRight('Réinitialiser'); }
+    if (this.homeAsk) { this.homeAsk = false; this.renderRight('Touche Home'); }
     this.syncFocus();
   },
 
@@ -224,6 +251,63 @@ export default {
     if (L.luma) m.classList.add('luma');
     box.appendChild(m);
     return box;
+  },
+
+  // ---- Section: Home key (Free My TV's "Home Screen" row) -----------------------------------------------------
+  // One row, two answers. Giving the key back asks a confirmation (focus on "Non"); taking it asks the system,
+  // which answers with a hint (the TV's own dialog, or "press Home"). In the mock-up the row is read-only.
+  rub_home(body) {
+    const mode = Platform.homeMode();
+    const mock = !Platform.isTV() || mode === 'simulated';
+    if (this.homeAsk) {
+      body.appendChild(el('p', 'set-text set-ask', 'Rendre l’accueil d’origine ?'));
+      body.appendChild(el('p', 'set-text set-note-dim', 'La touche Home rouvrira l’accueil de la télé. Poudlard TV reste dans la liste des applis.'));
+      const btns = el('div', 'set-btns'); body.appendChild(btns);
+      const items = [
+        this.button(btns, 'Oui', () => { this.homeAsk = false; this.giveHome(); }, 'set-btn-nox'),
+        this.button(btns, 'Non', () => { this.homeAsk = false; this.renderRight('Touche Home'); }),
+      ];
+      return { items, axis: 'h', start: 1 };
+    }
+    // `homePending`: the key was asked for and the system has not answered yet (the row shows the wish, the
+    // message band the hint); the 'poudlard:home' event then repaints the truth.
+    this.homePending = null;
+    const row = this.enumRow(body, 'Touche Home', HOME_MODES, () => this.homePending || (mode === 'original' ? 'original' : 'poudlard'), (v) => {
+      if (v === 'original') { this.homeAsk = true; this.renderRight(); return; }
+      this.takeHome();
+    }, (v) => (mock ? HOME_NOTE_MOCK : this.homePending ? 'La télé décide : lisez le message en bas de page.' : v === 'poudlard' ? 'Poudlard répond à la touche Home.' : 'L’accueil d’origine répond à la touche Home. OK ou ▶ pour la rendre à Poudlard.'));
+    if (mock) {
+      row.el.classList.add('is-off');
+      const nudge = () => { this.nudge(row.el); this.say(HOME_NOTE_MOCK); return true; };
+      row.key = (a) => (a === 'left' ? 'exit' : (a === 'right' || a === 'ok') ? nudge() : false);
+    }
+    body.appendChild(el('div', 'set-note set-note-dim', 'Rien n’est désactivé sur la télé : désinstaller Poudlard TV rend toujours la touche Home à l’accueil d’origine.'));
+    return { items: [row], axis: 'v', start: 0 };
+  },
+  takeHome() {
+    const r = Platform.setHome('poudlard');
+    if (r.status === 'failed') { this.say(r.error); return; }
+    this.homePending = 'poudlard';
+    this.say(HOME_HINT[r.hint] || HOME_HINT['press-home']);
+  },
+  giveHome() {
+    const r = Platform.setHome('original');
+    this.renderRight('Touche Home');
+    if (r.status === 'failed') { this.say(r.error); return; }
+    this.ctx.fx.whoosh();
+    this.say('La touche Home revient à l’accueil d’origine.');
+  },
+
+  // ---- Section: the TV's own settings (Free My TV's "TV Settings" entry) --------------------------------------
+  rub_tv(body) {
+    const items = TV_SCREENS.map(([key, label]) => this.button(body, label, () => this.openSystem(key)));
+    return { items, axis: 'v', start: 0 };
+  },
+  openSystem(key, arg) {
+    const r = Platform.openSystem(key, arg);
+    if (r.status === 'simulated') { this.say(TV_ONLY); return; }
+    if (r.status === 'failed') { this.say(r.error); return; }
+    this.ctx.fx.chime(1319, 0.03);
   },
 
   // ---- Section: Parapet and apps ----------------------------------------------------------------------------
@@ -422,12 +506,17 @@ export default {
   // ---- Section: About ---------------------------------------------------------------------------------------
   rub_about(body) {
     const facts = el('div', 'set-facts'); body.appendChild(facts);
-    [['Réseau', 'Aucune connexion, aucune donnée collectée.'], ['Version', VERSION], ['Lancement', 'Par intent explicite, sur des applis connues seulement.'], ['Réversible', 'Le launcher Google reste installé.']]
+    const mode = Platform.homeMode();
+    const homeLabel = mode === 'simulated' ? 'Maquette' : (HOME_MODES.find((m) => m[0] === mode) || HOME_MODES[1])[1];
+    const version = Platform.version();
+    [['Réseau', 'Aucune connexion, aucune donnée collectée.'], ['Version', version ? `Télé ${version} · ${VERSION}` : VERSION], ['Touche Home', homeLabel],
+      ['Lancement', 'Par intent explicite, sur des applis connues seulement.'], ['Réversible', 'L’accueil d’origine reste installé ; rien n’est désactivé.']]
       .forEach(([k, v]) => { const f = el('div', 'set-fact'); f.appendChild(el('span', 'set-fact-k', k)); f.appendChild(el('span', 'set-fact-v', v)); facts.appendChild(f); });
     const acts = el('div', 'set-acts'); body.appendChild(acts);
     const note = el('div', 'set-anote'); body.appendChild(note);
     const corner = el('i', 'set-rowseal wax-seal set-seal-corner');
     this.resetStep = 0;
+    const exitsBtn = this.button(acts, 'Les issues de secours', () => { this.press(corner); this.ctx.router.go('sorting', { page: 3, only: true }, 'fade'); });
     const resetBtn = this.button(acts, 'Réinitialiser', (b) => {
       // Double confirmation: the label changes twice before wiping. Back, Left or Menu cancel at any time.
       this.resetStep += 1;
@@ -441,7 +530,7 @@ export default {
       this.say('Registre effacé. La Lettre d’admission reviendra au prochain allumage.');
     });
     const items = [
-      this.button(acts, 'Rendre l’accueil Google', () => { note.textContent = 'Ouvre les réglages système de la TV (ACTION_HOME_SETTINGS). En maquette : simple mention.'; this.writeIn(note); this.press(corner); }),
+      exitsBtn,
       resetBtn,
       this.button(acts, 'Relancer la Lettre d’admission', () => { this.ctx.router.replace('sorting', {}, 'fade'); }),
     ];
@@ -520,7 +609,7 @@ export default {
     const id = RUBRIQUES[this.rub].id;
     a.textContent = 'Ligne';
     if (this.axis === 'h') spans[0].style.opacity = '0';          // nothing to say for ▲▼: we clear it, we don't write "Nothing"
-    b.textContent = id === 'dock' ? 'Poser · Retirer' : id === 'house' ? 'Choisir' : (id === 'classic' || id === 'about') ? 'Valider' : 'Changer';
+    b.textContent = id === 'dock' ? 'Poser · Retirer' : id === 'house' ? 'Choisir' : id === 'tv' ? 'Ouvrir' : (id === 'classic' || id === 'about') ? 'Valider' : 'Changer';
     c.textContent = id === 'dock' ? 'Rang ◀▶' : this.axis === 'h' ? 'Choisir ◀▶' : 'Valeur ◀▶';
     d.textContent = 'Rubriques';
   },
@@ -558,7 +647,7 @@ export default {
       if (action === 'up' || action === 'down') {
         const n = this.rub + (action === 'up' ? -1 : 1);
         if (n < 0 || n >= RUBRIQUES.length) { this.nudge(this.rubEl()); return true; }
-        this.rub = n; this.resetStep = 0; this.listOff = 0; this.scrollList = null;
+        this.rub = n; this.resetStep = 0; this.homeAsk = false; this.listOff = 0; this.scrollList = null;
         this.renderRight(undefined, true);
         this.ctx.fx.chime(988, 0.02);
         return true;
@@ -575,6 +664,7 @@ export default {
     // Right level: the focused item has priority, then generic navigation along the axis.
     if (action === 'back') {
       if (RUBRIQUES[this.rub].id === 'about' && this.resetStep) { this.resetStep = 0; this.renderRight('Réinitialiser'); return true; }
+      if (this.homeAsk) { this.homeAsk = false; this.renderRight('Touche Home'); return true; }   // the question closes, the row stays
       this.toLeft(); return true;
     }
     const it = this.items[this.row];

@@ -89,7 +89,7 @@ public final class HomeActivity extends Activity {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             s.setForceDark(WebSettings.FORCE_DARK_OFF);
         }
-        v.addJavascriptInterface(new Bridge(this, apps), "Android");
+        v.addJavascriptInterface(new Bridge(this, apps), "Android");   // keeps only a WeakReference to this activity
         v.setWebViewClient(new WebViewClient() {
             @Override
             public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
@@ -151,9 +151,16 @@ public final class HomeActivity extends Activity {
                 key = "Escape";
                 break;
             case KeyEvent.KEYCODE_MENU:
-            case KeyEvent.KEYCODE_SETTINGS:
                 key = "ContextMenu";
                 break;
+            case KeyEvent.KEYCODE_SETTINGS:
+                // The remote's Settings key opens the TV's own settings, as Free My TV does; Hisense and TCL
+                // handle that key themselves (their system menu), so there it is left to the system.
+                if (settingsKeyIsOurs()) {
+                    if (event.getAction() == KeyEvent.ACTION_DOWN && event.getRepeatCount() == 0) apps.openSystem("settings", null);
+                    return true;
+                }
+                return super.dispatchKeyEvent(event);
             default:
                 return super.dispatchKeyEvent(event);
         }
@@ -166,9 +173,23 @@ public final class HomeActivity extends Activity {
         return true; // consumed: Back never closes the home screen
     }
 
+    private static boolean settingsKeyIsOurs() {
+        String m = Build.MANUFACTURER == null ? "" : Build.MANUFACTURER;
+        return !"Hisense".equalsIgnoreCase(m) && !"TCL".equalsIgnoreCase(m);
+    }
+
     private void sendKey(String key, String type, boolean repeat) {
         if (web == null) return;
         web.evaluateJavascript(String.format(JS_KEY, repeat ? "true" : "false", key, type), null);
+    }
+
+    /** The system's HOME role dialog answered (HomeMode.requestHome): the page repaints its "Touche Home" row. */
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode != HomeMode.REQUEST_ROLE || web == null) return;
+        boolean held = HomeMode.POUDLARD.equals(HomeMode.mode(this));
+        web.evaluateJavascript("document.dispatchEvent(new CustomEvent('poudlard:home',{detail:{held:" + held + "}}))", null);
     }
 
     /** The Home key relaunches the activity (singleTask): we reset the home to its entry state, as Free My TV does. */
@@ -244,7 +265,7 @@ public final class HomeActivity extends Activity {
      * After three crashes: one text, two buttons. Nothing else can crash.
      *  - « Ouvrir l'accueil d'origine » (open the original home): the HOME entry point stays disabled, the original home is launched.
      *  - « Réessayer Poudlard TV » (retry Poudlard TV): clears the counter and rebuilds the interface. The HOME entry point stays disabled
-     *    until the person redoes « Faire de Poudlard l'accueil » in the settings: the safety net is kept.
+     *    until the person sets « Touche Home : Poudlard TV » again in the settings: the safety net is kept.
      */
     private View crashedView() {
         LinearLayout box = column();

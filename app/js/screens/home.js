@@ -307,26 +307,29 @@ export default {
     lg.style.setProperty('--m', `url("${L.src}")`);
     box.querySelector('.home-launch-title').textContent = `Ouverture de ${app.name}`;
     box.querySelector('.home-launch-sub').textContent = app.input ? `Entrée ${app.input}` : '';
-    this.timers.push(setTimeout(() => box.classList.add('show'), 420 * k));
     updateConfig({ lastApp: app.id });
-    let result = 'simulated', failed = false;
-    this.timers.push(setTimeout(() => {
-      const inst = Platform.installed();
-      if (inst && app.pkg && !inst.has(app.pkg)) failed = true; else result = Platform.launch(app);
-    }, 350 * k));
+    const showCard = setTimeout(() => box.classList.add('show'), 420 * k);
+    this.timers.push(showCard);
     const done = () => {
       box.classList.remove('show'); root.querySelector('.home-dim').classList.remove('on'); logoEl.classList.remove('molten');
       if (this.owl) { const t = this.owlTarget(); this.owl.comeBack(t.x, t.y); }
       this.busy = false; Input.release();
     };
+    // The intent fires at 350 ms. The TV's answer decides the rest: refused → everything settles at once and the
+    // Howler reads the TV's sentence; taken → the card stays while the app takes the screen (4 s), 2.4 s in the mock-up.
     this.timers.push(setTimeout(async () => {
-      done();
-      if (failed) {
+      const r = Platform.launch(app);
+      if (r.status === 'failed') {
+        clearTimeout(showCard);
+        done();
         const beuglante = await loadBeuglante();
         if (fx.cue) fx.cue('error');
-        if (beuglante) beuglante(root, { message: `${app.name} n'est plus installé.`, action: { label: 'Retirer du parapet', onChoose: () => this.removeFromDock(app.id) } });
+        const action = r.missing && app.pkg ? { label: 'Retirer du parapet', onChoose: () => this.removeFromDock(app.id) } : undefined;
+        if (beuglante) beuglante(root, { message: r.error, action });
+        return;
       }
-    }, (result === 'bridge' ? 4000 : 2400) * k));
+      this.timers.push(setTimeout(done, ((r.status === 'bridge' ? 4000 : 2400) - 350) * k));
+    }, 350 * k));
   },
 
   // ---- Boot ----
@@ -383,12 +386,16 @@ export default {
   async rappeltout() {
     const app = this.apps[this.i]; if (!app) return;
     const fn = await loadRappeltout(); if (!fn) return;
+    // On the TV, an app with a package gets the system's own page (uninstall, force stop); the mock-up shows a plain note.
+    const sysInfo = Boolean(app.pkg && Platform.isTV());
     const choice = await fn(this.root, { title: app.name, options: [
-      { id: 'move', label: 'Déplacer' }, { id: 'remove', label: 'Retirer du parapet' }, { id: 'hide', label: 'Masquer' }, { id: 'info', label: 'Infos' },
+      { id: 'move', label: 'Déplacer' }, { id: 'remove', label: 'Retirer du parapet' }, { id: 'hide', label: 'Masquer' },
+      sysInfo ? { id: 'appinfo', label: 'Infos de l’appli' } : { id: 'info', label: 'Infos' },
     ] });
     if (choice === 'move') this.enterMove();
     else if (choice === 'remove') this.removeFromDock(app.id);
     else if (choice === 'hide') { const c = getConfig(); updateConfig({ dock: c.dock.filter((id) => id !== app.id), hidden: [...c.hidden, app.id] }); this.rebuild(); }
+    else if (choice === 'appinfo') { const r = Platform.openSystem('appinfo', app.pkg); if (r.status === 'failed') { const b = await loadBeuglante(); if (b) b(this.root, { message: r.error }); } }
     else if (choice === 'info') { const b = await loadBeuglante(); if (b) b(this.root, { message: app.pkg ? `${app.name} · ${app.pkg}` : `${app.name} · ${app.input || 'ajoutée à la main'}` }); }
   },
   removeFromDock(id) { updateConfig({ dock: getConfig().dock.filter((x) => x !== id) }); this.rebuild(); },
