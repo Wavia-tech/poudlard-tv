@@ -52,33 +52,32 @@ export const LIBRARY = [
   {
     // `url`: the film's page on Max (links supplied by the owner). Only the hosts in URL_HOSTS are accepted by platform.js.
     id: 'hp', title: 'Harry Potter', background: 'library',
-    alsoWith: ['canal'],          // other apps offered by the Remembrall ("Ouvrir avec Canal+"): the app opens, the film is searched inside
     scene: { image: 'assets/ollivanders.webp', w: 1024, h: 576, boxes: [
       [[222, 178], [292, 178], [270, 508], [180, 508]], [[300, 178], [373, 178], [350, 508], [272, 508]], [[382, 178], [450, 178], [432, 508], [355, 508]], [[460, 178], [530, 178], [520, 508], [440, 508]],
       [[540, 178], [608, 178], [615, 508], [540, 508]], [[620, 178], [690, 178], [705, 508], [630, 508]], [[700, 178], [770, 178], [800, 508], [718, 508]], [[780, 178], [850, 178], [895, 508], [810, 508]],
     ] },
     items: [
-      { n: 1, title: "À l'école des sorciers", year: 2001, symbol: 'stone', color: '#7a2328', app: 'max', content: 'hp1', url: "https://www.max.com/fr/fr/search?q=Harry+Potter+à+l'école+des+sorciers" },
-      { n: 2, title: 'La Chambre des secrets', year: 2002, symbol: 'serpent', color: '#25492c', app: 'max', content: 'hp2', url: 'https://www.max.com/fr/fr/search?q=Harry+Potter+et+la+Chambre+des+secrets' },
-      { n: 3, title: "Le Prisonnier d'Azkaban", year: 2004, symbol: 'timeturner', color: '#4a2f5c', app: 'max', content: 'hp3', url: "https://www.max.com/fr/fr/search?q=Harry+Potter+et+le+Prisonnier+d'Azkaban" },
-      { n: 4, title: 'La Coupe de feu', year: 2005, symbol: 'goblet', color: '#8a4f1c', app: 'max', content: 'hp4', url: 'https://www.max.com/fr/fr/search?q=Harry+Potter+et+la+Coupe+de+feu' },
-      { n: 5, title: "L'Ordre du Phénix", year: 2007, symbol: 'phoenix', color: '#1f3d6b', app: 'max', content: 'hp5', url: "https://www.max.com/fr/fr/search?q=Harry+Potter+et+l'Ordre+du+Phénix" },
-      { n: 6, title: 'Le Prince de sang-mêlé', year: 2009, symbol: 'vial', color: '#3d4a26', app: 'max', content: 'hp6', url: 'https://www.max.com/fr/fr/search?q=Harry+Potter+et+le+Prince+de+sang-mêlé' },
-      { n: 7, title: 'Les Reliques de la Mort, 1re partie', year: 2010, symbol: 'locket', color: '#5c1f3a', app: 'max', content: 'hp7', url: 'https://www.max.com/fr/fr/search?q=Harry+Potter+et+les+Reliques+de+la+Mort+Partie+1' },
-      { n: 8, title: 'Les Reliques de la Mort, 2e partie', year: 2011, symbol: 'wand', color: '#2b2b45', app: 'max', content: 'hp8', url: 'https://www.max.com/fr/fr/search?q=Harry+Potter+et+les+Reliques+de+la+Mort+Partie+2' },
+      { n: 1, title: "À l'école des sorciers", year: 2001, symbol: 'stone', color: '#7a2328', app: 'max', content: 'hp1', url: "https://www.max.com/fr/fr/search?q=Harry+Potter+à+l'école+des+sorciers", urls: { max: "https://www.max.com/fr/fr/search?q=Harry+Potter+à+l'école+des+sorciers", canal: 'https://www.canalplus.com/cinema/harry-potter-a-l-ecole-des-sorciers/h/40438941_50889' } },
+      { n: 2, title: 'La Chambre des secrets', year: 2002, symbol: 'serpent', color: '#25492c', app: 'max', content: 'hp2', url: 'https://www.max.com/fr/fr/search?q=Harry+Potter+et+la+Chambre+des+secrets', urls: { max: 'https://www.max.com/fr/fr/search?q=Harry+Potter+et+la+Chambre+des+secrets', canal: 'https://www.canalplus.com/cinema/harry-potter-et-la-chambre-des-secrets/h/40439261_50889' } },
+      { n: 3, title: "Le Prisonnier d'Azkaban", year: 2004, symbol: 'timeturner', color: '#4a2f5c', app: 'max', content: 'hp3', url: "https://www.max.com/fr/fr/search?q=Harry+Potter+et+le+Prisonnier+d'Azkaban", urls: { max: "https://www.max.com/fr/fr/search?q=Harry+Potter+et+le+Prisonnier+d'Azkaban", canal: 'https://www.canalplus.com/cinema/harry-potter-et-le-prisonnier-d-azkaban/h/40439243_50889' } },
+      { n: 4, title: 'La Coupe de feu', year: 2005, symbol: 'goblet', color: '#8a4f1c', app: 'max', content: 'hp4', url: 'https://www.max.com/fr/fr/search?q=Harry+Potter+et+la+Coupe+de+feu', urls: { max: 'https://www.max.com/fr/fr/search?q=Harry+Potter+et+la+Coupe+de+feu', canal: 'https://www.canalplus.com/cinema/harry-potter-et-la-coupe-de-feu/h/40439245_50889' } },
+      { n: 5, title: "L'Ordre du Phénix", year: 2007, symbol: 'phoenix', color: '#1f3d6b', app: 'max', content: 'hp5', url: "https://www.max.com/fr/fr/search?q=Harry+Potter+et+l'Ordre+du+Phénix", urls: { max: "https://www.max.com/fr/fr/search?q=Harry+Potter+et+l'Ordre+du+Phénix", canal: 'https://www.canalplus.com/cinema/harry-potter-et-l-ordre-du-phenix/h/40442021_50889' } },
+      { n: 6, title: 'Le Prince de sang-mêlé', year: 2009, symbol: 'vial', color: '#3d4a26', app: 'max', content: 'hp6', url: 'https://www.max.com/fr/fr/search?q=Harry+Potter+et+le+Prince+de+sang-mêlé', urls: { max: 'https://www.max.com/fr/fr/search?q=Harry+Potter+et+le+Prince+de+sang-mêlé', canal: 'https://www.canalplus.com/cinema/harry-potter-et-le-prince-de-sang-mele/h/40444270_50889' } },
+      { n: 7, title: 'Les Reliques de la Mort, 1re partie', year: 2010, symbol: 'locket', color: '#5c1f3a', app: 'max', content: 'hp7', url: 'https://www.max.com/fr/fr/search?q=Harry+Potter+et+les+Reliques+de+la+Mort+Partie+1', urls: { max: 'https://www.max.com/fr/fr/search?q=Harry+Potter+et+les+Reliques+de+la+Mort+Partie+1', canal: 'https://www.canalplus.com/cinema/harry-potter-et-les-reliques-de-la-mort-partie-1/h/40439244_50889' } },
+      { n: 8, title: 'Les Reliques de la Mort, 2e partie', year: 2011, symbol: 'wand', color: '#2b2b45', app: 'max', content: 'hp8', url: 'https://www.max.com/fr/fr/search?q=Harry+Potter+et+les+Reliques+de+la+Mort+Partie+2', urls: { max: 'https://www.max.com/fr/fr/search?q=Harry+Potter+et+les+Reliques+de+la+Mort+Partie+2', canal: 'https://www.canalplus.com/cinema/harry-potter-et-les-reliques-de-la-mort-partie-2/h/40439242_50889' } },
     ],
   },
   {
-    id: 'fb', title: 'Les Animaux fantastiques', background: 'newyork',
+    id: 'fb', title: 'Les Animaux fantastiques', background: 'newyork',   // `urls`: Max, Netflix (FR catalogue) and Canal+ pages, one link per app
     scene: { image: 'assets/beasts.webp', w: 1024, h: 576, boxes: [
       [[45, 262], [345, 262], [345, 500], [45, 500]], [[368, 252], [662, 252], [662, 500], [368, 500]], [[682, 262], [978, 262], [978, 506], [682, 506]],
     ] },
     items: [
       // French catalogue (November 2026): the first two films are on Max, only the third is on Netflix France.
       // `urls`: one link per app, so the Remembrall can switch ("Ouvrir avec Netflix" / "… Max").
-      { n: 1, title: 'Les Animaux fantastiques', year: 2016, symbol: 'suitcase', color: '#1d3b4a', app: 'max', content: 'fb1', url: 'https://www.max.com/fr/fr/search?q=Les+Animaux+fantastiques', urls: { max: 'https://www.max.com/fr/fr/search?q=Les+Animaux+fantastiques', netflix: 'https://www.netflix.com/title/80111501' } },
-      { n: 2, title: 'Les Crimes de Grindelwald', year: 2018, symbol: 'skull', color: '#2a2a2a', app: 'max', content: 'fb2', url: 'https://www.max.com/fr/fr/search?q=Les+Crimes+de+Grindelwald', urls: { max: 'https://www.max.com/fr/fr/search?q=Les+Crimes+de+Grindelwald', netflix: 'https://www.netflix.com/title/80997275' } },
-      { n: 3, title: 'Les Secrets de Dumbledore', year: 2022, symbol: 'phoenix', color: '#3d2f1a', app: 'netflix', content: 'fb3', url: 'https://www.netflix.com/title/81516447', urls: { netflix: 'https://www.netflix.com/title/81516447', max: 'https://www.max.com/fr/fr/search?q=Les+Secrets+de+Dumbledore' } },
+      { n: 1, title: 'Les Animaux fantastiques', year: 2016, symbol: 'suitcase', color: '#1d3b4a', app: 'max', content: 'fb1', url: 'https://www.max.com/fr/fr/search?q=Les+Animaux+fantastiques', urls: { max: 'https://www.max.com/fr/fr/search?q=Les+Animaux+fantastiques', netflix: 'https://www.netflix.com/title/80111501' , canal: 'https://www.canalplus.com/cinema/les-animaux-fantastiques/h/40442388_50889' } },
+      { n: 2, title: 'Les Crimes de Grindelwald', year: 2018, symbol: 'skull', color: '#2a2a2a', app: 'max', content: 'fb2', url: 'https://www.max.com/fr/fr/search?q=Les+Crimes+de+Grindelwald', urls: { max: 'https://www.max.com/fr/fr/search?q=Les+Crimes+de+Grindelwald', netflix: 'https://www.netflix.com/title/80997275' , canal: 'https://www.canalplus.com/cinema/les-animaux-fantastiques-les-crimes-de-grindelwald/h/40439354_50889' } },
+      { n: 3, title: 'Les Secrets de Dumbledore', year: 2022, symbol: 'phoenix', color: '#3d2f1a', app: 'netflix', content: 'fb3', url: 'https://www.netflix.com/title/81516447', urls: { netflix: 'https://www.netflix.com/title/81516447', max: 'https://www.max.com/fr/fr/search?q=Les+Secrets+de+Dumbledore' , canal: 'https://www.canalplus.com/cinema/les-animaux-fantastiques-les-secrets-de-dumbledore/h/41125749_50889' } },
     ],
   },
 ];
