@@ -2,19 +2,8 @@
 # Poudlard TV — what must never enter the public repository
 # ---------------------------------------------------------------------------
 
-# Official app logos (trademarks), a private file rebuilt with
-# tools/logos-build.mjs. The repository provides app/assets/logos.example.js.
-app/assets/logos.js
-/logos.js
-
-# Official house crests (copyrighted artwork), cut out locally from a reference
-# image: the app falls back to the drawn crests of app/js/crests.js without them.
-app/assets/crest-*.webp
-
-# Background music: personal file, never distributed (docs/MUSIC.md).
-# The whole folder is ignored, including any license note you might put there.
-app/assets/music/*
-!app/assets/music/.gitkeep
+# The maintainer's own choice (November 2026): the app logos (app/assets/logos.js), the house crest pictures
+# (app/assets/crest-*.webp) and the background music (app/assets/music/) ARE versioned, see DISCLAIMER.md.
 
 # Fonts embedded in the APK (OFL): add them with their license if you
 # version them; ignored by default to keep the repository light.

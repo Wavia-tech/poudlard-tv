@@ -25,6 +25,16 @@ For strictly private use, anyone can complete their installation with:
 2. **Their background music**: an audio file they own or hold a license for, placed in `app/assets/music/` under the name `ambiance.ogg`, `ambiance.mp3` or `ambiance.m4a`. This folder is ignored by Git. The films' soundtrack has no place there.
 3. **Their content links**: the addresses of the films on their streaming service, in `app/js/config.js`. Only the hosts on the whitelist in `app/js/platform.js` are accepted.
 
+## Third-party material versioned at the maintainer's request
+
+Since November 2026 the repository also carries, on the maintainer's explicit decision and responsibility:
+
+- the four house crest pictures (`app/assets/crest-*.webp`), cut out from published artwork owned by Warner Bros.;
+- the streaming apps' logos (`app/assets/logos.js`), trademarks of their owners;
+- a background music file (`app/assets/music/ambiance.mp3`), a recording whose rights belong to its author.
+
+None of it is covered by the MIT license, none of it is claimed as original, and any rights holder may ask for its removal: open an issue or write to the maintainer and the file will be taken out of the repository. Anyone who forks or redistributes this repository does so under their own responsibility for these files.
+
 ## Usage
 
 This project is provided "as is", without warranty (see `LICENSE`). It is not intended for commercial use. It circumvents no protection, gives access to no content and replaces no subscription: all it does is open, on request, the apps already installed on the TV.
