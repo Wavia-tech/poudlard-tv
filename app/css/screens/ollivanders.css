@@ -16,16 +16,17 @@
 .screen-library.is-in .olv-shade { opacity: .5; }
 /* The beam: a trapezoid of warm light hanging from the top edge, leaning with the box. */
 .olv-beam { position: absolute; left: 0; top: 0; width: 14cqw; height: 60cqw; pointer-events: none; opacity: 0; transform-origin: 50% 0;
-  clip-path: polygon(39% 0, 61% 0, 100% 100%, 0 100%); background: linear-gradient(to bottom, #ffd38a2e, #ffb45700);
+  clip-path: polygon(42% 0, 58% 0, 100% 100%, 0 100%); background: linear-gradient(to bottom, #ffd38a14, #ffd38a26 70%, #ffb45700);
   transition: transform calc(var(--k) * 380ms) cubic-bezier(.33, 0, .2, 1), opacity calc(var(--k) * 400ms); }
-.screen-library.is-in .olv-beam { opacity: .9; }
-/* The warmth resting on the box (a soft ellipse). One rise per move (ollivanders.js), never an infinite loop. */
-.olv-warmth { position: absolute; left: 0; top: 0; width: 18cqw; height: 36cqw; pointer-events: none; opacity: 0; border-radius: 50%;
-  background: radial-gradient(closest-side, #ffd38a73, #ffb4571f 55%, #ffb45700); transition: transform calc(var(--k) * 380ms) cubic-bezier(.33, 0, .2, 1); }
+.screen-library.is-in .olv-beam { opacity: .8; }
+/* The warmth resting on the box (a soft ellipse the size of the box). One rise per move (ollivanders.js), never an infinite loop. */
+.olv-warmth { position: absolute; left: 0; top: 0; width: 18cqw; height: 36cqw; pointer-events: none; opacity: 0; border-radius: 50%; transform-origin: 50% 50%;
+  background: radial-gradient(closest-side, #ffd38a4d, #ffb45714 60%, #ffb45700); transition: transform calc(var(--k) * 380ms) cubic-bezier(.33, 0, .2, 1); }
 .screen-library.is-in .olv-warmth { opacity: 1; }
 
 /* Caption: title and availability, written in pen under the boxes. */
 .olv-caption { position: absolute; left: 50%; bottom: calc(var(--safe-y) + 2.7cqw); transform: translateX(-50%); text-align: center; white-space: nowrap; color: var(--ivory); text-shadow: 0 .1cqw .2cqw #000, 0 0 1cqw #000c; }
+.olv-caption-kicker { font-family: var(--display); font-size: var(--t-hint); letter-spacing: var(--track-wide); text-transform: uppercase; color: var(--gold); opacity: .85; margin-bottom: .3cqw; }
 .olv-caption-title { font-family: var(--fell); font-size: var(--t-label); }
 .olv-caption-sub { font-family: var(--body); font-style: italic; font-size: var(--t-hint); color: var(--gold-light); opacity: .9; margin-top: .2cqw; }
 .olv-caption.is-write .olv-caption-title { animation: olv-write calc(var(--k) * 350ms) ease-out; }

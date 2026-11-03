@@ -99,3 +99,11 @@ an update is `adb install -r`.
 
 Kept outside the tree on purpose (gitignored): `app/assets/logos.js`, `app/assets/music/`, `_ecarte/`
 (working files), `tools/*.ps1` generation scripts with personal paths, `app/artifact.html`.
+
+### The Fantastic Beasts window (`app/assets/beasts.webp`)
+
+Generated locally (Z-Image Turbo, `generate.ps1 -Format paysage -Seed 7`, 1024×576) with a generic prompt, no
+franchise term: *cinematic shop window at night, three worn leather suitcases with brass clasps displayed side by
+side on a wooden counter, evenly spaced, each suitcase slightly open with a faint golden glow escaping, 1920s New
+York apothecary shelves with glass jars behind, warm lamplight, rain on the glass, moody, highly detailed, no text,
+no letters*. The three selection boxes are measured on the image (`scene.boxes` in `app/js/config.js`).

@@ -9,19 +9,11 @@ import { Input } from '../input.js';
 import { LOGOS } from '../../assets/logos.js';
 import { monogram } from '../monogram.js';
 
-const IMG = { w: 1672, h: 941 };
-// The eight boxes, left to right, in image pixels: top-left, top-right, bottom-right, bottom-left.
-const BOXES = [
-  [[248, 318], [338, 313], [350, 790], [162, 790]],
-  [[340, 318], [438, 313], [506, 790], [352, 790]],
-  [[556, 322], [674, 318], [686, 790], [520, 790]],
-  [[708, 322], [820, 318], [852, 790], [690, 790]],
-  [[861, 322], [977, 318], [1020, 790], [858, 790]],
-  [[1011, 322], [1135, 318], [1200, 790], [1030, 790]],
-  [[1195, 320], [1285, 316], [1370, 790], [1180, 790]],
-  [[1340, 322], [1440, 318], [1565, 790], [1385, 790]],
-];
-const HOLE = 1.6;     // the hole's box is 1.6 × the film box (the soft edge lives in the mask gradient)
+// Each collection of LIBRARY (config.js) is a window: its `scene` gives the backdrop, its pixel size and one
+// selection polygon per film. Right at the last box opens the next window, Left at the first the previous one.
+let IMG = { w: 1672, h: 941 };
+const HOLE = 1.25;    // the hole's box is 1.25 × the film box (the soft edge lives in the mask gradient): framed, not spilling
+const BEAM_W = 14, BEAM_H = 60, WARM_W = 18, WARM_H = 36;   // cqw: the base sizes of the beam and the warmth (CSS), scaled per box
 const loadRappeltout = () => import('../rappeltout.js').then((m) => m.rappeltout).catch(() => null);
 const loadBeuglante = () => import('../beuglante.js').then((m) => m.beuglante).catch(() => null);
 
@@ -29,10 +21,16 @@ export default {
   root: null, ctx: null, items: [], i: 0, busy: false, timers: [], hiddenKeys: new Set(), raf: 0, cur: null, dustTimer: 0,
 
   async mount(root, ctx) {
-    this.root = root; this.ctx = ctx; this.timers = []; this.busy = false;
-    const coll = LIBRARY[0];
-    this.items = coll.items.slice(0, BOXES.length).map((it, n) => ({ ...it, box: BOXES[n], key: `${coll.id}:${it.content}` }));
-    this.i = 0;
+    this.root = root; this.ctx = ctx; this.timers = []; this.busy = false; this.holeBase = null;   // the veil is new on every mount
+    const windows = LIBRARY.filter((c) => c.scene && Array.isArray(c.scene.boxes) && c.scene.boxes.length);
+    const wanted = ctx.params && ctx.params.collection;
+    this.ci = Math.max(0, windows.findIndex((c) => c.id === wanted));
+    this.windows = windows;
+    const coll = windows[this.ci] || LIBRARY[0];
+    const boxes = coll.scene.boxes;
+    IMG = { w: coll.scene.w, h: coll.scene.h };
+    this.items = coll.items.slice(0, boxes.length).map((it, n) => ({ ...it, box: boxes[n], key: `${coll.id}:${it.content}` }));
+    this.i = ctx.params && ctx.params.from === 'end' ? this.items.length - 1 : 0;
     root.innerHTML = `
       <div class="olv-scene">
         <img class="olv-bg" alt="">
@@ -40,14 +38,18 @@ export default {
         <div class="olv-beam"></div>
         <div class="olv-warmth"></div>
       </div>
-      <div class="olv-caption"><div class="olv-caption-title"></div><div class="olv-caption-sub"></div></div>
-      <div class="keyhint olv-hint"><span><b>◀ ▶</b>Choisir</span><span><b>OK</b>Ouvrir le film</span><span><b>▲</b>Parapet</span></div>
+      <div class="olv-caption"><div class="olv-caption-kicker"></div><div class="olv-caption-title"></div><div class="olv-caption-sub"></div></div>
+      <div class="keyhint olv-hint"><span><b>◀ ▶</b>Choisir</span><span><b>OK</b>Ouvrir le film</span><span><b>▲</b>Parapet</span><span class="olv-hint-next"><b>▶</b></span></div>
       <div class="olv-dim"></div>`;
     const bg = root.querySelector('.olv-bg');
     bg.addEventListener('error', () => root.classList.add('no-image'));
-    bg.src = 'assets/ollivanders.webp';
+    bg.src = coll.scene.image;
+    root.querySelector('.olv-caption-kicker').textContent = coll.title;
+    const next = windows[this.ci + 1], prev = windows[this.ci - 1];
+    const hintNext = root.querySelector('.olv-hint-next');
+    if (next) hintNext.append(`${next.title}, au bout`); else if (prev) { hintNext.querySelector('b').textContent = '◀'; hintNext.append(`${prev.title}, au bout`); } else hintNext.remove();
     this.timers.push(setTimeout(() => root.classList.add('is-in'), 60));
-    this.focus(0, true);
+    this.focus(this.i, true);
     this.dust();
     if (ctx.config().sounds) ctx.fx.initAudio();
   },
@@ -84,10 +86,13 @@ export default {
     const tx = (b.cx - 0.5) * W, ty = (b.cy - 0.5) * H;
     const set = (el, v) => { if (instant) el.style.transition = 'none'; el.style.transform = v; if (instant) { void el.offsetWidth; el.style.transition = ''; } };
     set(shade, `translate(${tx.toFixed(1)}px, ${ty.toFixed(1)}px) scale(${sx.toFixed(3)}, ${sy.toFixed(3)})`);
-    // The beam hangs from the top, leaning ±4° with the box's position; the warmth sits a little above the box.
-    const lean = (b.cx - 0.5) * 8;
-    set(beam, `translate(${(b.cx * W - W * 0.07).toFixed(1)}px, 0) rotate(${lean.toFixed(2)}deg)`);
-    set(warm, `translate(${(b.cx * W - W * 0.09).toFixed(1)}px, ${(b.cy * H - H * 0.36).toFixed(1)}px)`);
+    // The beam hangs from the top edge down to the top of the box (scaled, never past it), as wide as the box,
+    // leaning ±4° with the box's position; the warmth is an ellipse the size of the box, centred on it.
+    const cqw = W / 100, lean = (b.cx - 0.5) * 8;
+    const beamH = Math.max(0.05, b.cy - b.h / 2) * H, beamW = b.w * W * 1.1;
+    set(beam, `translate(${(b.cx * W - BEAM_W * cqw / 2).toFixed(1)}px, 0) rotate(${lean.toFixed(2)}deg) scale(${(beamW / (BEAM_W * cqw)).toFixed(3)}, ${(beamH / (BEAM_H * cqw)).toFixed(3)})`);
+    const warmW = b.w * W * 1.15, warmH = b.h * H * 0.9;
+    set(warm, `translate(${(b.cx * W - WARM_W * cqw / 2).toFixed(1)}px, ${(b.cy * H - WARM_H * cqw / 2).toFixed(1)}px) scale(${(warmW / (WARM_W * cqw)).toFixed(3)}, ${(warmH / (WARM_H * cqw)).toFixed(3)})`);
     // A single rise of the warmth on each move (no infinite breathing).
     if (!instant && !isReduced()) warm.animate([{ opacity: 0.55 }, { opacity: 1 }], { duration: 600, easing: 'ease-out', fill: 'forwards' });
   },
@@ -159,8 +164,16 @@ export default {
     if (action === 'okdown') { if (!this.busy) this.root.querySelector('.olv-scene').classList.add('is-press'); return true; }
     if (this.busy) return true;
     this.root.querySelector('.olv-scene').classList.remove('is-press');
-    if (action === 'right') { if (this.i < this.items.length - 1) { this.focus(this.i + 1); ctx.fx.cue ? ctx.fx.cue('move', { dir: 1 }) : ctx.fx.chime(1175, 0.02); } return true; }
-    if (action === 'left') { if (this.i > 0) { this.focus(this.i - 1); ctx.fx.cue ? ctx.fx.cue('move', { dir: -1 }) : ctx.fx.chime(1046, 0.02); } return true; }
+    if (action === 'right') {
+      if (this.i < this.items.length - 1) { this.focus(this.i + 1); ctx.fx.cue ? ctx.fx.cue('move', { dir: 1 }) : ctx.fx.chime(1175, 0.02); }
+      else if (this.windows[this.ci + 1]) { ctx.fx.cue ? ctx.fx.cue('enter') : ctx.fx.chime(1175, 0.02); ctx.router.replace('library', { collection: this.windows[this.ci + 1].id }, 'fade'); }   // the next window
+      return true;
+    }
+    if (action === 'left') {
+      if (this.i > 0) { this.focus(this.i - 1); ctx.fx.cue ? ctx.fx.cue('move', { dir: -1 }) : ctx.fx.chime(1046, 0.02); }
+      else if (this.windows[this.ci - 1]) { ctx.fx.cue ? ctx.fx.cue('return') : ctx.fx.chime(1046, 0.02); ctx.router.replace('library', { collection: this.windows[this.ci - 1].id, from: 'end' }, 'fade'); }
+      return true;
+    }
     if (action === 'ok') { this.launch(); return true; }
     if (action === 'longok') { this.rappeltout(); return true; }
     if (action === 'up' || action === 'back') { if (ctx.fx.cue) ctx.fx.cue('return'); else ctx.fx.whoosh(); ctx.router.go('home', {}, 'uncrane'); return true; }

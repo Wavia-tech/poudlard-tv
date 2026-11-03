@@ -45,12 +45,18 @@ export const PASSAGES_MAX = 12;
 // Ids of the passages before config version 4 (named consoles): kept so an old parapet keeps its HDMI entries.
 const OLD_PASSAGES = { ps5: 'in1', ps4: 'in2', xbox: 'in3', switch: 'in4' };
 
-// Library collections. `symbol`: motif engraved on the cover; `app`: the app that owns the title;
-// `content`: identifier for the deep link (never a URL typed on screen).
+// Library collections, each shown as a shop window (ollivanders.js). `scene`: the generated backdrop, its size in
+// pixels and one selection polygon per film (top-left, top-right, bottom-right, bottom-left, image pixels);
+// `app`: the app that owns the title; `url`: the film's page (host allow-list in platform.js), never typed on screen.
 export const LIBRARY = [
   {
     // `url`: the film's page on Max (links supplied by the owner). Only the hosts in URL_HOSTS are accepted by platform.js.
-    id: 'hp', title: 'Harry Potter', background: 'library', items: [
+    id: 'hp', title: 'Harry Potter', background: 'library',
+    scene: { image: 'assets/ollivanders.webp', w: 1672, h: 941, boxes: [
+      [[248, 318], [338, 313], [350, 790], [162, 790]], [[340, 318], [438, 313], [506, 790], [352, 790]], [[556, 322], [674, 318], [686, 790], [520, 790]], [[708, 322], [820, 318], [852, 790], [690, 790]],
+      [[861, 322], [977, 318], [1020, 790], [858, 790]], [[1011, 322], [1135, 318], [1200, 790], [1030, 790]], [[1195, 320], [1285, 316], [1370, 790], [1180, 790]], [[1340, 322], [1440, 318], [1565, 790], [1385, 790]],
+    ] },
+    items: [
       { n: 1, title: "À l'école des sorciers", year: 2001, symbol: 'stone', color: '#7a2328', app: 'max', content: 'hp1', url: "https://www.max.com/fr/fr/search?q=Harry+Potter+à+l'école+des+sorciers" },
       { n: 2, title: 'La Chambre des secrets', year: 2002, symbol: 'serpent', color: '#25492c', app: 'max', content: 'hp2', url: 'https://www.max.com/fr/fr/search?q=Harry+Potter+et+la+Chambre+des+secrets' },
       { n: 3, title: "Le Prisonnier d'Azkaban", year: 2004, symbol: 'timeturner', color: '#4a2f5c', app: 'max', content: 'hp3', url: "https://www.max.com/fr/fr/search?q=Harry+Potter+et+le+Prisonnier+d'Azkaban" },
@@ -62,10 +68,14 @@ export const LIBRARY = [
     ],
   },
   {
-    id: 'fb', title: 'Les Animaux fantastiques', background: 'newyork', items: [
-      { n: 1, title: 'Les Animaux fantastiques', year: 2016, symbol: 'suitcase', color: '#1d3b4a', app: 'max', content: 'fb1' },
-      { n: 2, title: 'Les Crimes de Grindelwald', year: 2018, symbol: 'skull', color: '#2a2a2a', app: 'max', content: 'fb2' },
-      { n: 3, title: 'Les Secrets de Dumbledore', year: 2022, symbol: 'phoenix', color: '#3d2f1a', app: 'max', content: 'fb3' },
+    id: 'fb', title: 'Les Animaux fantastiques', background: 'newyork',
+    scene: { image: 'assets/beasts.webp', w: 1024, h: 576, boxes: [
+      [[45, 262], [345, 262], [345, 500], [45, 500]], [[368, 252], [662, 252], [662, 500], [368, 500]], [[682, 262], [978, 262], [978, 506], [682, 506]],
+    ] },
+    items: [
+      { n: 1, title: 'Les Animaux fantastiques', year: 2016, symbol: 'suitcase', color: '#1d3b4a', app: 'max', content: 'fb1', url: 'https://www.max.com/fr/fr/search?q=Les+Animaux+fantastiques' },
+      { n: 2, title: 'Les Crimes de Grindelwald', year: 2018, symbol: 'skull', color: '#2a2a2a', app: 'max', content: 'fb2', url: 'https://www.max.com/fr/fr/search?q=Les+Animaux+fantastiques+Les+Crimes+de+Grindelwald' },
+      { n: 3, title: 'Les Secrets de Dumbledore', year: 2022, symbol: 'phoenix', color: '#3d2f1a', app: 'max', content: 'fb3', url: 'https://www.max.com/fr/fr/search?q=Les+Animaux+fantastiques+Les+Secrets+de+Dumbledore' },
     ],
   },
 ];

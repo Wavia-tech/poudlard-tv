@@ -124,29 +124,33 @@ export function createOwl(host, opts) {
     }
     const k = o.timeScale || 1;
     const H = o.arena ? o.arena.h : 600;
-    const lift = Math.min(H * 0.3, 30 + dist * 0.35);
-    const dur = Math.min(700, 420 + dist * 0.4) * k;
     const short = dist < 300;
+    // A real bird: a crouch, a push off, a climb that peaks before mid-way, a glide, a flare (wings braking, body
+    // rising a touch) and a settle. Hops are low and quick; long flights climb higher and take their time.
+    const lift = short ? Math.min(H * 0.12, 18 + dist * 0.18) : Math.min(H * 0.26, 40 + dist * 0.22);
+    const dur = (short ? 460 + dist * 0.5 : Math.min(980, 560 + dist * 0.42)) * k;
     lastDir = dx < 0 ? 'left' : 'right';
     setFacing(lastDir);
     setState('fly');
     el.dataset.phase = 'crouch';
     showPose('perch', 40);
     // Waypoints of the arc; the roll of each is the direction of the segment that reaches it, mirrored by facing.
+    const top = Math.min(from.y, y) - lift;
     const pts = [
-      [from.x, from.y], [from.x, from.y + 4], [from.x + dx * 0.12, from.y - lift * 0.55], [from.x + dx * 0.55, Math.min(from.y, y) - lift],
-      [x - dx * 0.03, y - lift * 0.22], [x, y - H * 0.02], [x, y],
+      [from.x, from.y], [from.x + dx * 0.02, from.y + 5], [from.x + dx * 0.16, from.y - lift * 0.6], [from.x + dx * 0.42, top],
+      [from.x + dx * 0.72, top + lift * 0.25], [x - dx * 0.06, y - lift * 0.3], [x - dx * 0.015, y - Math.max(6, lift * 0.1)], [x, y],
     ];
-    const offsets = [0, 0.08, 0.22, 0.55, 0.82, 0.9, 1];
+    const offsets = [0, 0.09, 0.24, 0.46, 0.66, 0.84, 0.94, 1];
     const sign = dx < 0 ? -1 : 1;
     const bank = (i) => {
-      if (i === 0 || i === pts.length - 1) return 0;
+      if (i === 0 || i >= pts.length - 2) return 0;
       const ang = Math.atan2(pts[i][1] - pts[i - 1][1], (pts[i][0] - pts[i - 1][0]) * sign);
-      return Math.max(-12, Math.min(12, ang * 0.35 * 180 / Math.PI)) * sign;
+      return Math.max(-10, Math.min(10, ang * 0.3 * 180 / Math.PI)) * sign;
     };
     const frames = pts.map((p, i) => ({ transform: `translate(${p[0]}px, ${p[1]}px) rotate(${bank(i).toFixed(1)}deg)`, offset: offsets[i] }));
-    flight = el.animate(frames, { duration: dur, easing: 'cubic-bezier(.42,.05,.3,1)', fill: 'forwards' });
-    depth.animate([{ transform: 'scale(.96)' }, { transform: 'scale(1)', offset: 0.1 }, { transform: 'scale(1.18)', offset: 0.5 }, { transform: 'scale(1)' }], { duration: dur, easing: 'ease-in-out' });
+    // Slow push-off, steady cruise, long deceleration into the landing.
+    flight = el.animate(frames, { duration: dur, easing: 'cubic-bezier(.38,.02,.18,1)', fill: 'forwards' });
+    depth.animate([{ transform: 'scale(.95)' }, { transform: 'scale(1)', offset: 0.1 }, { transform: `scale(${short ? 1.08 : 1.16})`, offset: 0.46 }, { transform: 'scale(1.02)', offset: 0.9 }, { transform: 'scale(1)' }], { duration: dur, easing: 'ease-in-out' });
     // The shadow runs across the stone: it stretches as the owl climbs.
     shadow.animate([
       { transform: 'translateX(0) scaleX(1)', opacity: 0.55 },
@@ -160,14 +164,15 @@ export function createOwl(host, opts) {
     const loop = () => {
       if (flight !== anim) return;
       const t = (anim.currentTime || 0) / dur;
-      if (t < 0.08) { el.dataset.phase = 'crouch'; }
-      else if (t < 0.15) { el.dataset.phase = 'takeoff'; showPose('up', 60); }
-      else if (t < 0.85) {
+      // Flap cadence: quick on the climb (120 ms), slower once level (170 ms); a glide over the top of a long
+      // flight; the wings come forward (land pose) for the last 16 %, before the talons touch.
+      if (t < 0.09) { el.dataset.phase = 'crouch'; }
+      else if (t < 0.17) { el.dataset.phase = 'takeoff'; showPose('up', 50); }
+      else if (t < 0.84) {
         el.dataset.phase = 'cruise';
-        if (short) showPose('down', 60);
-        else if (t > 0.42 && t < 0.6) showPose('glide', 90);
-        else { const now = performance.now(); if (now - lastFlap > 130 * k) { lastFlap = now; showPose(pose === 'up' ? 'down' : 'up', 60); } }
-      } else { el.dataset.phase = 'land'; showPose('land', 60); }
+        if (!short && t > 0.4 && t < 0.62) showPose('glide', 110);
+        else { const now = performance.now(), period = (t < 0.4 ? 120 : 170) * k; if (now - lastFlap > period) { lastFlap = now; showPose(pose === 'up' ? 'down' : 'up', 55); } }
+      } else { el.dataset.phase = 'land'; showPose('land', 80); }
       flightRaf = requestAnimationFrame(loop);
     };
     flightRaf = requestAnimationFrame(loop);
