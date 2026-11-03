@@ -80,7 +80,9 @@ html[data-motion="economie"] .home-mist { animation: none; }
 .home-crest-svg .beast .dot { fill: var(--gold-light); stroke: none; }
 .home-crest-name { font-family: var(--display); font-size: var(--t-hint); letter-spacing: var(--track-wide); text-transform: uppercase; color: var(--gold-light); opacity: .8; text-shadow: 0 .08cqw .1cqw #000c; }
 .home-arena { position: absolute; inset: 0; pointer-events: none; }
-.home-hint { transition: opacity calc(var(--k) * 600ms); }
+/* The Parapet's only hint: one quiet line, "vers Ollivanders", small caps at 1.3 cqw, the arrow in gold at .5. */
+.home-hint { transition: opacity calc(var(--k) * 600ms); font-family: var(--body); font-variant: small-caps; text-transform: none; font-size: calc(var(--text-scale) * 1.3cqw); letter-spacing: .08em; color: var(--moon); opacity: .5; bottom: calc(var(--safe-y) - 2.6cqw); }
+.home-hint b { font-family: var(--display); font-size: .85em; opacity: .7; margin-right: .4cqw; }
 
 /* Lumos: the backdrop dims, molten gold, a warm soft-edged disc, a veil of light, the launch card.
    The light is cinematic, not a flash: the dim comes down slowly, the disc has a translucent core and a long falloff

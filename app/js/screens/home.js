@@ -73,7 +73,7 @@ export default {
       <div class="home-candlelight"></div>
       <div class="home-dock"><div class="home-rows"></div></div>
       <div class="home-arena"></div>
-      <div class="keyhint home-hint"><span><b>▼</b>La Bibliothèque</span><span><b>▲</b>Son · Carte · Réglages</span><span><b>OK</b>Ouvrir</span></div>
+      <div class="keyhint home-hint"><span><b>▼</b>vers Ollivanders</span></div>
       <div class="home-dim"></div><div class="home-disc"></div><div class="home-bloom"></div>
       <div class="home-launch"><img class="home-launch-banner" alt=""><div class="home-launch-logo"></div><div class="home-launch-title engraved gold-text"></div><div class="home-launch-sub"></div></div>
       <div class="home-plate"><div class="home-plate-title engraved">Nox ?</div><div class="home-plate-sub">Passer en mode classique, sans décor ni chouette.</div><div class="home-plate-opts"><span class="home-plate-opt" data-v="yes">Oui, Nox</span><span class="home-plate-opt is-focus" data-v="no">Non</span></div></div>`;
