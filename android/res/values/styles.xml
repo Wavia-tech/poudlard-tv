@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Plein écran, sans barre de titre, fond nuit (#070B14, le jeton « night » de base.css) pour ne jamais voir de blanc
-         pendant que la WebView charge. Thème système sans AppCompat : aucune bibliothèque. -->
+    <!-- Full screen, no title bar, night background (#070B14, the "night" token of base.css) so no white ever shows
+         while the WebView loads. System theme without AppCompat: no library. -->
     <style name="PoudlardTV" parent="@android:style/Theme.Material.NoActionBar.Fullscreen">
         <item name="android:windowBackground">@color/night</item>
         <item name="android:colorBackground">@color/night</item>

@@ -1,5 +1,5 @@
-# Sorties de build.sh
+# build.sh outputs
 out/
 *.apk
-# Clé de signature locale : jamais dans le dépôt
+# Local signing key: never in the repo
 *.keystore

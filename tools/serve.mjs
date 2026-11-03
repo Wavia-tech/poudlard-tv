@@ -1,20 +1,20 @@
-// Serveur statique minimal pour la maquette web, sans dépendance.
+// Minimal static server for the web mock-up, no dependencies.
 //
-// Usage : node tools/serve.mjs [racine] [port]
-//         node tools/serve.mjs . 8765      → http://localhost:8765/app/index.html
+// Usage: node tools/serve.mjs [root] [port]
+//        node tools/serve.mjs . 8765      → http://localhost:8765/app/index.html
 //
-// Il n'écoute que sur 127.0.0.1 (jamais exposé au réseau), ne met rien en cache (cache-control: no-store, pour
-// voir chaque modification au rechargement) et ne sert que des fichiers situés SOUS la racine : la racine est
-// résolue en chemin absolu et chaque requête est comparée à ce chemin, séparateur compris, pour qu'une URL du type
-// `/../secret` soit refusée (403) quelle que soit la façon d'écrire la racine (`.`, `./`, chemin relatif ou absolu).
+// It listens on 127.0.0.1 only (never exposed to the network), caches nothing (cache-control: no-store, so that
+// every change shows on reload) and serves only files located UNDER the root: the root is resolved to an absolute
+// path and every request is compared against it, separator included, so that a URL such as `/../secret` is
+// refused (403) however the root is written (`.`, `./`, relative or absolute path).
 import { createServer } from 'node:http';
 import { readFile, stat } from 'node:fs/promises';
 import { resolve, join, extname, sep } from 'node:path';
 
-const rootAbs = resolve(process.argv[2] || '.');   // racine absolue, sans séparateur final
+const rootAbs = resolve(process.argv[2] || '.');   // absolute root, without a trailing separator
 const port = Number(process.argv[3] || 8765);
 
-// Types MIME des fichiers de la maquette. Tout le reste part en application/octet-stream.
+// MIME types of the mock-up's files. Everything else goes out as application/octet-stream.
 const types = {
   '.html': 'text/html; charset=utf-8',
   '.js': 'text/javascript; charset=utf-8',
@@ -32,19 +32,19 @@ const types = {
   '.woff': 'font/woff',
   '.woff2': 'font/woff2',
   '.ttf': 'font/ttf',
-  '.mp3': 'audio/mpeg',       // musique de fond personnelle (assets/music/ambiance.mp3, hors dépôt)
-  '.ogg': 'audio/ogg',        // idem, ambiance.ogg
+  '.mp3': 'audio/mpeg',       // personal background music (assets/music/ambiance.mp3, out of the repo)
+  '.ogg': 'audio/ogg',        // same, ambiance.ogg
   '.mp4': 'video/mp4',
 };
 
-// Vrai si `p` est la racine elle-même ou un chemin situé dessous (comparaison avec le séparateur, pour que
-// `C:\tv-home-bis` ne passe pas pour un enfant de `C:\tv-home`).
+// True if `p` is the root itself or a path located under it (compared with the separator, so that
+// `C:\tv-home-bis` does not pass for a child of `C:\tv-home`).
 const insideRoot = (p) => p === rootAbs || p.startsWith(rootAbs + sep);
 
 createServer(async (req, res) => {
   try {
     const url = decodeURIComponent(new URL(req.url, 'http://x').pathname);
-    // `'.' + url` : un chemin d'URL commence par `/` ; on le rend relatif à la racine avant de le résoudre.
+    // `'.' + url`: a URL path starts with `/`; we make it relative to the root before resolving it.
     let p = resolve(rootAbs, '.' + url);
     if (!insideRoot(p)) { res.writeHead(403); res.end('forbidden'); return; }
     let s = await stat(p).catch(() => null);
@@ -60,4 +60,4 @@ createServer(async (req, res) => {
   } catch (e) {
     res.writeHead(500); res.end(String(e));
   }
-}).listen(port, '127.0.0.1', () => console.log(`Poudlard TV : ${rootAbs} servi sur http://127.0.0.1:${port}/app/index.html`));
+}).listen(port, '127.0.0.1', () => console.log(`Poudlard TV: ${rootAbs} served at http://127.0.0.1:${port}/app/index.html`));

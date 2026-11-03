@@ -1,13 +1,13 @@
-// Entrées : clavier (maquette), télécommande Android TV (D-pad), télécommande à l'écran.
-// Tout devient une action : left, right, up, down, ok, back, menu, longok (OK maintenu 700 ms), longback (Retour maintenu 2 s).
-// Pendant un écran "occupé" (Lumos), les touches sont mises en file et rejouées, jamais perdues.
+// Input: keyboard (mock-up), Android TV remote (D-pad), on-screen remote.
+// Everything becomes an action: left, right, up, down, ok, back, menu, longok (OK held 700 ms), longback (Back held 2 s).
+// While a screen is "busy" (Lumos), key presses are queued and replayed, never lost.
 
 const KEYMAP = {
   ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'down',
   Enter: 'ok', ' ': 'ok', Escape: 'back', Backspace: 'back', BrowserBack: 'back', GoBack: 'back',
   m: 'menu', M: 'menu', ContextMenu: 'menu', Home: 'home', MediaPlayPause: 'ok',
 };
-const REPEAT_MS = 110;       // les télécommandes répètent très vite : on lisse
+const REPEAT_MS = 110;       // remotes auto-repeat very fast: smooth it out
 const LONG_OK_MS = 700;
 const LONG_BACK_MS = 2000;
 
@@ -15,7 +15,7 @@ let handler = null;
 let lastAt = 0, lastAction = '';
 const holds = { ok: { timer: 0, fired: false, long: 'longok', ms: LONG_OK_MS }, back: { timer: 0, fired: false, long: 'longback', ms: LONG_BACK_MS } };
 const activity = new Set();
-let queue = null;            // null = passe-plat ; tableau = file d'attente
+let queue = null;            // null = pass-through; array = queue
 
 function dispatch(action) {
   activity.forEach((fn) => fn(action));
@@ -28,7 +28,7 @@ export const Input = {
   setHandler(fn) { handler = fn; },
   onActivity(fn) { activity.add(fn); return () => activity.delete(fn); },
   press(action) { dispatch(action); },
-  // File d'attente : hold() pendant une animation bloquante, release() rejoue les touches reçues.
+  // Queue: hold() during a blocking animation, release() replays the keys received meanwhile.
   hold() { if (!queue) queue = []; },
   release() { const q = queue || []; queue = null; q.forEach((a) => handler && handler(a)); },
 
@@ -39,7 +39,7 @@ export const Input = {
       if (!action) return;
       e.preventDefault();
       const h = holds[action];
-      if (h) {                                  // OK et Retour se déclenchent au relâchement, sauf appui long
+      if (h) {                                  // OK and Back fire on release, unless held long
         if (!e.repeat && !h.timer) h.timer = setTimeout(() => { h.fired = true; h.timer = 0; dispatch(h.long); }, h.ms);
         return;
       }
@@ -57,7 +57,7 @@ export const Input = {
       if (!inField(e)) dispatch(action);
     });
     window.addEventListener('blur', () => { for (const h of Object.values(holds)) { clearTimeout(h.timer); h.timer = 0; h.fired = false; } });
-    // Télécommande à l'écran : tout bouton portant data-action
+    // On-screen remote: any button carrying data-action
     document.addEventListener('click', (e) => {
       const b = e.target.closest && e.target.closest('[data-action]');
       if (b) dispatch(b.dataset.action);

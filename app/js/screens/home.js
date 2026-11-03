@@ -1,6 +1,6 @@
-// Le Parapet (accueil) : un seul plan de cinéma. Le château, l'heure en lettrine, les applis gravées en or
-// centrées sur un fondu de nuit, Hedwige qui se pose sur l'appli choisie, et une barre discrète en haut à droite
-// (son, Carte, Réglages). Lumos (lancement), l'allumage (démarrage) et Nox (veille) vivent ici.
+// The Parapet (home): a single cinematic shot. The castle, the time with a drop cap, the apps engraved in gold
+// and centred over a night fade, Hedwig (Hedwige) landing on the chosen app, and a discreet bar in the top-right
+// corner (sound, Map, Settings). Lumos (launch), the boot sequence and Nox (idle) all live here.
 import { dockApps, updateConfig, getConfig, isReduced, onConfigChange, HOUSES } from '../config.js';
 import { Platform } from '../platform.js';
 import { Input } from '../input.js';
@@ -10,9 +10,9 @@ import { crestSvg } from '../crests.js';
 import { createOwl } from '../owl.js';
 
 const FOCUS_SCALE = 1.28;
-const LOGO_H = 3.4;            // cqw : hauteur de logo au repos
+const LOGO_H = 3.4;            // cqw: logo height at rest
 const LOGO_W_MAX = 9.5;        // cqw
-const PER_ROW = 8;             // au-delà : deuxième rangée
+const PER_ROW = 8;             // beyond this: a second row
 const NOX_CORNER_MS = 10 * 60 * 1000;
 const BAR = ['sound', 'map', 'settings'];
 
@@ -83,7 +83,7 @@ export default {
     if (ctx.params.askClassic) this.timers.push(setTimeout(() => this.plate(true), 750));
   },
 
-  // La maison choisie : son écusson sous l'horloge, un mot, et ses couleurs (cire, lueur) partout via main.js.
+  // The chosen house: its crest under the clock, its name, and its colours (wax, glow) everywhere via main.js.
   syncHouse() {
     const c = getConfig(); const h = c.house ? HOUSES[c.house] : null;
     const el = this.root.querySelector('.home-crest'); if (!el) return;
@@ -103,7 +103,7 @@ export default {
     this.owl = null;
   },
 
-  // ---- Dock : toutes les applis visibles, centrées, réparties ; deux rangées au-delà de PER_ROW ----
+  // ---- Dock: every visible app, centred and spread out; two rows beyond PER_ROW ----
   buildDock() {
     const rows = this.root.querySelector('.home-rows');
     rows.innerHTML = '';
@@ -123,7 +123,7 @@ export default {
         el.style.width = Math.min(LOGO_W_MAX, Math.max(3.4, LOGO_H * (L.ratio || 1))) + 'cqw';
         el.innerHTML = `<div class="app-logo${L.luma ? ' luma' : ''}"><i class="l-ext"></i><i class="l-rimD"></i><i class="l-rimL"></i><i class="l-base"></i><i class="l-shine"></i></div>`;
         el.querySelector('.app-logo').style.setProperty('--m', `url("${L.src}")`);
-        el.title = app.name;   // pas de nom affiché sous l'icône (choix de Corentin)
+        el.title = app.name;   // no name shown under the icon (Corentin's call)
         row.appendChild(el);
         this.items.push(el);
       });
@@ -137,11 +137,11 @@ export default {
     const now = new Date();
     this.root.querySelector('.home-time').textContent = now.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
     const d = now.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
-    this.root.querySelector('.home-cap').textContent = d.charAt(0).toUpperCase();   // la lettrine
+    this.root.querySelector('.home-cap').textContent = d.charAt(0).toUpperCase();   // the drop cap
     this.root.querySelector('.home-date-rest').textContent = d.slice(1);
   },
 
-  // ---- Fenêtres qui scintillent : points chauds de l'image, rendus fins et discrets ----
+  // ---- Flickering windows: warm spots of the image, drawn small and discreet ----
   findWindows(img) {
     if (!img.naturalWidth) return;
     const iw = 640, ih = Math.round(iw * img.naturalHeight / img.naturalWidth);
@@ -160,7 +160,7 @@ export default {
       }
     }
     this.windows = pts.slice(0, 140);
-    // Lune : le point le plus clair du tiers supérieur.
+    // Moon: the brightest point of the upper third.
     const moon = this.root.querySelector('.home-moon');
     try {
       const top = x.getImageData(0, 0, iw, Math.round(ih * 0.4)).data; let best = 0, bx = 0.3, by = 0.2;
@@ -228,7 +228,7 @@ export default {
     this.hintTimer = setTimeout(() => hint.classList.add('hidden'), 10000);
   },
 
-  // ---- Barre haut droite ----
+  // ---- Top-right bar ----
   syncBar() {
     const c = getConfig();
     this.root.querySelectorAll('.home-bar-item').forEach((el, n) => {
@@ -245,7 +245,7 @@ export default {
     this.syncBar();
   },
 
-  // ---- Mise en page : parallaxe par index, chouette, bougie ----
+  // ---- Layout: parallax by index, owl, candle ----
   layout(instant) {
     const root = this.root, W = root.clientWidth;
     if (!W) return;
@@ -270,7 +270,7 @@ export default {
       } });
     } else setTimeout(() => light.classList.add('on'), 250);
   },
-  // Centre d'une appli dans le repère de l'écran (les rangées sont centrées : on lit les boîtes).
+  // Centre of an app in screen coordinates (rows are centred, so we read the boxes).
   center(el) {
     const r = el.getBoundingClientRect(), rr = this.root.getBoundingClientRect();
     return { cx: r.left - rr.left + r.width / 2, cy: r.top - rr.top + r.height / 2, w: r.width, h: r.height, top: r.top - rr.top };
@@ -279,7 +279,7 @@ export default {
     const el = this.items[this.i], app = this.apps[this.i];
     const L = logoOf(app); const ratio = L.ratio || 1;
     const b = this.center(el);
-    const ch = Math.min(b.h, b.w / ratio);                     // hauteur réelle du dessin dans sa boîte (déjà agrandie en focus)
+    const ch = Math.min(b.h, b.w / ratio);                     // actual height of the artwork inside its box (already scaled up in focus)
     const logoTop = b.cy - ch / 2;
     const s = this.owl.size();
     return { cx: b.cx, x: b.cx - s.w / 2, y: logoTop - s.h * 0.95 };
@@ -329,7 +329,7 @@ export default {
     }, (result === 'bridge' ? 4000 : 2400) * k));
   },
 
-  // ---- Allumage ----
+  // ---- Boot ----
   boot(ms) {
     const root = this.root; root.classList.add('booting');
     const W = root.clientWidth, H = root.clientHeight;

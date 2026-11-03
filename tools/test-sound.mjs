@@ -1,16 +1,16 @@
-// Vérifie l'originalité de la valse de fond (MELODY dans app/js/sound.js) par rapport aux contraintes écrites
-// dans docs/MUSIQUE.md : aucune citation du thème d'Hedwige (J. Williams), lui aussi une valse en mi mineur.
+// Checks the originality of the background waltz (MELODY in app/js/sound.js) against the constraints written
+// in docs/MUSIC.md: no quotation of Hedwig's Theme (J. Williams), itself a waltz in E minor.
 //
-// Usage : node tools/test-sound.mjs        → code de sortie 0 si tout passe, 1 sinon, avec le détail.
+// Usage: node tools/test-sound.mjs        → exit code 0 if everything passes, 1 otherwise, with details.
 //
-// Le script lit sound.js comme du TEXTE (il n'importe pas le module, qui dépend du navigateur) et en extrait
-// la constante MELODY : une liste de [note MIDI, durée en temps]. Il vérifie ensuite :
-//   1. la structure : 24 mesures à 3 temps = 72 temps, durées entières (noires et blanches, jamais de pointé) ;
-//   2. l'ouverture : la mélodie commence sur le temps fort par une montée conjointe si do ré mi
-//      (pas de levée si → mi, la quarte ascendante en anacrouse qui ouvre le thème des films) ;
-//   3. les cellules interdites, en hauteurs absolues ET à toute transposition, dans la suite des intervalles
-//      consécutifs : mi–sol–fa#–mi (+3 −1 −2), si–la–fa# précédé d'une quinte (+7 −2 −3), et la variante +5 +3 −1.
-// Tout est relisible : la mélodie est écrite note à note dans sound.js.
+// The script reads sound.js as TEXT (it does not import the module, which depends on the browser) and extracts
+// the MELODY constant from it: a list of [MIDI note, duration in beats]. It then checks:
+//   1. the structure: 24 bars of 3 beats = 72 beats, integer durations (quarter and half notes, never dotted);
+//   2. the opening: the melody starts on the downbeat with a stepwise rise B C D E
+//      (no B → E pickup, the ascending fourth in anacrusis that opens the films' theme);
+//   3. the forbidden cells, in absolute pitches AND at every transposition, in the sequence of consecutive
+//      intervals: E–G–F#–E (+3 −1 −2), B–A–F# preceded by a fifth (+7 −2 −3), and the +5 +3 −1 variant.
+// Everything is re-readable: the melody is written note by note in sound.js.
 import { readFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -19,12 +19,12 @@ const here = dirname(fileURLToPath(import.meta.url));
 const soundPath = resolve(here, '..', 'app', 'js', 'sound.js');
 const text = readFileSync(soundPath, 'utf8');
 
-// ---- extraction de MELODY ------------------------------------------------------------------------------------
+// ---- MELODY extraction ---------------------------------------------------------------------------------------
 const start = text.indexOf('const MELODY = [');
-if (start < 0) { console.error('MELODY introuvable dans ' + soundPath); process.exit(1); }
+if (start < 0) { console.error('MELODY not found in ' + soundPath); process.exit(1); }
 const end = text.indexOf('];', start);
 const block = text.slice(start, end);
-// Chaque note : [midi, durée]. Les commentaires de fin de ligne (// 1 Em …) sont ignorés par la regex.
+// Each note: [midi, duration]. End-of-line comments (// 1 Em …) are ignored by the regex.
 const notes = [...block.matchAll(/\[\s*(\d+)\s*,\s*(\d+(?:\.\d+)?)\s*\]/g)].map((m) => [Number(m[1]), Number(m[2])]);
 
 const failures = [];
@@ -32,49 +32,49 @@ const check = (ok, msg) => { if (!ok) failures.push(msg); };
 
 // ---- 1. structure --------------------------------------------------------------------------------------------
 const totalBeats = notes.reduce((s, [, d]) => s + d, 0);
-check(notes.length > 0, 'aucune note extraite');
-check(totalBeats === 72, `72 temps attendus (24 mesures à 3/4), trouvé ${totalBeats}`);
-check(notes.every(([, d]) => Number.isInteger(d) && d >= 1), 'durées non entières : figure pointée ou croche interdite');
-check(notes.every(([n]) => n >= 48 && n <= 96), 'note hors de la tessiture attendue (do2 à do6)');
+check(notes.length > 0, 'no note extracted');
+check(totalBeats === 72, `72 beats expected (24 bars of 3/4), found ${totalBeats}`);
+check(notes.every(([, d]) => Number.isInteger(d) && d >= 1), 'non-integer durations: dotted note or eighth note forbidden');
+check(notes.every(([n]) => n >= 48 && n <= 96), 'note outside the expected range (C2 to C6)');
 
-// ---- 2. ouverture --------------------------------------------------------------------------------------------
+// ---- 2. opening ----------------------------------------------------------------------------------------------
 const pitches = notes.map(([n]) => n);
 const intervals = pitches.slice(1).map((n, i) => n - pitches[i]);
 const NAMES = ['do', 'do#', 'ré', 'ré#', 'mi', 'fa', 'fa#', 'sol', 'sol#', 'la', 'la#', 'si'];
 const name = (n) => NAMES[n % 12];
 check(name(pitches[0]) === 'si' && intervals[0] === 1 && intervals[1] === 2 && intervals[2] === 2,
-  `ouverture attendue si do ré mi (conjointe), trouvé ${pitches.slice(0, 4).map(name).join(' ')}`);
-check(intervals[0] !== 5, 'levée si → mi (quarte ascendante) en tête : incipit du thème des films');
+  `expected opening si do ré mi (B C D E, stepwise), found ${pitches.slice(0, 4).map(name).join(' ')}`);
+check(intervals[0] !== 5, 'B → E pickup (ascending fourth) at the start: incipit of the films\' theme');
 
-// ---- 3. cellules interdites (contours d'intervalles consécutifs) --------------------------------------------
+// ---- 3. forbidden cells (contours of consecutive intervals) --------------------------------------------------
 const FORBIDDEN = [
-  { contour: [3, -1, -2], label: 'mi–sol–fa#–mi (dessin de l’incipit)' },
-  { contour: [7, -2, -3], label: 'quinte mi → si puis la → fa#' },
-  { contour: [5, 3, -1], label: 'quarte puis tierce puis seconde descendante (variante de l’incipit)' },
+  { contour: [3, -1, -2], label: 'E–G–F#–E (shape of the incipit)' },
+  { contour: [7, -2, -3], label: 'fifth E → B then A → F#' },
+  { contour: [5, 3, -1], label: 'fourth, then third, then descending second (variant of the incipit)' },
 ];
 for (const { contour, label } of FORBIDDEN) {
   for (let i = 0; i + contour.length <= intervals.length; i++) {
     const slice = intervals.slice(i, i + contour.length);
     if (slice.every((v, k) => v === contour[k])) {
       const where = pitches.slice(i, i + contour.length + 1).map(name).join(' ');
-      check(false, `cellule interdite ${label} à la note ${i + 1} : ${where}`);
+      check(false, `forbidden cell ${label} at note ${i + 1}: ${where}`);
     }
   }
 }
-// En hauteurs absolues aussi (mi sol fa# mi = 76 79 78 76 à toute octave, si la fa# = 71 69 66).
+// In absolute pitches too (E G F# E = 76 79 78 76 at any octave, B A F# = 71 69 66).
 const ABS = [[4, 7, 6, 4], [11, 9, 6]];
 for (const cell of ABS) {
   for (let i = 0; i + cell.length <= pitches.length; i++) {
     if (cell.every((pc, k) => pitches[i + k] % 12 === pc)) {
-      check(false, `suite absolue interdite ${cell.map((pc) => NAMES[pc]).join(' ')} à la note ${i + 1}`);
+      check(false, `forbidden absolute sequence ${cell.map((pc) => NAMES[pc]).join(' ')} at note ${i + 1}`);
     }
   }
 }
 
-// ---- bilan ---------------------------------------------------------------------------------------------------
-console.log(`${notes.length} notes, ${totalBeats} temps, ${intervals.length} intervalles analysés (${soundPath})`);
+// ---- summary -------------------------------------------------------------------------------------------------
+console.log(`${notes.length} notes, ${totalBeats} beats, ${intervals.length} intervals analyzed (${soundPath})`);
 if (failures.length) {
-  for (const f of failures) console.error('ÉCHEC : ' + f);
+  for (const f of failures) console.error('FAIL: ' + f);
   process.exit(1);
 }
-console.log('OK : aucune citation du thème des films, structure 24 × 3/4 respectée.');
+console.log('OK: no quotation of the films\' theme, 24 × 3/4 structure respected.');

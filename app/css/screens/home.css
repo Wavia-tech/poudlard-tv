@@ -1,8 +1,8 @@
-/* Le Parapet (accueil) : un seul plan de cinéma. Décor froid, interactif chaud. */
+/* The Parapet (home): a single cinematic shot. Cold backdrop, warm interactive elements. */
 .screen-home { background: var(--night); }
 .screen-home.no-castle .home-plane { background: radial-gradient(ellipse at 50% 30%, #122744, #050a14 70%); }
 
-/* Décor : image du château rendue plus large que l'écran, parallaxe légère avec le focus. */
+/* Backdrop: the castle image rendered wider than the screen, slight parallax following the focus. */
 .home-plane { position: absolute; top: 0; bottom: 0; left: -4%; width: 108%; will-change: transform; transition: transform calc(var(--k) * 700ms) cubic-bezier(.33, 0, .2, 1); }
 .home-castle { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 50% 45%; display: block; }
 .home-lights { position: absolute; inset: 0; width: 100%; height: 100%; }
@@ -14,19 +14,19 @@
   radial-gradient(ellipse 12% 40% at 60% 70%, #c8daf028, transparent 70%), radial-gradient(ellipse 14% 36% at 80% 80%, #c8daf020, transparent 70%); background-size: 100% 100%; }
 @keyframes home-mist { from { transform: translateX(0); } to { transform: translateX(-50%); } }
 html[data-motion="economie"] .home-mist { animation: none; }
-/* Le fondu : la nuit remonte doucement depuis le bas, les icônes s'y posent. Pas de bande. */
+/* The fade: night rises gently from the bottom and the icons settle on it. No band. */
 .home-shade { position: absolute; inset: 0; pointer-events: none; background:
   linear-gradient(to bottom, #070b1455 0%, #070b1400 18%), linear-gradient(to bottom, #070b1400 66%, #070b1466 82%, #070b14c8 100%), radial-gradient(ellipse at 50% 40%, #0000 60%, #00000055 100%); }
 .home-event { position: absolute; left: 0; top: 0; width: 10cqw; height: .08cqw; background: linear-gradient(90deg, #fff0, #ffffffb0); opacity: 0; pointer-events: none; transform-origin: 0 50%; }
 
-/* Horloge en lettrine */
+/* Drop-cap clock */
 .home-clock { position: absolute; top: 3.4cqw; left: 4.6cqw; color: var(--ivory); transition: opacity calc(var(--k) * 500ms), transform calc(var(--k) * 500ms); }
 .home-time { font-family: "Cinzel Decorative", var(--display); font-weight: 700; font-size: 6cqw; line-height: 1; letter-spacing: .04em; font-variant-numeric: tabular-nums; color: var(--gold-light);
   text-shadow: 0 -.05cqw 0 #FFF6CF50, 0 .14cqw .16cqw #000000d0, 0 0 1.2cqw #ffb45722; }
 .home-date { margin-top: .6cqw; font-family: var(--fell); font-size: 1.75cqw; color: var(--moon); opacity: .9; text-shadow: 0 .08cqw .1cqw #000c; display: flex; align-items: baseline; }
 .home-cap { font-family: "Cinzel Decorative", var(--display); font-weight: 700; font-size: 3cqw; line-height: .8; color: var(--gold-light); margin-right: .25cqw; text-shadow: 0 .1cqw .12cqw #000c; }
 
-/* Barre haut droite : son, Carte, Réglages */
+/* Top-right bar: sound, Map, Settings */
 .home-bar { position: absolute; top: 3.6cqw; right: 4.6cqw; display: flex; gap: 2.2cqw; align-items: flex-start; }
 .home-bar-item { position: relative; width: 2.6cqw; height: 2.6cqw; opacity: .38; transition: opacity calc(var(--k) * 250ms), transform calc(var(--k) * 250ms); }
 .home-bar-item svg { width: 100%; height: 100%; fill: none; stroke: var(--gold-light); stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
@@ -39,24 +39,24 @@ html[data-motion="economie"] .home-mist { animation: none; }
 .home-bar-item.is-focus .home-bar-label { opacity: 1; }
 .home-bar-item.is-focus::before { content: ""; position: absolute; inset: -.7cqw; border-radius: 50%; border: .1cqw solid #ffcf6a88; }
 
-/* Dock centré : les applis se répartissent selon leur nombre */
+/* Centered dock: the apps spread out according to their number */
 .home-dock { position: absolute; left: 6cqw; right: 6cqw; top: 82%; transition: transform calc(var(--k) * 600ms) ease, opacity calc(var(--k) * 600ms) ease; }
 .screen-home.two-rows .home-dock { top: 72%; }
 .home-rows { display: flex; flex-direction: column; gap: 5.2cqw; }
-/* Les applis se répartissent sur toute la largeur du parapet, à intervalles égaux, quel que soit leur nombre. */
+/* The apps spread across the full width of the parapet, evenly spaced, whatever their number. */
 .home-row { display: flex; justify-content: space-evenly; align-items: center; gap: 0; min-height: 4.6cqw; }
-.home-row:has(.home-app:nth-child(-n+3):last-child) { justify-content: center; gap: 14cqw; }   /* 1 à 3 applis : plus resserrées */
+.home-row:has(.home-app:nth-child(-n+3):last-child) { justify-content: center; gap: 14cqw; }   /* 1 to 3 apps: packed closer together */
 .home-app { position: relative; flex: none; height: 3.4cqw; transform: scale(1); transition: transform calc(var(--k) * 300ms) cubic-bezier(.3, .7, .2, 1); }
 .home-app.is-focus { transform: scale(1.28); }
 .home-app.lifted { transform: scale(1.28) translateY(-1.1cqw); }
 .home-app-name { position: absolute; top: 122%; left: 50%; transform: translate(-50%, -.3cqw); white-space: nowrap; opacity: 0; font-size: 1.7cqw; transition: opacity calc(var(--k) * 300ms), transform calc(var(--k) * 300ms); }
 .home-app.is-focus .home-app-name { opacity: 1; transform: translate(-50%, 0); }
 .home-empty { font-size: 1.6cqw; opacity: .7; }
-/* La bougie : nappe chaude discrète sous l'appli en focus, allumée 80 ms après l'atterrissage. */
+/* The candle: a discreet warm pool under the focused app, lit 80 ms after landing. */
 .home-candlelight { position: absolute; left: 0; top: 0; width: 18cqw; height: 9cqw; margin: -4cqw 0 0 -9cqw; pointer-events: none; opacity: 0;
   background: radial-gradient(closest-side, color-mix(in srgb, var(--house-glow) 22%, transparent), color-mix(in srgb, var(--house-glow) 9%, transparent) 45%, transparent 72%);
   transition: opacity calc(var(--k) * 250ms), transform calc(var(--k) * 500ms) cubic-bezier(.33, 0, .2, 1); }
-/* Écusson de la maison, sous l'horloge, scellé à la cire. */
+/* House crest, under the clock, sealed in wax. */
 .home-crest { position: absolute; top: 14.2cqw; left: 4.8cqw; display: flex; align-items: center; gap: .8cqw; opacity: 0; transform: translateY(.4cqw); transition: opacity calc(var(--k) * 500ms), transform calc(var(--k) * 500ms); }
 .home-crest.show { opacity: 1; transform: none; }
 .home-crest-svg { width: 3.2cqw; height: 3.6cqw; }
@@ -70,7 +70,7 @@ html[data-motion="economie"] .home-mist { animation: none; }
 .home-arena { position: absolute; inset: 0; pointer-events: none; }
 .home-hint { transition: opacity calc(var(--k) * 600ms); }
 
-/* Lumos : extinction du décor, or en fusion, disque chaud au bord doux, voile de lumière, carte d'ouverture */
+/* Lumos: the backdrop dims, molten gold, a warm soft-edged disc, a veil of light, the launch card */
 .home-dim { position: absolute; inset: 0; background: var(--night); opacity: 0; pointer-events: none; transition: opacity calc(var(--k) * 150ms); z-index: 20; }
 .home-dim.on { opacity: .85; }
 .home-disc { position: absolute; left: 0; top: 0; width: 6cqw; height: 6cqw; margin: -3cqw 0 0 -3cqw; border-radius: 50%; pointer-events: none; z-index: 45; opacity: 0;
@@ -83,7 +83,7 @@ html[data-motion="economie"] .home-mist { animation: none; }
 .home-launch-title { font-size: 2.1cqw; }
 .home-launch-sub { font-family: var(--body); font-size: 1.7cqw; color: var(--moon); opacity: .8; }
 
-/* Allumage : la scène découpée s'élargit sur fond noir. */
+/* Boot-up: the clipped stage widens over a black background. */
 .screen-home.booting .home-clock, .screen-home.booting .home-bar { opacity: 0; }
 .screen-home.booting .home-dock { transform: translateY(1.2cqw); opacity: 0; }
 
@@ -97,7 +97,7 @@ html[data-motion="economie"] .home-mist { animation: none; }
 .screen-home.nox.nox-corner .home-time { font-size: 4.2cqw; }
 .screen-home.nox .home-plane { transition: transform calc(var(--k) * 90s) ease-in-out; }
 
-/* Plaque « Nox ? » */
+/* "Nox?" plate */
 .home-plate { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%) scale(.96); z-index: 52; opacity: 0; pointer-events: none;
   padding: 2cqw 3.2cqw; text-align: center; display: grid; gap: 1cqw; background: var(--stone); border: .1cqw solid var(--gold-dark); border-radius: .3cqw;
   box-shadow: 0 1cqw 2cqw #000c; transition: opacity calc(var(--k) * 200ms), transform calc(var(--k) * 200ms); }

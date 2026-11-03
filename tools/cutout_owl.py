@@ -1,6 +1,6 @@
-"""Détoure une chouette générée sur fond noir : le fond relié aux bords devient transparent.
+"""Cuts out an owl generated on a black background: the background connected to the edges becomes transparent.
 
-Usage : python -I hpw_owl_cut.py <entrée.png> <sortie.png> [taille_max]
+Usage: python -I tools/cutout_owl.py <input.png> <output.png> [max_size]
 """
 import sys
 
@@ -10,7 +10,7 @@ from PIL import Image, ImageChops, ImageDraw, ImageFilter
 def cut(src: str, dst: str, size: int = 640) -> None:
     img = Image.open(src).convert("RGB")
     lum = img.convert("L")
-    # Pixels sombres = candidats fond ; on ne garde que ceux reliés aux bords.
+    # Dark pixels = background candidates; keep only those connected to the edges.
     dark = lum.point(lambda v: 255 if v < 34 else 0)
     w, h = dark.size
     seeds = [(x, 0) for x in range(0, w, 16)] + [(x, h - 1) for x in range(0, w, 16)]
@@ -20,12 +20,12 @@ def cut(src: str, dst: str, size: int = 640) -> None:
             ImageDraw.floodfill(dark, s, 128)
     bg = dark.point(lambda v: 255 if v == 128 else 0)
     alpha = ImageChops.invert(bg).filter(ImageFilter.MinFilter(3)).filter(ImageFilter.GaussianBlur(1.6))
-    # Bord doux : un pixel sombre en lisière reste partiellement transparent.
+    # Soft edge: a dark pixel on the rim stays partially transparent.
     soft = lum.point(lambda v: min(255, max(0, (v - 20) * 6)))
     edge = ImageChops.lighter(soft, alpha.filter(ImageFilter.MinFilter(5)))
     alpha = ImageChops.multiply(alpha, edge)
     out = img.convert("RGBA")
-    # Bordure forcée transparente : évite un liseré clair quand l'image est tournée.
+    # Border forced transparent: avoids a light fringe when the image is rotated.
     from PIL import ImageDraw as _D
     _D.Draw(alpha).rectangle((0, 0, w - 1, h - 1), outline=0, width=3)
     out.putalpha(alpha)

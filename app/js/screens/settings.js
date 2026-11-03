@@ -1,16 +1,16 @@
-// La Salle sur Demande : les réglages, sur un grand registre ouvert en double page.
-// Page de gauche : les rubriques. Page de droite : le contenu de la rubrique, et en bas un aperçu
-// miniature du parapet qui se recompose en direct. Chaque changement est sauvegardé immédiatement
-// (updateConfig), s'écrit à la plume et se confirme d'un sceau de cire pressé. Deux niveaux, jamais plus.
-// Retour maintenu 2 s rappelle le mode classique depuis ici aussi (règle de réversibilité du blueprint).
+// The Room of Requirement (Salle sur Demande): the settings, on a large ledger open as a double-page spread.
+// Left page: the sections. Right page: the section's content, and at the bottom a miniature preview
+// of the parapet that recomposes live. Every change is saved immediately (updateConfig), written in quill
+// and confirmed with a pressed wax seal. Two levels, never more.
+// Holding Back for 2 s brings up classic mode from here too (the blueprint's reversibility rule).
 import { HOUSES, DOCK_MAX, getConfig, updateConfig, resetConfig, allApps, appById, isReduced } from '../config.js';
 import { LOGOS } from '../../assets/logos.js';
 import { monogram } from '../monogram.js';
 
-// Logo d'une appli : officiel (LOGOS) ou, pour une appli ajoutée à la main (V4), son monogramme. Null si l'id est inconnu.
+// App logo: official (LOGOS) or, for a hand-added app (V4), its monogram. Null if the id is unknown.
 const logoOf = (id) => LOGOS[id] || (appById(id) ? monogram(appById(id).name) : null);
 
-// Rubriques de la page de gauche (ordre d'affichage).
+// Sections of the left page (display order).
 const RUBRIQUES = [
   { id: 'dock', label: 'Parapet et applis', title: 'Le Parapet', sub: 'OK pose ou retire une appli ; Gauche et Droite changent son rang ; OK maintenu la cache dans la Carte.' },
   { id: 'house', label: 'Maison', title: 'Votre maison', sub: 'La cire, la bougie et le liseré prennent sa couleur.' },
@@ -21,26 +21,26 @@ const RUBRIQUES = [
   { id: 'about', label: 'À propos', title: 'Poudlard TV', sub: 'Un objet privé, hors ligne, réversible.' },
 ];
 
-// Valeurs énumérées : [valeur de config, libellé affiché]. Les libellés sont des constantes, jamais des données.
+// Enumerated values: [config value, displayed label]. Labels are constants, never data.
 const OWL = [['vive', 'Vive'], ['calme', 'Calme'], ['absente', 'Absente']];
 const YESNO = [[true, 'Oui'], [false, 'Non']];
 const MOTION = [['auto', 'Auto'], ['reduit', 'Réduit'], ['economie', 'Économie']];
-// Musique de fond (sound.js) : 'auto' = fichier personnel (assets/music/ambiance.ogg, .mp3 ou .m4a, hors dépôt,
-// voir docs/MUSIQUE.md) s'il existe, sinon la valse célesta. Les notes parlent à la personne qui tient la
-// télécommande : jamais un chemin de fichier à l'écran.
+// Background music (sound.js): 'auto' = personal file (assets/music/ambiance.ogg, .mp3 or .m4a, not in the repo,
+// see docs/MUSIC.md) if it exists, otherwise the celesta waltz. The notes speak to the person holding the
+// remote: never a file path on screen.
 const MUSIC = [['auto', 'Auto'], ['celesta', 'Célesta'], ['aucune', 'Aucune']];
 const MUSIC_NOTE = { auto: 'Votre propre musique si vous en avez déposé une (voir la documentation), sinon une valse de célesta originale, très bas.', celesta: 'Une valse lente de célesta, harpe et cordes, composée pour le parapet. Jamais un thème des films.', aucune: 'Les clochettes seulement, sans musique.' };
 const MOTION_NOTE = { auto: 'Vol de la chouette, parallaxe, grain, scintillement : tout.', reduit: 'Fondus de 200 ms, rien de plus. Aussi forcé par le système si demandé.', economie: 'Sans grain ni particules ; scintillement ralenti, parallaxe sur un plan.' };
 const IDLE = [[90, '1,5 min'], [180, '3 min'], [300, '5 min'], [600, '10 min'], [0, 'Jamais']];
 const VERSION = 'Maquette 0.9 · novembre 2026';
-const SAND_MS = 320;          // le sable tombe dans le sablier avant que la liste se recompose
+const SAND_MS = 320;          // the sand falls through the hourglass before the list recomposes
 
-// Sablier : plein = sur le parapet, vide = dans la Carte. Le sable du bas « tombe » (scaleY) quand on pose l'appli.
+// Hourglass: full = on the parapet, empty = in the Map. The bottom sand "falls" (scaleY) when the app is set down.
 const HOURGLASS = '<svg class="set-glass" viewBox="0 0 24 32" aria-hidden="true">'
   + '<path class="g-frame" d="M4 2.5h16M4 29.5h16M6.5 2.5c0 8 5.5 10 5.5 13.5S6.5 21.5 6.5 29.5M17.5 2.5c0 8-5.5 10-5.5 13.5s5.5 5.5 5.5 13.5"/>'
   + '<path class="g-top" d="M8 5h8c0 4-4 6.5-4 9.5C12 11.5 8 9 8 5z"/>'
   + '<path class="g-bot" d="M7.5 27.5h9c0-5-4.5-8-4.5-11.5C12 19.5 7.5 22.5 7.5 27.5z"/></svg>';
-// Chouette miniature de l'aperçu (silhouette ivoire, un seul trait).
+// Miniature owl of the preview (ivory silhouette, a single stroke).
 const MINI_OWL = '<svg viewBox="0 0 24 28" aria-hidden="true"><path d="M5 9c0-4 3-7 7-7s7 3 7 7v9c0 4-3 7-7 7s-7-3-7-7zM8 4l-2-3M16 4l2-3"/><circle cx="9" cy="10" r="1.3"/><circle cx="15" cy="10" r="1.3"/><path d="M12 12l-1.2 2h2.4z"/></svg>';
 
 const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
@@ -55,7 +55,7 @@ export default {
     this.sealed = new Set(); this.busy = false; this.lastPerch = null;
     this.reduced = isReduced();
     root.classList.toggle('is-reduced', this.reduced);
-    // Markup statique seulement : aucune donnée n'entre ici par innerHTML.
+    // Static markup only: no data enters here through innerHTML.
     root.innerHTML = `
       <div class="set-room">
         <div class="set-stars"></div>
@@ -89,7 +89,7 @@ export default {
     this.renderRight(undefined, true);
     this.renderPreview();
     this.updateHint();
-    // Le registre s'ouvre : la page de gauche se rabat (rotateY), la droite se révèle en fondu.
+    // The ledger opens: the left page folds over (rotateY), the right one fades in.
     requestAnimationFrame(() => root.classList.add('is-open'));
     if (getConfig().sounds) ctx.fx.initAudio();
   },
@@ -99,19 +99,19 @@ export default {
     this.items = []; this.root = null; this.scrollList = null;
   },
 
-  // Multiplicateur de temps du banc d'essai (ralenti ×3).
+  // Test bench time multiplier (×3 slow motion).
   k() { return Number(getComputedStyle(this.root).getPropertyValue('--k')) || 1; },
-  // `hold` : délai de lecture (un message qui doit rester lisible), jamais raccourci en mouvement réduit.
+  // `hold`: reading delay (a message that must stay legible), never shortened in reduced motion.
   later(fn, ms, hold) { const t = setTimeout(fn, ((this.reduced && !hold) ? Math.min(ms, 200) : ms) * this.k()); this.timers.push(t); return t; },
 
-  // ---- Page de gauche ---------------------------------------------------------------------------------------
+  // ---- Left page --------------------------------------------------------------------------------------------
   renderRubs() {
     const ul = this.root.querySelector('.set-rubs');
     ul.textContent = '';
     RUBRIQUES.forEach((r) => {
       const li = el('li', 'set-rub');
       li.appendChild(el('span', 'set-rub-label', r.label));
-      li.appendChild(el('i', 'set-quill'));           // le trait de plume sous la ligne en focus
+      li.appendChild(el('i', 'set-quill'));           // the quill stroke under the focused line
       ul.appendChild(li);
     });
     this.syncRubs();
@@ -124,18 +124,18 @@ export default {
   },
   rubEl() { return this.root.querySelectorAll('.set-rub')[this.rub]; },
 
-  // Retour aux rubriques : un seul chemin, qui désarme toujours la double confirmation « Réinitialiser ».
+  // Back to the sections: a single path, which always disarms the "Réinitialiser" (reset) double confirmation.
   toLeft() {
     this.level = 'left';
     if (this.resetStep) { this.resetStep = 0; this.renderRight('Réinitialiser'); }
     this.syncFocus();
   },
 
-  // ---- Page de droite ---------------------------------------------------------------------------------------
-  // Chaque rubrique rend des « items » navigables : { id, el, key(action) → true (consommé) | 'exit' (retour aux rubriques) | false }.
-  // `axis` : 'v' (haut/bas) ou 'h' (gauche/droite). Le focus unique est posé par syncFocus().
-  // `keep` : identifiant d'item sur lequel reprendre le focus ; `fresh` : on arrive sur la rubrique (titre, sous-titre
-  // et première ligne s'écrivent à la plume l'un après l'autre). Un re-rendu après un changement n'écrit pas le titre.
+  // ---- Right page -------------------------------------------------------------------------------------------
+  // Each section renders navigable "items": { id, el, key(action) → true (consumed) | 'exit' (back to the sections) | false }.
+  // `axis`: 'v' (up/down) or 'h' (left/right). The single focus is set by syncFocus().
+  // `keep`: item id to restore the focus on; `fresh`: we are arriving on the section (title, subtitle
+  // and first line are written in quill one after another). A re-render after a change does not write the title.
   renderRight(keep, fresh) {
     const r = RUBRIQUES[this.rub];
     const title = this.root.querySelector('.set-rtitle'), sub = this.root.querySelector('.set-rsub');
@@ -148,7 +148,7 @@ export default {
     this.items = []; this.axis = 'v';
     const spec = this['rub_' + r.id](body);
     this.items = spec.items; this.axis = spec.axis || 'v';
-    // Reprise du focus sur un identifiant (après un changement de parapet), sinon sur la position demandée.
+    // Restore the focus on an id (after a parapet change), otherwise on the requested position.
     let idx = typeof spec.start === 'number' ? spec.start : 0;
     if (keep != null) { const f = this.items.findIndex((it) => it.id === keep); if (f >= 0) idx = f; }
     this.row = Math.min(Math.max(0, idx), Math.max(0, this.items.length - 1));
@@ -162,7 +162,7 @@ export default {
     this.placePreviewOwl();
   },
 
-  // Ligne « libellé … valeur » avec un sceau de cire qui se presse à chaque changement.
+  // "label ... value" row with a wax seal that presses on every change.
   enumRow(parent, label, options, get, set, noteFn) {
     const row = el('div', 'set-row');
     row.appendChild(el('span', 'set-row-label', label));
@@ -190,7 +190,7 @@ export default {
       this.writeIn(value); if (note) this.writeIn(note);
       this.press(row.querySelector('.set-rowseal'));
       this.ctx.fx.chime(1319, 0.03);
-      this.placePreviewOwl();                       // l'aperçu réagit (chouette absente, etc.)
+      this.placePreviewOwl();                       // the preview reacts (owl absent, etc.)
     };
     return {
       id: label, el: row,
@@ -204,7 +204,7 @@ export default {
     };
   },
 
-  // Bouton dessiné à la plume (cartouche).
+  // Quill-drawn button (frame).
   button(parent, label, onOk, cls) {
     const b = el('div', 'set-btn' + (cls ? ' ' + cls : ''));
     b.appendChild(el('span', null, label));
@@ -212,7 +212,7 @@ export default {
     return { id: label, el: b, key: (a) => (a === 'ok' ? (onOk(b), true) : false) };
   },
 
-  // Logo d'appli à l'encre (sur parchemin, l'ivoire ne se lirait pas) ; repli : initiales à la plume.
+  // App logo in ink (ivory would not read on parchment); fallback: initials in quill.
   inkLogo(id, h) {
     const L = logoOf(id);
     const box = el('span', 'set-inklogo');
@@ -226,7 +226,7 @@ export default {
     return box;
   },
 
-  // ---- Rubrique : Parapet et applis -------------------------------------------------------------------------
+  // ---- Section: Parapet and apps ----------------------------------------------------------------------------
   rub_dock(body) {
     const c = getConfig();
     const apps = allApps();
@@ -246,11 +246,11 @@ export default {
       row.appendChild(el('span', 'set-app-rank', a.onDock ? String(pos + 1) : ''));
       row.appendChild(this.inkLogo(a.id, 1.5));
       row.appendChild(el('span', 'set-app-name', a.name));
-      // Mention : « caché » (encre pâlie à 35 %) ; une appli ajoutée à la main (V4) porte aussi « perso ».
+      // Tag: "caché" (hidden, ink faded to 35%); a hand-added app (V4) also carries "perso".
       row.appendChild(el('span', 'set-app-hidden', a.hidden ? (a.custom ? 'caché · perso' : 'caché') : a.custom ? 'perso' : ''));
       const g = el('span', 'set-app-glass'); g.innerHTML = HOURGLASS; row.appendChild(g);
       const seal = el('i', 'set-rowseal wax-seal');
-      if (this.sealed.has(a.id)) seal.classList.add('is-sealed');                   // les sceaux conservés survivent au re-rendu
+      if (this.sealed.has(a.id)) seal.classList.add('is-sealed');                   // kept seals survive the re-render
       row.appendChild(seal);
       return row;
     };
@@ -259,7 +259,7 @@ export default {
     head2.appendChild(el('span', null, 'Dans la Carte du Maraudeur'));
     list.appendChild(head2);
     others.forEach((a) => { const row = mk(a, -1); list.appendChild(row); items.push({ id: a.id, el: row, key: (k) => this.dockKey(a.id, k, row) }); });
-    // Garder la ligne en focus visible : la liste glisse (transform), jamais de barre de défilement.
+    // Keep the focused row visible: the list slides (transform), never a scrollbar.
     this.scrollList = list;
     list.style.transform = `translateY(${this.listOff}px)`;
     return { items, axis: 'v', start: 0 };
@@ -273,8 +273,8 @@ export default {
         this.nudge(row);
         return true;
       }
-      // Deux temps : 1) la ligne existante bascule, le sable tombe (ou s'écoule) dans son sablier, le sceau se presse ;
-      // 2) après la chute, la liste se recompose et la ligne glisse vers son nouveau bloc (FLIP).
+      // Two beats: 1) the existing row toggles, the sand falls (or drains) in its hourglass, the seal presses;
+      // 2) after the fall, the list recomposes and the row slides to its new block (FLIP).
       const adding = pos < 0;
       row.classList.toggle('is-on', adding);
       this.sealed.add(id);
@@ -287,7 +287,7 @@ export default {
       return true;
     }
     if (action === 'longok') {
-      // Cacher / révéler dans la Carte : seulement pour une appli qui n'est pas sur le parapet.
+      // Hide / reveal in the Map: only for an app that is not on the parapet.
       if (pos >= 0) { this.say('Retirez-la d’abord du parapet pour la cacher.'); this.nudge(row); return true; }
       const wasHidden = c.hidden.includes(id);
       updateConfig({ hidden: wasHidden ? c.hidden.filter((x) => x !== id) : [...c.hidden, id] });
@@ -314,7 +314,7 @@ export default {
     }
     return false;
   },
-  // FLIP : on mesure, on reconstruit, puis chaque ligne déplacée glisse depuis son ancienne place (transform seulement).
+  // FLIP: measure, rebuild, then each moved row slides from its old position (transform only).
   flipRebuild(id) {
     const before = new Map(this.items.map((it) => [it.id, it.el.offsetTop]));
     this.renderRight(id);
@@ -327,19 +327,19 @@ export default {
       it.el.animate([{ transform: `translateY(${was - it.el.offsetTop}px)` }, { transform: 'translateY(0)' }], { duration: 300 * this.k(), easing: 'cubic-bezier(.3,.7,.2,1)', composite: 'add' });
     });
   },
-  // Message éphémère écrit à la plume, posé en bas de la page (hors de la liste qui glisse : toujours visible).
+  // Ephemeral message written in quill, placed at the bottom of the page (outside the sliding list: always visible).
   say(text) {
     const m = this.root.querySelector('.set-msg'); if (!m) return;
     m.textContent = text; this.writeIn(m);
     this.later(() => { if (m.textContent === text) m.textContent = ''; }, 2600, true);
   },
-  // Butée : petit refus latéral, composé avec le transform du focus (la ligne ne « saute » pas).
+  // Stop: small sideways refusal, composited with the focus transform (the row does not "jump").
   nudge(row) {
     if (this.reduced || !row) return;
     row.animate([{ transform: 'translateX(0)' }, { transform: 'translateX(-.4cqw)' }, { transform: 'translateX(.3cqw)' }, { transform: 'translateX(0)' }], { duration: 220 * this.k(), composite: 'add' });
   },
 
-  // ---- Rubrique : Maison ------------------------------------------------------------------------------------
+  // ---- Section: House ---------------------------------------------------------------------------------------
   rub_house(body) {
     const c = getConfig();
     const wrap = el('div', 'set-houses');
@@ -361,7 +361,7 @@ export default {
         id, el: card,
         key: (a) => {
           if (a !== 'ok') return false;
-          updateConfig({ house: id });                 // main.js teinte --wax et --house-glow via onConfigChange
+          updateConfig({ house: id });                 // main.js tints --wax and --house-glow via onConfigChange
           wrap.querySelectorAll('.set-house').forEach((x) => { x.classList.toggle('is-on', x === card); x.querySelector('.set-house-state').textContent = x === card ? 'Votre maison' : ''; });
           this.press(seal); this.writeIn(card.querySelector('.set-house-state'));
           this.ctx.fx.chime(1046, 0.035);
@@ -374,35 +374,35 @@ export default {
     return { items, axis: 'h', start: Math.max(0, ids.indexOf(c.house)) };
   },
 
-  // ---- Rubrique : Chouette et sons ---------------------------------------------------------------------------
+  // ---- Section: Owl and sounds ------------------------------------------------------------------------------
   rub_owl(body) {
     const items = [
       this.enumRow(body, 'Chouette', OWL, () => getConfig().owl, (v) => updateConfig({ owl: v }),
         (v) => ({ vive: 'Elle vole à chaque pas et se pose sur l’appli.', calme: 'Elle ne vole que pour les longs trajets ; sinon, un fondu.', absente: 'Le médaillon s’allume seul. Elle reste à la volière.' })[v]),
       this.enumRow(body, 'Sons', YESNO, () => getConfig().sounds, (v) => { updateConfig({ sounds: v }); if (v) this.ctx.fx.initAudio(); },
         (v) => (v ? 'Une clochette par pas, un accord à l’allumage ; la musique de fond se règle juste en dessous.' : 'Silence complet, musique comprise.')),
-      // Musique de fond : lecture défensive (config.music peut ne pas exister encore → 'Auto'), sound.js suit en direct.
+      // Background music: defensive read (config.music may not exist yet → 'Auto'), sound.js follows live.
       this.enumRow(body, 'Musique de fond', MUSIC, () => getConfig().music || 'auto', (v) => { updateConfig({ music: v }); this.ctx.fx.ambient(v); },
         (v) => MUSIC_NOTE[v]),
     ];
     return { items, axis: 'v', start: 0 };
   },
 
-  // ---- Rubrique : Mouvement et énergie -----------------------------------------------------------------------
+  // ---- Section: Motion and energy ---------------------------------------------------------------------------
   rub_motion(body) {
     const items = [this.enumRow(body, 'Mouvement', MOTION, () => getConfig().motion, (v) => { updateConfig({ motion: v }); this.reduced = isReduced(); this.root.classList.toggle('is-reduced', this.reduced); }, (v) => MOTION_NOTE[v])];
     body.appendChild(el('div', 'set-note set-note-dim', matchMedia('(prefers-reduced-motion: reduce)').matches ? 'Le système demande des animations réduites : il est respecté quel que soit ce réglage.' : 'Le réglage « Réduit » du système est respecté s’il est activé.'));
     return { items, axis: 'v', start: 0 };
   },
 
-  // ---- Rubrique : Veille --------------------------------------------------------------------------------------
+  // ---- Section: Idle ----------------------------------------------------------------------------------------
   rub_idle(body) {
     const items = [this.enumRow(body, 'Nox après', IDLE, () => getConfig().idleSeconds, (v) => updateConfig({ idleSeconds: v }),
       (v) => (v ? 'Les fenêtres du château s’éteignent une à une, l’horloge change de coin. Une touche réveille tout.' : 'La télé ne s’endort jamais d’elle-même.'))];
     return { items, axis: 'v', start: 0 };
   },
 
-  // ---- Rubrique : Mode classique -------------------------------------------------------------------------------
+  // ---- Section: Classic mode --------------------------------------------------------------------------------
   rub_classic(body) {
     body.appendChild(el('p', 'set-text', 'Le mode classique garde le même parapet, le même ordre et les mêmes applis, sans château, sans chouette, sans décor. Retour maintenu deux secondes rallume Poudlard.'));
     body.appendChild(el('p', 'set-text set-ask', 'Passer en mode classique ?'));
@@ -411,7 +411,7 @@ export default {
       this.button(btns, 'Oui, Nox', () => this.goClassic(), 'set-btn-nox'),
       this.button(btns, 'Non', () => this.toLeft()),
     ];
-    return { items, axis: 'h', start: 1 };   // le focus part sur « Non » : jamais de bascule par accident
+    return { items, axis: 'h', start: 1 };   // focus starts on "Non": never a switch by accident
   },
   goClassic() {
     updateConfig({ mode: 'classique' });
@@ -419,7 +419,7 @@ export default {
     this.ctx.router.replace('classic', {}, 'fade');
   },
 
-  // ---- Rubrique : À propos -------------------------------------------------------------------------------------
+  // ---- Section: About ---------------------------------------------------------------------------------------
   rub_about(body) {
     const facts = el('div', 'set-facts'); body.appendChild(facts);
     [['Réseau', 'Aucune connexion, aucune donnée collectée.'], ['Version', VERSION], ['Lancement', 'Par intent explicite, sur des applis connues seulement.'], ['Réversible', 'Le launcher Google reste installé.']]
@@ -429,7 +429,7 @@ export default {
     const corner = el('i', 'set-rowseal wax-seal set-seal-corner');
     this.resetStep = 0;
     const resetBtn = this.button(acts, 'Réinitialiser', (b) => {
-      // Double confirmation : le libellé change deux fois avant d'effacer. Retour, Gauche ou Menu annulent à tout moment.
+      // Double confirmation: the label changes twice before wiping. Back, Left or Menu cancel at any time.
       this.resetStep += 1;
       const label = b.querySelector('span');
       if (this.resetStep === 1) { label.textContent = 'Tout effacer ? OK pour confirmer'; this.writeIn(label); note.textContent = 'Maison, parapet, chouette, veille : tout revient à l’état neuf.'; this.writeIn(note); return; }
@@ -449,12 +449,12 @@ export default {
     return { items, axis: 'v', start: 0 };
   },
 
-  // ---- Aperçu miniature du parapet -----------------------------------------------------------------------------
+  // ---- Miniature preview of the parapet ---------------------------------------------------------------------
   renderPreview() {
     const row = this.root.querySelector('.set-pv-row');
     row.textContent = '';
     const dock = getConfig().dock;
-    // Le compteur vit aussi ici : l'aperçu est toujours visible, même quand la liste a glissé.
+    // The counter lives here too: the preview is always visible, even once the list has slid.
     this.root.querySelector('.set-pv-label').textContent = `Le parapet, en direct · ${dock.length} sur ${DOCK_MAX}`;
     if (!dock.length) { row.appendChild(el('span', 'set-pv-empty', 'Le parapet est vide')); this.placePreviewOwl(); return; }
     dock.forEach((id) => {
@@ -474,8 +474,8 @@ export default {
     });
     this.placePreviewOwl();
   },
-  // La chouette miniature se perche au-dessus de l'appli en focus si elle est sur le parapet ; sinon elle reste sur
-  // son dernier perchoir. L'or et la bougie ne s'allument que pour une appli du parapet réellement en focus.
+  // The miniature owl perches above the focused app if it is on the parapet; otherwise it stays on its
+  // last perch. The gold and the candle only light up for a parapet app that is actually in focus.
   placePreviewOwl() {
     const root = this.root; if (!root) return;
     const owl = root.querySelector('.set-pv-owl'), glow = root.querySelector('.set-pv-glow'); if (!owl) return;
@@ -497,8 +497,8 @@ export default {
     });
   },
 
-  // ---- Signatures : écriture à la plume, sceau pressé ---------------------------------------------------------
-  // `i` : rang d'écriture (0, 1, 2…) pour écrire plusieurs lignes l'une après l'autre.
+  // ---- Signatures: quill writing, pressed seal --------------------------------------------------------------
+  // `i`: writing rank (0, 1, 2...) to write several lines one after another.
   writeIn(node, i = 0) {
     if (!node) return;
     node.style.setProperty('--i', String(i));
@@ -510,7 +510,7 @@ export default {
     seal.classList.remove('is-press'); void seal.offsetWidth; seal.classList.add('is-press');
   },
 
-  // ---- Aide en bas d'écran -------------------------------------------------------------------------------------
+  // ---- Key hint at the bottom of the screen -----------------------------------------------------------------
   updateHint() {
     const h = this.root.querySelector('.keyhint'); if (!h) return;
     const spans = h.querySelectorAll('span');
@@ -519,14 +519,14 @@ export default {
     if (this.level === 'left') { a.textContent = 'Rubrique'; b.textContent = 'Entrer'; c.textContent = 'Quitter'; d.textContent = 'Quitter'; return; }
     const id = RUBRIQUES[this.rub].id;
     a.textContent = 'Ligne';
-    if (this.axis === 'h') spans[0].style.opacity = '0';          // rien à dire pour ▲▼ : on efface, on n'écrit pas « Rien »
+    if (this.axis === 'h') spans[0].style.opacity = '0';          // nothing to say for ▲▼: we clear it, we don't write "Nothing"
     b.textContent = id === 'dock' ? 'Poser · Retirer' : id === 'house' ? 'Choisir' : (id === 'classic' || id === 'about') ? 'Valider' : 'Changer';
     c.textContent = id === 'dock' ? 'Rang ◀▶' : this.axis === 'h' ? 'Choisir ◀▶' : 'Valeur ◀▶';
     d.textContent = 'Rubriques';
   },
 
-  // Faire glisser la liste du parapet pour garder la ligne en focus visible (transform, pas de scroll).
-  // La bande du message, posée en bas de la page, est réservée : une ligne en focus n'est jamais sous elle.
+  // Slide the parapet list to keep the focused row visible (transform, no scroll).
+  // The message band, at the bottom of the page, is reserved: a focused row is never beneath it.
   keepVisible() {
     const list = this.scrollList; if (!list || !this.items[this.row] || RUBRIQUES[this.rub].id !== 'dock') return;
     const body = list.parentElement; const msg = this.root.querySelector('.set-msg');
@@ -539,18 +539,18 @@ export default {
     list.style.transform = `translateY(${off}px)`;
   },
 
-  // ---- Sortie ------------------------------------------------------------------------------------------------
+  // ---- Leaving ----------------------------------------------------------------------------------------------
   leave() {
     this.ctx.fx.whoosh();
     if (this.ctx.router.canGoBack()) this.ctx.router.back('fade');
     else this.ctx.router.go('home', {}, 'fade');
   },
 
-  // ---- Touches ------------------------------------------------------------------------------------------------
+  // ---- Keys -------------------------------------------------------------------------------------------------
   onKey(action, ctx) {
     void ctx;
-    if (this.busy) return true;                                   // le sable tombe : 320 ms sans touche
-    if (action === 'longback') { this.goClassic(); return true; }  // réversibilité : le mode classique depuis n'importe où
+    if (this.busy) return true;                                   // the sand is falling: 320 ms without keys
+    if (action === 'longback') { this.goClassic(); return true; }  // reversibility: classic mode from anywhere
     if (action === 'home') { this.leave(); return true; }
     if (action === 'menu') { if (this.level === 'right') this.toLeft(); else this.leave(); return true; }
 
@@ -572,7 +572,7 @@ export default {
       return true;
     }
 
-    // Niveau droit : l'item en focus a la priorité, puis la navigation générique selon l'axe.
+    // Right level: the focused item has priority, then generic navigation along the axis.
     if (action === 'back') {
       if (RUBRIQUES[this.rub].id === 'about' && this.resetStep) { this.resetStep = 0; this.renderRight('Réinitialiser'); return true; }
       this.toLeft(); return true;

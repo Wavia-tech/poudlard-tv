@@ -1,11 +1,11 @@
-// Adaptateur plateforme : la seule porte vers l'extérieur de l'interface.
-// Sur le web (maquette) : on simule, sauf pour les liens de films (ouverts dans un nouvel onglet, pour tester).
-// Dans le launcher Android : un pont `window.Android` exposé par la WebView, limité à des actions explicites
-// (lancer une appli par package, changer d'entrée HDMI, ouvrir un lien d'une liste blanche dans l'appli qui le possède).
-// Aucune URL arbitraire, aucun accès réseau, aucune donnée transmise hors du nom d'appli et du lien configuré.
+// Platform adapter: the only door from the interface to the outside world.
+// On the web (mock-up): everything is simulated, except film links (opened in a new tab, for testing).
+// In the Android launcher: a `window.Android` bridge exposed by the WebView, limited to explicit actions
+// (launch an app by package, switch HDMI input, open an allow-listed link in the app that owns it).
+// No arbitrary URL, no network access, no data transmitted beyond the app name and the configured link.
 
 const bridge = () => (typeof window !== 'undefined' && window.Android && typeof window.Android.launch === 'function') ? window.Android : null;
-// Hôtes autorisés pour les liens de contenu (config.js). Tout autre lien est refusé, même s'il vient du stockage.
+// Allowed hosts for content links (config.js). Any other link is refused, even if it comes from storage.
 const URL_HOSTS = new Set(['www.max.com', 'play.max.com', 'www.netflix.com', 'www.primevideo.com', 'www.disneyplus.com', 'www.youtube.com']);
 
 function allowedUrl(url) {
@@ -15,7 +15,7 @@ function allowedUrl(url) {
 export const Platform = {
   isTV: () => Boolean(bridge()),
 
-  // Lance une appli. Retourne 'bridge' si la TV a pris la main, 'simulated' sinon.
+  // Launches an app. Returns 'bridge' if the TV took over, 'simulated' otherwise.
   launch(app) {
     const b = bridge();
     if (b && app.pkg) { b.launch(String(app.pkg)); return 'bridge'; }
@@ -23,17 +23,17 @@ export const Platform = {
     return 'simulated';
   },
 
-  // Ouvre un contenu précis : `item.url` (liste blanche d'hôtes) dans l'appli qui le possède.
-  // À appeler depuis un geste utilisateur (OK), sinon le navigateur bloque l'ouverture en maquette.
+  // Opens a specific piece of content: `item.url` (host allow-list) in the app that owns it.
+  // Must be called from a user gesture (OK), otherwise the browser blocks the opening in the mock-up.
   openContent(app, item) {
     const url = item && allowedUrl(item.url);
     const b = bridge();
     if (url && b && typeof b.openUrl === 'function') { b.openUrl(url, String(app.pkg || '')); return 'bridge'; }
-    if (url) { try { const w = window.open(url, '_blank', 'noopener'); if (w) return 'opened'; } catch (e) { /* fenêtre bloquée : on simule */ } }
+    if (url) { try { const w = window.open(url, '_blank', 'noopener'); if (w) return 'opened'; } catch (e) { /* window blocked: simulate */ } }
     return this.launch(app);
   },
 
-  // Liste des applis réellement installées (le vrai launcher la fournit ; la maquette dit "toutes").
+  // List of the apps actually installed (the real launcher provides it; the mock-up says "all").
   installed() {
     const b = bridge();
     if (b && typeof b.installedPackages === 'function') {

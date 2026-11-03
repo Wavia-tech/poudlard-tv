@@ -1,81 +1,81 @@
 # Poudlard TV
 
-Un écran d'accueil de télévision inspiré de l'univers de Harry Potter : un château la nuit, une chouette qui s'envole quand on change d'application, un parapet où sont posées les applications, et une télécommande qui suffit à tout faire.
+A TV home screen inspired by the Harry Potter universe: a castle at night, an owl that takes flight when you switch apps, a parapet where the apps sit, and a remote control that does everything.
 
-Projet de fan, **non officiel**, publié par [Wavia](https://wav-ia.fr) sous licence MIT. Il n'est affilié ni à Warner Bros. Discovery, ni à Wizarding World, ni à J.K. Rowling. Voir `AVERTISSEMENT.md`.
+A fan-made, **unofficial** project, published by [Wavia](https://wav-ia.fr) under the MIT license, for Android TV / Google TV. It is not affiliated with Warner Bros. Discovery, Wizarding World or J.K. Rowling. See `DISCLAIMER.md`.
 
-> **In English.** A fan-made, unofficial TV home screen inspired by Harry Potter, for Android TV / Google TV. Web mock-up with no dependency (ES modules), fully driven by the remote's D-pad; the Android port (plain Java, no Gradle) embeds it in a WebView behind an explicit `window.Android` bridge. No network permission, no data collected, no official assets, no film music, no app logos distributed. Fully reversible: the original launcher is never disabled, one setting gives the home back to it, and a two-second Back press brings a plain mode back from anywhere. Install, app launching and the crash watchdog follow the [Free My TV](https://github.com/simbasjungles/free-my-tv) method (`adb install`, Leanback intents, 3 crashes in 5 minutes → original home), without its internal adb. See `docs/INSTALLATION.md`. MIT, © 2026 Wavia. Not affiliated with Warner Bros. Discovery, Wizarding World or J.K. Rowling.
+The web mock-up has no dependencies (ES modules) and is fully driven by the remote's D-pad. The Android port (plain Java, no Gradle) embeds it in a WebView behind an explicit `window.Android` bridge. No network permission, no data collected, no official assets, no film music, no app logos distributed. Fully reversible: the original launcher is never disabled, one setting gives the home back to it, and a two-second Back press brings a plain mode back from anywhere. Install, app launching and the crash watchdog follow the [Free My TV](https://github.com/simbasjungles/free-my-tv) method (`adb install`, Leanback intents, 3 crashes in 5 minutes → original home), without its internal adb. See `docs/INSTALLATION.md`.
 
-## Ce que c'est
+## What it is
 
-- **Le Parapet** (accueil) : l'heure en lettrine, jusqu'à huit applications réparties sur la largeur, Hedwige qui se pose sur celle qu'on choisit. OK allume (Lumos) puis ouvre l'application.
-- **Ollivanders** : la collection des films, présentée comme une vitrine de baguettes ; OK ouvre le film dans l'application qui le possède.
-- **La Carte du Maraudeur** : toutes les applications, les Passages (entrées HDMI : consoles, box), l'ajout d'une application à la main.
-- **La Salle sur Demande** : les réglages, tous au D-pad.
-- **La Lettre d'admission** : le premier lancement (maison, applications, Hedwige), moins d'une minute.
-- **Le mode classique** : un accueil sobre, mêmes applications, sans décor. Retour maintenu deux secondes y mène depuis n'importe quel écran, et en revient.
+- **The Parapet** (home): the time as a drop cap, up to eight apps spread across the width, Hedwig (Hedwige) landing on the one you pick. OK lights up (Lumos), then opens the app.
+- **Ollivanders**: the film collection, presented as a wand shop window; OK opens the film in the app that owns it.
+- **The Marauder's Map** (Carte du Maraudeur): every app, the Passages (HDMI inputs: consoles, set-top boxes), and adding an app by hand.
+- **The Room of Requirement** (Salle sur Demande): the settings, all on the D-pad.
+- **The Admission Letter** (Lettre d'admission): first launch (house, apps, Hedwig), under a minute.
+- **Plain mode**: a sober home screen, same apps, no scenery. Holding Back for two seconds gets there from any screen, and back again.
 
-Le tout en modules ES natifs, sans dépendance, sans bundler, sans accès réseau à l'exécution.
+All of it in native ES modules, with no dependencies, no bundler and no network access at runtime.
 
-## Démo
+## Demo
 
-Maquette web pilotée au clavier (flèches, Entrée, Échap, M) :
+Keyboard-driven web mock-up (arrow keys, Enter, Escape, M):
 
 ```bash
 git clone https://github.com/Wavia-tech/poudlard-tv.git
 cd poudlard-tv
-cp app/assets/logos.example.js app/assets/logos.js   # pas de logos officiels dans le dépôt : monogrammes
+cp app/assets/logos.example.js app/assets/logos.js   # no official logos in the repo: monograms instead
 node tools/serve.mjs . 8765
 ```
 
-Puis http://localhost:8765/app/index.html. Le banc d'essai affiche une télécommande à l'écran et un ralenti ×3 pour régler les gestes.
+Then open http://localhost:8765/app/index.html. The test bench shows an on-screen remote and a ×3 slow motion for tuning the gestures.
 
 ## Installation
 
-- **Web** : les quatre commandes ci-dessus ; détails dans `docs/INSTALLATION.md`.
-- **Télévision** : construction de l'APK avec `android/build.sh` (Java, sans Gradle), installation par `adb`, choix de l'accueil dans le sélecteur du système, retour à l'accueil d'origine en un réglage. Procédure complète, Chromecast compris, dans `docs/INSTALLATION.md` ; ce qui est repris de Free My TV dans `docs/FREE-MY-TV.md`.
+- **Web**: the four commands above; details in `docs/INSTALLATION.md`.
+- **TV**: build the APK with `android/build.sh` (Java, no Gradle), install with `adb`, pick the home in the system's home picker, and go back to the original home with a single setting. Full procedure, Chromecast included, in `docs/INSTALLATION.md`; what is borrowed from Free My TV in `docs/FREE-MY-TV.md`.
 
-## Réversibilité
+## Reversibility
 
-C'est la règle la plus importante du projet : on doit pouvoir rendre la télévision telle qu'on l'a trouvée, en moins d'une minute, sans ordinateur.
+This is the project's most important rule: you must be able to put the TV back the way you found it, in under a minute, without a computer.
 
-1. Retour maintenu 2 s → mode classique (depuis n'importe quel écran).
-2. Réglages → À propos → **Accueil → Origine** : le launcher désactive sa propre entrée d'accueil et relance celui d'origine, qui n'a jamais été désactivé. **Accueil → Poudlard** fait le chemin inverse (il ouvre le sélecteur d'accueil du système ; c'est vous qui choisissez).
-3. Désinstaller l'application remet tout en place.
-4. Trois fermetures anormales en cinq minutes : le launcher rend la main de lui-même (méthode Free My TV).
+1. Hold Back for 2 s → plain mode (from any screen).
+2. Settings → About → **Home → Original**: the launcher disables its own home entry and relaunches the original one, which was never disabled. **Home → Poudlard** goes the other way (it opens the system's home picker; you make the choice).
+3. Uninstalling the app puts everything back.
+4. Three abnormal exits in five minutes: the launcher hands control back on its own (Free My TV method).
 
-## Sécurité et données
+## Security and data
 
-- Aucune permission réseau dans le manifeste Android. En maquette, la seule requête distante est le chargement des polices Google ; dans l'APK, sans permission réseau, la WebView retombe sur les polices système tant que les polices OFL ne sont pas placées dans `app/assets/fonts/` avec leur licence (voir `docs/INSTALLATION.md`, dépannage).
-- Aucune bibliothèque tierce, aucune analytique, aucun compte, aucun historique.
-- Lancement par intent explicite uniquement, sur un package présent dans la configuration ; liens de contenus limités à une liste blanche d'hôtes ; jamais d'URL saisie à l'écran.
-- Tout ce qui est lu du stockage est validé (`sanitize()`) : un stockage corrompu ne peut rien injecter.
+- No network permission in the Android manifest. In the mock-up, the only remote request is loading the Google fonts; in the APK, with no network permission, the WebView falls back to the system fonts until the OFL fonts are placed in `app/assets/fonts/` with their license (see `docs/INSTALLATION.md`, troubleshooting).
+- No third-party library, no analytics, no account, no history.
+- Apps are launched by explicit intent only, on a package present in the configuration; content links are limited to a whitelist of hosts; no URL is ever typed on screen.
+- Everything read from storage is validated (`sanitize()`): corrupted storage cannot inject anything.
 
-## Organisation du dépôt
+## Repository layout
 
 ```
-app/            la maquette web (index.html, js/, css/, assets/) ; app/README.md et app/CONTRAT.md pour le détail technique
-docs/           GUIDE.md (la démarche, étape par étape, avec les prompts), INSTALLATION.md (web + TV, pas à pas), FREE-MY-TV.md (ce qu'on reprend du projet de référence), MUSIQUE.md (sons, musique de fond, droits)
-tools/          serveur statique, assemblage de ses propres logos, méthode de génération des décors
-android/        portage Android TV (Java pur, build.sh, WebView + pont window.Android)
-AVERTISSEMENT.md, LICENSE (MIT), CONTRIBUTING.md
+app/            the web mock-up (index.html, js/, css/, assets/); app/README.md and app/CONTRACT.md for the technical details
+docs/           GUIDE.md (the approach, step by step, with the prompts), INSTALLATION.md (web + TV, step by step), FREE-MY-TV.md (what is borrowed from the reference project), MUSIC.md (sounds, background music, rights)
+tools/          static server, assembling your own logos, the method for generating the scenery
+android/        Android TV port (plain Java, build.sh, WebView + window.Android bridge)
+DISCLAIMER.md, LICENSE (MIT), CONTRIBUTING.md
 ```
 
-## Ce que l'utilisateur fournit lui-même
+## What the user supplies themselves
 
-Le dépôt ne distribue ni logos d'applications (marques), ni musique enregistrée (droits), ni ressources officielles. Chacun peut, pour un usage privé, ajouter ses logos (`tools/README.md`) et sa musique (`docs/MUSIQUE.md`) ; ces fichiers sont ignorés par Git.
+The repository distributes no app logos (trademarks), no recorded music (rights) and no official assets. For private use, anyone can add their own logos (`tools/README.md`) and music (`docs/MUSIC.md`); these files are ignored by Git.
 
-## Licence
+## License
 
-Le code et la documentation sont sous licence MIT (`LICENSE`). Cette licence ne couvre pas ce que chaque utilisateur fournit lui-même et qui n'est pas distribué ici (logos d'applications, musique de fond), ni les marques citées, qui restent la propriété de leurs titulaires. Voir `AVERTISSEMENT.md`.
+The code and documentation are under the MIT license (`LICENSE`). This license does not cover what each user supplies themselves and what is not distributed here (app logos, background music), nor the trademarks mentioned, which remain the property of their owners. See `DISCLAIMER.md`.
 
-## Crédits
+## Credits
 
-- Idée de départ : le reel « I vibecoded my TV to feel like Hogwarts » de @ikevinadams (Instagram).
-- Méthode d'installation, de bascule et de retour arrière sur Android TV : [Free My TV](https://github.com/simbasjungles/free-my-tv) (MIT).
-- Polices : Cinzel, Cinzel Decorative, EB Garamond, IM Fell English (SIL Open Font License).
-- Décors, chouette, écussons, glyphes : générés et dessinés pour ce projet (`tools/README.md`).
-- Sons et musique de fond : célesta synthétisé en Web Audio, phrases et valse originales (`app/js/sound.js`, `docs/MUSIQUE.md`).
-- Conception et réalisation : Wavia, Nantes, 2026.
+- Starting idea: the reel "I vibecoded my TV to feel like Hogwarts" by @ikevinadams (Instagram).
+- Install, switch-over and roll-back method on Android TV: [Free My TV](https://github.com/simbasjungles/free-my-tv) (MIT).
+- Fonts: Cinzel, Cinzel Decorative, EB Garamond, IM Fell English (SIL Open Font License).
+- Scenery, owl, crests, glyphs: generated and drawn for this project (`tools/README.md`).
+- Sounds and background music: celesta synthesized in Web Audio, original phrases and waltz (`app/js/sound.js`, `docs/MUSIC.md`).
+- Design and development: Wavia, Nantes, 2026.
 
-Harry Potter, Hogwarts et les noms associés sont des marques de Warner Bros. Entertainment Inc. ; les autres marques citées appartiennent à leurs titulaires. Projet de fan, non commercial, non officiel.
+Harry Potter, Hogwarts and the associated names are trademarks of Warner Bros. Entertainment Inc.; the other trademarks mentioned belong to their owners. Fan-made, non-commercial, unofficial project.

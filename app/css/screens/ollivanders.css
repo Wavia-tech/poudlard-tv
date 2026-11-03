@@ -1,4 +1,4 @@
-/* Ollivanders : l'image de référence ; un projecteur chaud sur le coffret choisi, la caméra qui se penche, pas de contour. */
+/* Ollivanders: the reference image; a warm spotlight on the chosen box, the camera leaning in, no outline. */
 .screen-library { background: var(--night); }
 .olv-scene { position: absolute; inset: 0; transform: scale(1); transition: transform calc(var(--k) * 700ms) cubic-bezier(.33, 0, .2, 1); will-change: transform; }
 .olv-scene.lean { transform: scale(1.04); }
@@ -7,7 +7,7 @@
 .screen-library.no-image .olv-bg { display: none; }
 .screen-library.no-image::before { content: ""; position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 30%, #2a1a0c, var(--night) 70%); }
 .olv-overlay { position: absolute; inset: 0; width: 100%; height: 100%; }
-/* Le voile : toute l'échoppe baisse d'un demi-ton, sauf le coffret choisi (trou au bord flou, qui glisse d'un coffret à l'autre). */
+/* The veil: the whole shop drops half a tone, except the chosen box (a soft-edged hole that slides from one box to the next). */
 .olv-shade { fill: #050810; opacity: 0; transition: opacity calc(var(--k) * 500ms); }
 .screen-library.is-in .olv-shade { opacity: .5; }
 .olv-warmth { opacity: 0; transition: opacity calc(var(--k) * 400ms); animation: olv-breathe calc(var(--k) * 3.2s) ease-in-out infinite; }
@@ -15,14 +15,14 @@
 @keyframes olv-breathe { 50% { opacity: .7; } }
 html[data-motion="reduit"] .olv-warmth, html[data-motion="economie"] .olv-warmth { animation: none; }
 
-/* Légende : titre et disponibilité, écrits à la plume sous les coffrets. */
+/* Caption: title and availability, written in pen under the boxes. */
 .olv-caption { position: absolute; left: 50%; bottom: 7.2cqw; transform: translateX(-50%); text-align: center; white-space: nowrap; color: var(--ivory); text-shadow: 0 .1cqw .2cqw #000, 0 0 1cqw #000c; }
 .olv-caption-title { font-family: var(--fell); font-size: 2cqw; }
 .olv-caption-sub { font-family: var(--body); font-style: italic; font-size: 1.55cqw; color: var(--gold-light); opacity: .9; margin-top: .2cqw; }
 .olv-caption.is-write .olv-caption-title { animation: olv-write calc(var(--k) * 350ms) ease-out; }
 @keyframes olv-write { from { opacity: 0; transform: translateY(.4cqw); } }
 
-/* Lumos : le reste s'assombrit, puis la carte d'ouverture. */
+/* Lumos: everything else darkens, then the launch card. */
 .olv-dim { position: absolute; inset: 0; z-index: 50; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1.2cqw;
   background: radial-gradient(ellipse at 50% 45%, #1a1208, var(--night) 70%); opacity: 0; pointer-events: none; transition: opacity calc(var(--k) * 300ms); }
 .olv-dim.show { opacity: 1; }

@@ -1,159 +1,159 @@
 # Installation
 
-Deux façons d'utiliser Poudlard TV :
+Two ways to use Poudlard TV:
 
-- **Sur ordinateur (maquette web)** : pour découvrir l'interface, la régler, la modifier. Cinq minutes.
-- **Sur la télévision (Android TV / Google TV)** : le launcher remplace l'écran d'accueil. Réversible à tout moment.
+- **On a computer (web mock-up)**: to discover the interface, tweak it, modify it. Five minutes.
+- **On the television (Android TV / Google TV)**: the launcher replaces the home screen. Reversible at any time.
 
-Le portage TV reprend la méthode de [Free My TV](https://github.com/simbasjungles/free-my-tv) (construction sans Gradle, installation par ADB, lancement des applications par intent Leanback, liste des applications installées, entrées HDMI, filet de sécurité), qui a fait ses preuves sur Chromecast with Google TV et sur les téléviseurs Android TV. Ce qu'on reprend et ce qu'on laisse, point par point : `docs/FREE-MY-TV.md`. La différence principale : Poudlard TV ne désactive jamais l'accueil Google et n'utilise pas d'adb interne (qui exigerait la permission réseau).
+The TV port follows the method of [Free My TV](https://github.com/simbasjungles/free-my-tv) (build without Gradle, install over ADB, launch apps through Leanback intents, list installed apps, HDMI inputs, safety net), which has proven itself on Chromecast with Google TV and on Android TV sets. What we keep and what we leave out, point by point: `docs/FREE-MY-TV.md`. The main difference: Poudlard TV never disables the Google home screen and does not use an internal adb client (which would require the network permission).
 
 ---
 
-## 1. Maquette web
+## 1. Web mock-up
 
-### Prérequis
+### Requirements
 
-- [Node.js](https://nodejs.org) 18 ou plus récent (uniquement pour le petit serveur statique ; l'interface elle-même n'a aucune dépendance).
-- Un navigateur récent (Chrome, Edge, Firefox, Safari).
+- [Node.js](https://nodejs.org) 18 or newer (only for the small static server; the interface itself has no dependencies).
+- A recent browser (Chrome, Edge, Firefox, Safari).
 
-### Étapes
+### Steps
 
 ```bash
 git clone https://github.com/Wavia-tech/poudlard-tv.git
 cd poudlard-tv
 
-# Le dépôt ne fournit pas de logos d'applications (marques). Ce fichier vide suffit :
+# The repo ships no app logos (trademarks). This empty file is enough:
 cp app/assets/logos.example.js app/assets/logos.js
 
 node tools/serve.mjs . 8765
 ```
 
-Ouvrez ensuite http://localhost:8765/app/index.html, cliquez sur l'écran, et pilotez au clavier :
+Then open http://localhost:8765/app/index.html, click on the screen, and drive it from the keyboard:
 
-| Touche | Télécommande | Effet |
+| Key | Remote | Effect |
 |---|---|---|
-| ← → | D-pad | Choisir une application sur le parapet |
-| ↓ | Bas | Ollivanders (la collection des films) |
-| ↑ | Haut | Barre du haut : Son · Carte du Maraudeur · Réglages |
-| Entrée | OK | Lumos, puis l'application s'ouvre |
-| Entrée maintenue | OK long | Rappeltout (menu contextuel) |
-| Échap | Retour | Revenir |
-| Échap maintenu 2 s | Retour long | « Nox ? » : passer en mode classique, et inversement |
-| M | Menu | La Salle sur Demande (réglages) |
+| ← → | D-pad | Pick an app on the Parapet (home) |
+| ↓ | Down | Ollivanders (the film collection) |
+| ↑ | Up | Top bar: Sound · Marauder's Map (Carte du Maraudeur) · Settings |
+| Enter | OK | Lumos, then the app opens |
+| Enter held | Long OK | Remembrall (Rappeltout, the context menu) |
+| Esc | Back | Go back |
+| Esc held 2 s | Long Back | « Nox ? »: switch to classic mode, and back |
+| M | Menu | The Room of Requirement (Salle sur Demande, the settings) |
 
-Le premier lancement affiche la Lettre d'admission (maison, applications, Hedwige). Les réglages sont conservés dans le `localStorage` du navigateur ; pour repartir de zéro, Réglages → À propos → « Réinitialiser » (confirmation en trois appuis), ou videz le stockage du site.
+The first launch shows the Admission Letter (Lettre d'admission: house, apps, Hedwig). Settings are kept in the browser's `localStorage`; to start over, Settings → About → « Réinitialiser » (confirmed with three presses), or clear the site's storage.
 
-Pourquoi un serveur et pas un double-clic sur `index.html` ? Parce que l'interface est en modules ES, que les navigateurs refusent de charger depuis `file://`. Le serveur fourni n'écoute que sur `127.0.0.1` et ne sert que les fichiers du dépôt.
+Why a server rather than double-clicking `index.html`? Because the interface is built from ES modules, which browsers refuse to load from `file://`. The bundled server only listens on `127.0.0.1` and only serves the files of the repo.
 
-### Sans logos, c'est voulu
+### No logos, by design
 
-Avec `logos.js` vide, chaque application est représentée par un monogramme (son initiale dans un cercle). Pour un usage privé, `tools/README.md` explique comment assembler vos propres logos.
+With an empty `logos.js`, each app is shown as a monogram (its initial in a circle). For private use, `tools/README.md` explains how to assemble your own logos.
 
-### Musique de fond
+### Background music
 
-Par défaut, l'accueil joue une valse de célesta originale, très bas (Réglages → Chouette et sons → Musique de fond : Auto / Célesta / Aucune). Pour y mettre votre propre fichier, hors dépôt : `docs/MUSIQUE.md`.
+By default the home screen plays an original celesta waltz, very quietly (Settings → Owl and sounds → Background music: Auto / Celesta / None). To use your own file, outside the repo: `docs/MUSIC.md`.
 
 ---
 
-## 2. Télévision Android TV / Google TV
+## 2. Android TV / Google TV
 
-### État du portage
+### State of the port
 
-L'application Android (`android/`, Java pur, sans Gradle) embarque la maquette web dans une WebView et lui expose un pont `window.Android`. Deux choses à distinguer :
+The Android app (`android/`, pure Java, no Gradle) embeds the web mock-up in a WebView and exposes a `window.Android` bridge to it. Two things to tell apart:
 
-**Ce que la maquette appelle aujourd'hui** (`app/js/platform.js`), quatre méthodes :
+**What the mock-up calls today** (`app/js/platform.js`), four methods:
 
-| Méthode | Rôle |
+| Method | Role |
 |---|---|
-| `launch(pkg)` | Lance l'application par son package, via `getLeanbackLaunchIntentForPackage` (sinon `getLaunchIntentForPackage`). |
-| `switchInput(input)` | Bascule sur une entrée HDMI (consoles, box), via `TvInputManager`. |
-| `openUrl(url, pkg)` | Ouvre un lien de contenu dans l'application qui le possède. L'URL doit déjà avoir passé la liste blanche de `platform.js`. |
-| `installedPackages()` | Renvoie la liste des packages installés (tableau JSON) pour griser ce qui n'est pas là. |
+| `launch(pkg)` | Launches the app by package name, through `getLeanbackLaunchIntentForPackage` (falling back to `getLaunchIntentForPackage`). |
+| `switchInput(input)` | Switches to an HDMI input (consoles, set-top boxes), through `TvInputManager`. |
+| `openUrl(url, pkg)` | Opens a content link in the app that owns it. The URL must already have passed the allow-list in `platform.js`. |
+| `installedPackages()` | Returns the list of installed packages (JSON array) so that missing apps can be greyed out. |
 
-Les trois premières renvoient `{ ok, error }` : un échec donne une Beuglante à l'écran, jamais un plantage.
+The first three return `{ ok, error }`: a failure shows a Howler (Beuglante) on screen, never a crash.
 
-**Ce que le pont Java expose en plus** (`android/src/fr/wavia/poudlardtv/Bridge.java`), pas encore appelé par les écrans : `appIcon(pkg)` (bannière ou icône de l'application en data URI, ou `null` ; voir `tools/README.md`), `setHome('poudlard' | 'original')` (`{ ok, error }`, la bascule d'accueil ci-dessous), `homeMode()` (`"poudlard"` ou `"original"`) et `version()`. Le détail de chaque retour est dans `android/README.md`.
+**What the Java bridge exposes on top** (`android/src/fr/wavia/poudlardtv/Bridge.java`), not yet called by the screens: `appIcon(pkg)` (the app's banner or icon as a data URI, or `null`; see `tools/README.md`), `setHome('poudlard' | 'original')` (`{ ok, error }`, the home switch described below), `homeMode()` (`"poudlard"` or `"original"`) and `version()`. The details of each return value are in `android/README.md`.
 
-> **État actuel de l'écran Réglages.** Dans cette version, la rubrique À propos de la maquette n'a pas encore les deux boutons **Accueil → Poudlard** et **Accueil → Origine** : elle affiche un bouton « Rendre l'accueil Google » qui, en maquette, ne fait qu'une mention. Le branchement sur `setHome()` est prévu (voir `app/CONTRAT.md`, « À faire côté écrans »). En attendant, la bascule se fait depuis les réglages de la télévision ou par `adb` (ci-dessous) ; les deux chemins sont équivalents.
+> **Current state of the Settings screen.** In this version, the About section of the mock-up does not yet have the two buttons **Home → Poudlard** and **Home → Original**: it shows a « Rendre l'accueil Google » button which, in the mock-up, only displays a note. Wiring it to `setHome()` is planned (see `app/CONTRACT.md`, "To do on the screens side"). Until then, the switch is done from the TV's settings or with `adb` (below); both paths are equivalent.
 
-### Ce que l'APK ne demande pas
+### What the APK does not ask for
 
-- Aucune permission réseau (`INTERNET` et `ACCESS_NETWORK_STATE` absents du manifeste : le système interdit lui-même toute connexion). `build.sh` refuse de produire un APK qui déclarerait une permission.
-- Pas de `QUERY_ALL_PACKAGES` : un bloc `<queries>` ciblé sur la catégorie `LEANBACK_LAUNCHER`.
-- Aucune bibliothèque tierce, aucune analytique, aucun service d'accessibilité, aucun récepteur au démarrage hors catégorie HOME.
+- No network permission (`INTERNET` and `ACCESS_NETWORK_STATE` are absent from the manifest: the system itself forbids any connection). `build.sh` refuses to produce an APK that would declare a permission.
+- No `QUERY_ALL_PACKAGES`: a `<queries>` block targeted at the `LEANBACK_LAUNCHER` category.
+- No third-party library, no analytics, no accessibility service, no boot receiver outside the HOME category.
 
-### Construire l'APK
+### Building the APK
 
-Prérequis : un JDK 17 ou plus, les outils en ligne de commande du SDK Android (`sdkmanager "build-tools;34.0.0" "platforms;android-34" "platform-tools"`), la variable `ANDROID_HOME` (ou `ANDROID_SDK_ROOT`) qui pointe sur le SDK. Détails, variantes Windows (Git Bash) et dépannage dans `android/README.md`.
+Requirements: a JDK 17 or newer, the Android SDK command-line tools (`sdkmanager "build-tools;34.0.0" "platforms;android-34" "platform-tools"`), and the `ANDROID_HOME` (or `ANDROID_SDK_ROOT`) variable pointing at the SDK. Details, Windows variants (Git Bash) and troubleshooting in `android/README.md`.
 
 ```bash
 cd android
-./build.sh            # → android/PoudlardTV.apk, signé avec android/poudlard.keystore
+./build.sh            # → android/PoudlardTV.apk, signed with android/poudlard.keystore
 ```
 
-Le fichier `poudlard.keystore` est créé au premier build et ignoré par Git. **Conservez-le** : une mise à jour doit être signée avec la même clé, sinon il faut désinstaller avant de réinstaller. Le script copie `app/` tel quel dans l'APK (sans `*.md` ni fichiers de travail) et avertit si `app/assets/fonts/` n'existe pas (voir Dépannage, polices).
+The `poudlard.keystore` file is created on the first build and ignored by Git. **Keep it**: an update must be signed with the same key, otherwise you have to uninstall before reinstalling. The script copies `app/` as is into the APK (without `*.md` or working files) and warns if `app/assets/fonts/` does not exist (see Troubleshooting, fonts).
 
-### Préparer la télévision
+### Preparing the television
 
-1. Paramètres → Système → À propos → appuyez **sept fois** sur « Build Android TV OS » pour activer les options pour les développeurs.
-2. Paramètres → Système → Options pour les développeurs → activez **Débogage USB** (et « Débogage sans fil » sur Android 14).
-3. Notez l'adresse IP de la TV (Paramètres → Réseau et Internet).
-4. Sur l'ordinateur, installez `adb` (Android platform-tools) : `winget install Google.PlatformTools` sous Windows, `brew install --cask android-platform-tools` sous macOS, le paquet `android-tools` sous Linux.
+1. Settings → System → About → press **seven times** on "Android TV OS build" to enable the developer options.
+2. Settings → System → Developer options → enable **USB debugging** (and "Wireless debugging" on Android 14).
+3. Note the TV's IP address (Settings → Network & Internet).
+4. On the computer, install `adb` (Android platform-tools): `winget install Google.PlatformTools` on Windows, `brew install --cask android-platform-tools` on macOS, the `android-tools` package on Linux.
 
-### Installer
+### Installing
 
 ```bash
-adb connect 192.168.1.50:5555          # l'adresse IP de la TV
+adb connect 192.168.1.50:5555          # the TV's IP address
 adb install -r android/PoudlardTV.apk
 ```
 
-Acceptez la demande « Autoriser le débogage USB ? » sur la TV, en cochant « Toujours autoriser ». Installez par `adb` plutôt qu'en ouvrant l'APK sur la TV ; sur Android 14, Play Protect peut tout de même afficher un avertissement : « Plus de détails » → « Installer quand même ». Sur certains modèles TCL, autorisez l'exécution en arrière-plan : `adb shell "appops set fr.wavia.poudlardtv AUTO_START allow || appops set fr.wavia.poudlardtv APP_AUTO_START allow"`.
+Accept the "Allow USB debugging?" prompt on the TV, ticking "Always allow". Install with `adb` rather than by opening the APK on the TV; on Android 14, Play Protect may still show a warning: "More details" → "Install anyway". On some TCL models, allow background execution: `adb shell "appops set fr.wavia.poudlardtv AUTO_START allow || appops set fr.wavia.poudlardtv APP_AUTO_START allow"`.
 
-Sur **Chromecast with Google TV**, le port 5555 se referme à chaque redémarrage. Si `adb connect` échoue, appairez puis rouvrez-le, dans cet ordre (les deux ports affichés sous « Débogage sans fil » sont différents : un port d'appairage, un port de débogage) :
+On **Chromecast with Google TV**, port 5555 closes again at every reboot. If `adb connect` fails, pair first and then reopen it, in this order (the two ports shown under "Wireless debugging" are different: a pairing port and a debugging port):
 
 ```bash
-adb pair 192.168.1.50:37123 123456      # port et code affichés par « Appairer avec un code »
-adb connect 192.168.1.50:41567          # port affiché sous « Débogage sans fil »
+adb pair 192.168.1.50:37123 123456      # port and code shown by "Pair device with pairing code"
+adb connect 192.168.1.50:41567          # port shown under "Wireless debugging"
 adb tcpip 5555
 adb connect 192.168.1.50:5555
 ```
 
-### Définir comme accueil (Accueil → Poudlard)
+### Setting it as home (Home → Poudlard)
 
-Le choix de l'accueil appartient au système, pas au launcher ; Poudlard TV ne fait qu'ouvrir le sélecteur. Lancez Poudlard TV depuis la liste des applications (la Lettre d'admission se joue), puis :
+The choice of home screen belongs to the system, not to the launcher; Poudlard TV only opens the chooser. Launch Poudlard TV from the app list (the Admission Letter plays), then:
 
-- quand le bouton existe dans la maquette : Réglages → À propos → **Accueil → Poudlard** ouvre le sélecteur « Application d'accueil » de la TV (`Settings.ACTION_HOME_SETTINGS`), et vous y choisissez Poudlard TV ;
-- sinon : Paramètres → Applications → Accueil (ou le sélecteur « Ouvrir avec » → Poudlard TV → « Toujours ») ; en ligne de commande, `adb shell cmd package set-home-activity fr.wavia.poudlardtv/.Home` (seule commande qui touche aux réglages de la télé, réversible ci-dessous).
+- once the button exists in the mock-up: Settings → About → **Home → Poudlard** opens the TV's "Home app" chooser (`Settings.ACTION_HOME_SETTINGS`), where you pick Poudlard TV;
+- otherwise: Settings → Apps → Home (or the "Open with" chooser → Poudlard TV → "Always"); from the command line, `adb shell cmd package set-home-activity fr.wavia.poudlardtv/.Home` (the only command that touches the TV's settings, reversible below).
 
-La touche Home de la télécommande mène désormais au Parapet. Contrairement à Free My TV, rien n'est désactivé : l'accueil Google reste installé, actif et choisissable au même endroit.
+The remote's Home key now leads to the Parapet. Unlike Free My TV, nothing is disabled: the Google home screen stays installed, active and selectable in the same place.
 
-Vérifiez d'abord sur une clé Google TV ou un appareil secondaire avant la télévision principale.
+Try it first on a Google TV dongle or a secondary device before the main television.
 
-### Revenir à l'accueil d'origine (Accueil → Origine)
+### Going back to the original home (Home → Original)
 
-Quatre chemins, du plus doux au plus radical. Aucun ne demande de réinstaller la TV.
+Four paths, from the gentlest to the most radical. None requires resetting the TV.
 
-1. **Le mode classique**, sans quitter Poudlard TV : Retour maintenu 2 s depuis n'importe quel écran → « Nox ? » → Oui. Un accueil sobre, mêmes applications, sans décor. Le même geste rallume Poudlard.
-2. **Accueil → Origine** : le launcher désactive sa propre entrée d'accueil (l'alias `.Home`, une opération autorisée sans permission sur ses propres composants) et relance l'accueil d'origine. Le système n'a plus qu'un candidat, l'accueil Google, et la touche Home y retourne. Poudlard TV reste dans la liste des applications (alias `.Start`) pour revenir en arrière. Depuis la maquette (quand le bouton existe) : Réglages → À propos → Accueil → Origine ; depuis la télé : Paramètres → Applications → Accueil → Google TV ; en ligne de commande : `adb shell pm disable-user --user 0 fr.wavia.poudlardtv/.Home` (et `enable` pour le contraire).
-3. **Désinstaller** : Paramètres → Applications → Poudlard TV → Désinstaller, ou `adb uninstall fr.wavia.poudlardtv`. La configuration, stockée dans les données privées de l'application, part avec elle.
-4. **Filet de sécurité** : si le launcher se ferme anormalement trois fois en cinq minutes (un moteur WebView qui meurt compte aussi), il rend lui-même la main à l'accueil d'origine et affiche un écran sobre qui le dit (principe repris de Free My TV, sans adb). Il ne réessaie pas tant qu'on n'a pas refait Accueil → Poudlard. Au pire, un redémarrage de la TV (débrancher 10 s) suffit pour retrouver un système qui démarre.
+1. **Classic mode**, without leaving Poudlard TV: hold Back for 2 s from any screen → « Nox ? » → Yes. A sober home screen, same apps, no scenery. The same gesture lights Poudlard up again.
+2. **Home → Original**: the launcher disables its own home entry (the `.Home` alias, an operation allowed without permission on its own components) and relaunches the original home. The system is left with a single candidate, the Google home, and the Home key goes back to it. Poudlard TV stays in the app list (`.Start` alias) to come back. From the mock-up (once the button exists): Settings → About → Home → Original; from the TV: Settings → Apps → Home → Google TV; from the command line: `adb shell pm disable-user --user 0 fr.wavia.poudlardtv/.Home` (and `enable` for the opposite).
+3. **Uninstall**: Settings → Apps → Poudlard TV → Uninstall, or `adb uninstall fr.wavia.poudlardtv`. The configuration, stored in the app's private data, goes with it.
+4. **Safety net**: if the launcher closes abnormally three times in five minutes (a dying WebView engine counts too), it hands control back to the original home by itself and shows a plain screen saying so (a principle taken from Free My TV, without adb). It does not try again until you redo Home → Poudlard. At worst, rebooting the TV (unplug for 10 s) is enough to get back a system that boots.
 
-Rien n'est modifié dans le système : pas de root, pas de partition touchée, aucune application désactivée. Le launcher Google reste installé et à jour.
+Nothing is modified in the system: no root, no partition touched, no app disabled. The Google launcher stays installed and up to date.
 
-### Réglages sur la télévision
+### Settings on the television
 
-Tous les réglages se font dans l'interface (bouton Menu → La Salle sur Demande), au D-pad : applications du parapet et leur ordre, applications cachées, maison, Hedwige, sons et musique de fond, mouvement, veille, mode classique, et la rubrique « À propos » (réseau, version, réversibilité, réinitialisation). Il n'y a aucun fichier de configuration à éditer et rien à recompiler pour changer un réglage.
+All settings are made in the interface (Menu button → the Room of Requirement), with the D-pad: apps on the Parapet and their order, hidden apps, house, Hedwig, sounds and background music, motion, sleep, classic mode, and the "About" section (network, version, reversibility, reset). There is no configuration file to edit and nothing to recompile to change a setting.
 
-La configuration est un seul objet JSON, versionné et validé à la lecture (voir `app/README.md`). Sur TV il vit dans le `localStorage` de la WebView (origine `https://poudlard.tv`, servie depuis les assets de l'APK), dans les données privées de l'application : jamais synchronisé, jamais sauvegardé dans le cloud, effacé à la désinstallation.
+The configuration is a single JSON object, versioned and validated on read (see `app/README.md`). On TV it lives in the WebView's `localStorage` (origin `https://poudlard.tv`, served from the APK's assets), in the app's private data: never synced, never backed up to the cloud, erased on uninstall.
 
-### Dépannage
+### Troubleshooting
 
-| Symptôme | Cause probable | Que faire |
+| Symptom | Likely cause | What to do |
 |---|---|---|
-| `adb connect` refuse ou expire | Débogage non activé, ou port 5555 fermé (Chromecast) | Réactiver le débogage ; `adb pair` → `adb connect <ip:port-debogage>` → `adb tcpip 5555` → `adb connect <ip>:5555` |
-| « INSTALL_FAILED_… » à l'installation | APK d'une autre signature déjà installé | `adb uninstall fr.wavia.poudlardtv` puis réinstaller (et garder `poudlard.keystore` pour la suite) |
-| Une application ne se lance pas (Beuglante « n'est plus installée ») | Package absent, ou application sans activité Leanback | Vérifier le package dans Réglages ; lancer l'application une fois depuis l'accueil Google |
-| Une entrée HDMI ne bascule pas | Le modèle n'expose pas `TvInputManager` à une application tierce | Rester sur la télécommande pour la source ; retirer le Passage du parapet |
-| Écran noir au démarrage | Image de décor manquante ou WebView ancienne | Le mode classique est garanti sans image : Retour maintenu 2 s ; mettre à jour « Android System WebView » |
-| Polices par défaut (pas de Cinzel) | État normal de cette version : la maquette charge les polices depuis Google Fonts, ce que l'APK (sans réseau) ne peut pas faire | Placer les fichiers OFL (Cinzel, Cinzel Decorative, EB Garamond, IM Fell English) et leur licence dans `app/assets/fonts/`, les déclarer en `@font-face` dans `app/css/base.css`, reconstruire |
-| Rien à l'écran après trois plantages | Le filet de sécurité a rendu la main | Corriger la cause (`adb logcat -s PoudlardTV chromium`), puis refaire Accueil → Poudlard |
+| `adb connect` refuses or times out | Debugging not enabled, or port 5555 closed (Chromecast) | Re-enable debugging; `adb pair` → `adb connect <ip:debug-port>` → `adb tcpip 5555` → `adb connect <ip>:5555` |
+| "INSTALL_FAILED_…" on install | An APK with another signature is already installed | `adb uninstall fr.wavia.poudlardtv` then reinstall (and keep `poudlard.keystore` from now on) |
+| An app does not launch (Howler « n'est plus installée ») | Package missing, or app without a Leanback activity | Check the package in Settings; launch the app once from the Google home |
+| An HDMI input does not switch | The model does not expose `TvInputManager` to a third-party app | Use the remote for the source; remove the Passage from the Parapet |
+| Black screen at startup | Missing backdrop image or old WebView | Classic mode is guaranteed to work without images: hold Back for 2 s; update "Android System WebView" |
+| Default fonts (no Cinzel) | Normal state of this version: the mock-up loads fonts from Google Fonts, which the APK (no network) cannot do | Put the OFL files (Cinzel, Cinzel Decorative, EB Garamond, IM Fell English) and their licence in `app/assets/fonts/`, declare them with `@font-face` in `app/css/base.css`, rebuild |
+| Nothing on screen after three crashes | The safety net handed control back | Fix the cause (`adb logcat -s PoudlardTV chromium`), then redo Home → Poudlard |

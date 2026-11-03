@@ -1,13 +1,13 @@
-// Effets partagés : poussière d'or (canvas), éclat Lumos, et la bande-son (déléguée à sound.js : célesta
-// synthétisé pour les cues, musique de fond originale ou fichier personnel ; aucun fichier audio distribué).
-// Tout respecte `prefers-reduced-motion` et le réglage "motion: calme".
+// Shared effects: gold dust (canvas), the Lumos flash, and the soundtrack (delegated to sound.js: a synthesized
+// celesta for the cues, an original background score or a personal file; no audio file is distributed).
+// Everything respects `prefers-reduced-motion` and the "motion: calme" setting.
 import { Sound } from './sound.js';
 
 let canvas = null, ctx2d = null, W = 0, H = 0;
 const parts = [];
 let enabled = { dust: true, sound: false, calm: false };
 let raf = 0;
-let lastMove = -1e9;     // horodatage (ms) du dernier `move` joué via chime(), pour fondre les anciens accords
+let lastMove = -1e9;     // timestamp (ms) of the last `move` played through chime(), to merge the legacy chords
 
 const glow = document.createElement('canvas');
 glow.width = glow.height = 32;
@@ -60,7 +60,7 @@ function frame(now) {
 }
 
 export const Fx = {
-  // `host` : l'élément plein écran sur lequel poser le canvas de particules.
+  // `host`: the full-screen element the particle canvas is placed on.
   mount(host) {
     canvas = document.createElement('canvas');
     canvas.className = 'fx-dust';
@@ -70,14 +70,14 @@ export const Fx = {
     resize();
     if (!raf) raf = requestAnimationFrame(frame);
   },
-  // `sound` : coupe ou remet les cues instantanément (sound.js gère le mute en 30 ms et l'arrêt des notes en cours).
+  // `sound`: mutes or unmutes the cues instantly (sound.js handles the 30 ms mute and stops the notes in flight).
   configure(opts) {
     enabled = { ...enabled, ...opts };
     if (opts && 'sound' in opts) Sound.setEnabled(!!opts.sound);
   },
   size() { return { W, H }; },
 
-  // Jet de poussière à un point (coordonnées dans le host).
+  // Dust burst at a point (coordinates within the host).
   burst(x, y, n = 24, power = 90) {
     if (!enabled.dust || reduced()) return;
     for (let j = 0; j < n; j++) {
@@ -86,7 +86,7 @@ export const Fx = {
     }
   },
 
-  // Éclat "Lumos" : un halo qui grandit depuis un point puis envahit l'écran.
+  // "Lumos" flash: a halo that grows from a point and then floods the screen.
   lumos(host, x, y, ms = 900) {
     const el = document.createElement('div');
     el.className = 'fx-lumos';
@@ -99,35 +99,35 @@ export const Fx = {
     this.burst(x, y, 60, 140);
   },
 
-  // ----- Bande-son (voir sound.js) -----
-  // Peut être appelé au montage d'un écran : sans geste utilisateur, sound.js pose seulement ses écouteurs et créera
-  // le contexte au premier geste (rien ne sonne avant). Après un geste, crée le graphe audio (idempotent) et met la
-  // musique de fond en route selon config.music ('auto' par défaut : fichier personnel s'il existe, sinon célesta).
+  // ----- Soundtrack (see sound.js) -----
+  // May be called when a screen mounts: without a user gesture, sound.js only installs its listeners and will create
+  // the context on the first gesture (nothing plays before). After a gesture, builds the audio graph (idempotent) and
+  // starts the background music according to config.music ('auto' by default: personal file if present, otherwise celesta).
   initAudio() { Sound.init(); },
 
-  // Musique de fond : 'auto' | 'celesta' | 'aucune' (les valeurs de config.music), ou null pour suivre à nouveau la
-  // config (voir sound.js). Appelé par la rangée « Musique de fond » des Réglages. Un mode explicite remplace
-  // config.music jusqu'au prochain appel. Retourne false si le mode est inconnu. Coupée avec le son
-  // (configure({ sound: false })) : inutile d'appeler ambient('aucune') pour cela.
+  // Background music: 'auto' | 'celesta' | 'aucune' (the config.music values), or null to follow the config again
+  // (see sound.js). Called by the "Musique de fond" row of the Settings. An explicit mode overrides config.music
+  // until the next call. Returns false if the mode is unknown. Muted together with the sound
+  // (configure({ sound: false })): no need to call ambient('aucune') for that.
   ambient(mode) { return Sound.ambient(mode); },
 
-  // Mise en attente de la musique sans toucher au mode : ambientHold(true, 'nox') à l'entrée en veille,
-  // ambientHold(false, 'nox') au réveil ; 'launch' autour de Platform.launch. Les raisons se cumulent ; la musique
-  // reprend quand la dernière est levée. Retourne le nombre de raisons encore actives.
+  // Puts the music on hold without touching the mode: ambientHold(true, 'nox') when entering sleep,
+  // ambientHold(false, 'nox') on wake; 'launch' around Platform.launch. Reasons stack; the music resumes
+  // when the last one is lifted. Returns the number of reasons still active.
   ambientHold(on, reason) { return Sound.ambientHold(on, reason); },
 
-  // Joue un cue par son nom : move · enter · return · lumos · nox · wake · error · toggle · confirm.
-  // opts.dir : 1 (droite / montant) ou −1 (gauche / descendant) pour `move`.
+  // Plays a cue by name: move · enter · return · lumos · nox · wake · error · toggle · confirm.
+  // opts.dir: 1 (right / up) or −1 (left / down) for `move`.
   cue(name, opts = { dir: 1 }) { return Sound.cue(name, opts); },
 
-  // Alias historiques, gardés pour les écrans qui les appellent déjà (home, map, library, settings, sorting, rappeltout).
-  // chime(freq) : traduit l'ancienne clochette d'après la grammaire des écrans V3 :
-  //   ≥ 1500 Hz (1568)            → `confirm` : validation (OK sur une option, ajout, déplacement validé, coche)
-  //   1100–1499 Hz (1175, 1319…)  → `move` vers la droite / le haut
-  //   900–1099 Hz (988, 1046)     → `move` vers la gauche / le bas
-  //   600–899 Hz (659, 784, 880)  → `toggle` : annulation, sortie d'un mode, masquage (une note sèche, pas un pas)
-  //   < 600 Hz (440)              → `toggle` : butée, « rien à faire »
-  // Deux `move` à moins de 40 ms (anciens accords `chime(1046); chime(1318); chime(1568)`) ne font qu'un seul pas.
+  // Legacy aliases, kept for the screens that already call them (home, map, library, settings, sorting, rappeltout).
+  // chime(freq): maps the old bell to the V3 screen grammar:
+  //   ≥ 1500 Hz (1568)            → `confirm`: validation (OK on an option, addition, confirmed move, checkmark)
+  //   1100–1499 Hz (1175, 1319…)  → `move` to the right / up
+  //   900–1099 Hz (988, 1046)     → `move` to the left / down
+  //   600–899 Hz (659, 784, 880)  → `toggle`: cancel, leaving a mode, hiding (a single dry note, not a step)
+  //   < 600 Hz (440)              → `toggle`: hitting the edge, "nothing to do"
+  // Two `move` cues less than 40 ms apart (the old chords `chime(1046); chime(1318); chime(1568)`) make a single step.
   chime(freq = 1046, gain = 0.035) {
     if (freq >= 1500) return Sound.cue('confirm');
     if (freq < 900) return Sound.cue('toggle');
@@ -136,9 +136,9 @@ export const Fx = {
     lastMove = t;
     return Sound.cue('move', { dir: freq >= 1100 ? 1 : -1 });
   },
-  // arpeggio() : le lancement (Lumos).
+  // arpeggio(): the launch (Lumos).
   arpeggio() { return Sound.cue('lumos'); },
-  // whoosh() : TOUJOURS la phrase montante `return` (« on remonte vers le Parapet »). Un écran qui descend dans
-  // un sous-écran doit appeler cue('enter'), et un retrait d'appli cue('toggle') : l'alias ne devine pas le sens.
+  // whoosh(): ALWAYS the rising `return` phrase ("going back up to the Parapet"). A screen that descends into a
+  // sub-screen must call cue('enter'), and removing an app cue('toggle'): the alias does not guess the direction.
   whoosh() { return Sound.cue('return'); },
 };

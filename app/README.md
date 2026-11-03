@@ -1,76 +1,76 @@
-# Poudlard TV — la maquette web
+# Poudlard TV — the web mock-up
 
-Écran d'accueil de télévision « Poudlard », inspiré du reel « I vibecoded my TV to feel like Hogwarts » de @ikevinadams (Instagram).
-Ce dossier est la **maquette web** : elle se pilote au clavier comme avec une télécommande et sert de spécification
-interactive pour le portage Android TV, qui l'embarque telle quelle. Pour la présentation générale, l'installation et les
-droits, voir le `README.md` de la racine, `docs/` et `AVERTISSEMENT.md`.
+A "Hogwarts" TV home screen, inspired by the reel "I vibecoded my TV to feel like Hogwarts" by @ikevinadams (Instagram).
+This folder is the **web mock-up**: it is driven from the keyboard as if with a remote, and it serves as the interactive
+specification for the Android TV port, which embeds it as is. For the general overview, installation and legal notes, see the
+root `README.md`, `docs/` and `DISCLAIMER.md`.
 
-## Lancer la maquette
+## Running the mock-up
 
-Aucune dépendance. Les logos d'applications ne sont pas distribués (marques) : copiez le fichier d'exemple, puis servez
-le dépôt avec n'importe quel serveur statique (celui fourni suffit), depuis la racine du dépôt :
+No dependencies. App logos are not distributed (trademarks): copy the example file, then serve the repository with any
+static server (the one provided is enough), from the repository root:
 
 ```bash
-cp app/assets/logos.example.js app/assets/logos.js     # monogrammes à la place des logos
+cp app/assets/logos.example.js app/assets/logos.js     # monograms instead of logos
 node tools/serve.mjs . 8765
 ```
 
-Puis http://localhost:8765/app/index.html. Cliquez sur l'écran, puis :
+Then open http://localhost:8765/app/index.html. Click the screen, then:
 
-| Touche | Action |
+| Key | Action |
 |---|---|
-| ← → | choisir une appli (Hedwige s'envole, le décor glisse) ; 8 applis au plus, réparties sur la largeur |
-| ↓ | Ollivanders (la collection des films, lien direct vers l'appli qui les possède) |
-| ↑ | la barre en haut à droite : Son (coupe ou remet), La Carte du Maraudeur (toutes les applis, ajouter la sienne), Réglages |
-| Entrée | OK : Lumos, puis l'appli s'ouvre |
-| Entrée maintenue | Rappeltout (menu contextuel) |
-| Échap | Retour |
-| Échap maintenu 2 s | Nox ? → mode classique (launcher sobre) ; même geste pour revenir |
-| M | La Salle sur Demande (réglages) |
+| ← → | pick an app (Hedwig takes flight, the backdrop slides); 8 apps at most, spread across the width |
+| ↓ | Ollivanders (the film collection, with a direct link to the app that owns each title) |
+| ↑ | the top-right bar: Sound (mute or unmute), the Marauder's Map (every app, add your own), Settings |
+| Enter | OK: Lumos, then the app opens |
+| Enter held | Remembrall (Rappeltout, the context menu) |
+| Escape | Back |
+| Escape held 2 s | "Nox?" → classic mode (plain launcher); same gesture to come back |
+| M | the Room of Requirement (settings) |
 
-Au premier lancement, la Lettre d'admission (maison, applis, Hedwige) prend moins d'une minute.
-La veille (Nox) est **désactivée par défaut** (`idleSeconds: 0`) ; Réglages → Veille la règle de 1,5 à 10 min, ou jamais.
+On first launch, the Admission Letter (house, apps, Hedwig) takes under a minute.
+Sleep (Nox) is **off by default** (`idleSeconds: 0`); Settings → Sleep sets it from 1.5 to 10 minutes, or never.
 
-## Les écrans
+## The screens
 
-`home` Le Parapet · `library` Ollivanders (fichier `ollivanders.js`) · `map` La Carte du Maraudeur · `settings` La Salle
-sur Demande · `sorting` La Lettre d'admission · `classic` Le mode classique · plus Lumos, l'allumage et Nox, qui sont des
-états de l'accueil.
+`home` the Parapet · `library` Ollivanders (file `ollivanders.js`) · `map` the Marauder's Map · `settings` the Room of
+Requirement · `sorting` the Admission Letter · `classic` classic mode · plus Lumos, boot-up and Nox, which are states of
+the home screen.
 
-Direction artistique (typographie, palette, matières, chouette, signatures) : `CONTRAT.md`, section « Direction artistique ».
+Art direction (typography, palette, materials, owl, signature moments): `CONTRACT.md`, section "Art direction".
 
 ## Architecture
 
 ```
 app/
-  index.html            banc d'essai (cadre TV + télécommande à l'écran)
-  css/                  base (jetons), shared (matières), owl, rappeltout, beuglante, screens/<écran>.css
-  js/main.js            démarrage
-  js/config.js          catalogue d'applis, collections, réglages, applis ajoutées à la main, validation stricte du stockage
-  js/platform.js        la SEULE porte vers l'extérieur (lancer une appli, basculer une entrée, ouvrir un contenu, lister les applis installées)
-  js/input.js           D-pad : actions, appuis longs, file d'attente pendant Lumos
-  js/router.js          un écran à la fois, transitions fade / up / down / iris
-  js/fx.js              poussière, Lumos, cues sonores et musique de fond (via sound.js)
-  js/sound.js           célesta synthétisé en Web Audio : cues originales + valse de fond originale ; lecteur du fichier personnel
-  js/owl.js             Hedwige : poses photo fondues selon l'avancement du vol
-  js/monogram.js        logo de repli : l'initiale dans un cercle, même format que LOGOS
-  js/crests.js          écussons des maisons, traits à la plume, sans blason officiel
-  js/rappeltout.js      menu contextuel partagé
-  js/beuglante.js       message d'erreur partagé
-  js/screens/<écran>.js un fichier par écran : { mount, unmount, onKey }
-  assets/               images générées en local (château, brume, parchemin, chouette, vitrine Ollivanders)
-  assets/logos.example.js   LOGOS vide ; le vrai logos.js est hors dépôt (voir tools/README.md)
-  assets/music/         musique de fond personnelle (ambiance.ogg, .mp3 ou .m4a), hors dépôt (voir docs/MUSIQUE.md)
-tools/                  serveur statique, assemblage des logos, test d'originalité de la valse, détourage, méthode de génération des décors
-android/                portage Android TV (Java pur, sans Gradle) : WebView + pont window.Android
+  index.html            test bench (TV frame + on-screen remote)
+  css/                  base (tokens), shared (materials), owl, rappeltout, beuglante, screens/<screen>.css
+  js/main.js            start-up
+  js/config.js          app catalog, collections, settings, hand-added apps, strict validation of stored data
+  js/platform.js        the ONLY door to the outside (launch an app, switch an input, open a title, list installed apps)
+  js/input.js           D-pad: actions, long presses, queue during Lumos
+  js/router.js          one screen at a time, fade / up / down / iris transitions
+  js/fx.js              dust, Lumos, sound cues and background music (through sound.js)
+  js/sound.js           celesta synthesized in Web Audio: original cues + original background waltz; player for the personal file
+  js/owl.js             Hedwig: photo poses cross-faded according to flight progress
+  js/monogram.js        fallback logo: the initial in a circle, same format as LOGOS
+  js/crests.js          house crests, pen strokes, no official coat of arms
+  js/rappeltout.js      shared context menu
+  js/beuglante.js       shared error message
+  js/screens/<screen>.js one file per screen: { mount, unmount, onKey }
+  assets/               locally generated images (castle, mist, parchment, owl, Ollivanders shop window)
+  assets/logos.example.js   empty LOGOS; the real logos.js stays out of the repo (see tools/README.md)
+  assets/music/         personal background music (ambiance.ogg, .mp3 or .m4a), out of the repo (see docs/MUSIC.md)
+tools/                  static server, logo bundling, originality test for the waltz, owl cut-out, how the backdrops were generated
+android/                Android TV port (plain Java, no Gradle): WebView + window.Android bridge
 ```
 
-Côté Android, la maquette est copiée telle quelle dans l'APK par `android/build.sh` et servie à la WebView sous
-`https://poudlard.tv/` ; seul `platform.js` change de comportement (pont `window.Android`).
+On Android, the mock-up is copied as is into the APK by `android/build.sh` and served to the WebView under
+`https://poudlard.tv/`; only `platform.js` behaves differently (the `window.Android` bridge).
 
-## Modèle de configuration
+## Configuration model
 
-Un seul objet, lisible, versionné, validé à la lecture (`sanitize()` ignore tout ce qui n'est pas connu) :
+A single object, readable, versioned, validated on read (`sanitize()` drops anything it does not know):
 
 ```json
 { "version": 3, "mode": "poudlard", "house": "gryffondor",
@@ -83,46 +83,46 @@ Un seul objet, lisible, versionné, validé à la lecture (`sanitize()` ignore t
   "custom": [{ "id": "c_1", "name": "Molotov", "pkg": "tv.molotov.app" }] }
 ```
 
-- `music` : musique de fond, `auto` (fichier personnel s'il existe, sinon la valse de célesta) | `celesta` | `aucune` ; voir `docs/MUSIQUE.md`.
-- `idleSeconds` : veille, 0 = jamais ; l'interface propose 90, 180, 300, 600 ou 0, `sanitize()` accepte 0 à 3600.
+- `music`: background music, `auto` (the personal file if present, otherwise the celesta waltz) | `celesta` | `aucune` (none); see `docs/MUSIC.md`.
+- `idleSeconds`: sleep, 0 = never; the interface offers 90, 180, 300, 600 or 0, `sanitize()` accepts 0 to 3600.
 
-Maquette : `localStorage` du navigateur. Android : `localStorage` de la WebView (origine `https://poudlard.tv`), dans les
-données privées de l'application, jamais synchronisé, effacé à la désinstallation. Une configuration d'une version
-antérieure est migrée à la lecture (la veille, 90 s avant la version 3, passe à 0).
+Mock-up: the browser's `localStorage`. Android: the WebView's `localStorage` (origin `https://poudlard.tv`), in the app's
+private data, never synced, wiped on uninstall. A configuration from an earlier version is migrated on read (sleep, 90 s
+before version 3, becomes 0).
 
-## Sécurité (dans l'ordre d'importance)
+## Security (in order of importance)
 
-1. **Aucune permission réseau.** Le manifeste Android ne déclare ni `INTERNET` ni `ACCESS_NETWORK_STATE` : le système interdit lui-même toute connexion, vérifiable en une ligne (`aapt dump permissions`). En maquette, la seule requête distante est celle des polices Google ; dans l'APK, elle échoue proprement et la WebView retombe sur les polices système tant que `app/assets/fonts/` n'existe pas.
-2. **Aucune bibliothèque tierce**, aucune analytics, aucun crash reporter, aucun service d'accessibilité, aucun récepteur au démarrage hors catégorie HOME. `QUERY_ALL_PACKAGES` remplacé par un bloc `<queries>` ciblant `LEANBACK_LAUNCHER`.
-3. **Lancement par intent explicite uniquement** (`getLeanbackLaunchIntentForPackage`), sur un package présent dans la config ; liens profonds uniquement depuis la config, hôtes en liste blanche (`platform.js`, identique dans `Apps.java`), jamais d'URL saisie à l'écran. Un intent qui échoue donne une Beuglante, jamais un crash.
-4. **Aucune collecte** : pas d'historique, pas de compte. Le launcher ne connaît que l'heure et la liste des applis installées.
-5. **Réversibilité totale** : le launcher Google reste installé ; Accueil → Origine dans Réglages → À propos (bouton à brancher, voir ci-dessous) ; Retour maintenu 2 s rappelle le mode classique depuis n'importe quel écran ; désinstaller l'APK remet tout en place ; trois fermetures anormales en cinq minutes rendent la main d'elles-mêmes (méthode Free My TV).
+1. **No network permission.** The Android manifest declares neither `INTERNET` nor `ACCESS_NETWORK_STATE`: the system itself forbids any connection, which can be checked in one line (`aapt dump permissions`). In the mock-up, the only remote request is for Google Fonts; in the APK it fails cleanly and the WebView falls back to system fonts as long as `app/assets/fonts/` does not exist.
+2. **No third-party library**, no analytics, no crash reporter, no accessibility service, no boot receiver outside the HOME category. `QUERY_ALL_PACKAGES` replaced by a `<queries>` block targeting `LEANBACK_LAUNCHER`.
+3. **Launch by explicit intent only** (`getLeanbackLaunchIntentForPackage`), on a package present in the config; deep links only from the config, allow-listed hosts (`platform.js`, identical in `Apps.java`), never a URL typed on screen. An intent that fails produces a Howler (Beuglante), never a crash.
+4. **No data collection**: no history, no account. The launcher only knows the time and the list of installed apps.
+5. **Fully reversible**: the Google launcher stays installed; Home → Original in Settings → About (button still to be wired, see below); Back held 2 s brings back classic mode from any screen; uninstalling the APK restores everything; three abnormal exits within five minutes hand control back on their own (the Free My TV method).
 
-## Images, sons et droits
+## Images, sounds and rights
 
-- Château, parchemin, brume, chouette, vitrine : générés en local (méthode dans `tools/README.md`), sans photo des films, sans logo Warner, sans lettrage éclair.
-- Logos des applis : **non distribués**. `LOGOS[id]` absent → `monogram(name)`. Pour un usage privé, `tools/README.md` explique comment assembler son propre `logos.js` ; sur Android, le pont expose l'icône fournie par chaque appli (`appIcon(pkg)`), pas encore appelée par les écrans.
-- Sons : synthétisés (`sound.js`), phrases originales, aucune mélodie des films. Musique de fond : une valse de célesta originale, elle aussi synthétisée, ou un fichier personnel hors dépôt (`docs/MUSIQUE.md`).
-- Polices : Cinzel, Cinzel Decorative, EB Garamond, IM Fell English (licence OFL), chargées depuis Google Fonts en maquette ; à embarquer dans `app/assets/fonts/` avec leur licence pour l'APK.
+- Castle, parchment, mist, owl, shop window: generated locally (method in `tools/README.md`), with no film stills, no Warner logo, no lightning-bolt lettering.
+- App logos: **not distributed**. `LOGOS[id]` missing → `monogram(name)`. For private use, `tools/README.md` explains how to bundle your own `logos.js`; on Android, the bridge exposes the icon each app provides (`appIcon(pkg)`), not yet called by the screens.
+- Sounds: synthesized (`sound.js`), original phrases, no melody from the films. Background music: an original celesta waltz, also synthesized, or a personal file kept out of the repo (`docs/MUSIC.md`).
+- Fonts: Cinzel, Cinzel Decorative, EB Garamond, IM Fell English (OFL licence), loaded from Google Fonts in the mock-up; to be bundled in `app/assets/fonts/` with their licence for the APK.
 
-## Portage Android TV
+## Android TV port
 
-Référence de méthode : [Free My TV](https://github.com/simbasjungles/free-my-tv) (MIT) — sans Gradle ni bibliothèque, installation par `adb`, intents Leanback avec repli, liste des applis installées sans `QUERY_ALL_PACKAGES`, entrées HDMI, filet de sécurité qui rend la main à l'accueil d'origine après trois plantages. Ce qu'on reprend et ce qu'on laisse (son adb interne et la désactivation de l'accueil Google, incompatibles avec nos règles) : `docs/FREE-MY-TV.md`.
+Reference method: [Free My TV](https://github.com/simbasjungles/free-my-tv) (MIT) — no Gradle, no library, installation through `adb`, Leanback intents with fallback, list of installed apps without `QUERY_ALL_PACKAGES`, HDMI inputs, safety net that hands control back to the original home after three crashes. What we keep and what we leave out (its built-in adb and the disabling of the Google home, incompatible with our rules): `docs/FREE-MY-TV.md`.
 
-Ce qui existe dans `android/` (Java pur, `build.sh`) : `minSdk 26`, catégorie `HOME` (alias `.Home`, désactivable) + `LEANBACK_LAUNCHER` (alias `.Start`), WebView qui charge `app/` depuis les assets, modules `Apps` (découverte, bannières, intents, liste blanche, HDMI), `HomeMode` (sélecteur système / rendre l'accueil), `Watchdog` (filet de sécurité), `HomeActivity`, et le pont `Bridge` :
+What exists in `android/` (plain Java, `build.sh`): `minSdk 26`, `HOME` category (alias `.Home`, can be disabled) + `LEANBACK_LAUNCHER` (alias `.Start`), a WebView that loads `app/` from the assets, the `Apps` module (discovery, banners, intents, allow-list, HDMI), `HomeMode` (system picker / hand the home back), `Watchdog` (safety net), `HomeActivity`, and the `Bridge`:
 
-| Méthode `window.Android` | Appelée par `platform.js` ? | Retour |
+| `window.Android` method | Called by `platform.js`? | Returns |
 |---|---|---|
-| `launch(pkg)` | oui | `{ ok, error }` |
-| `switchInput(input)` | oui | `{ ok, error }` |
-| `openUrl(url, pkg)` | oui | `{ ok, error }` |
-| `installedPackages()` | oui | tableau JSON de packages |
-| `appIcon(pkg)` | pas encore | data URI PNG, ou `null` |
-| `setHome('poudlard' \| 'original')` | pas encore | `{ ok, error }` |
-| `homeMode()` | pas encore | `"poudlard"` ou `"original"` |
-| `version()` | pas encore | chaîne |
+| `launch(pkg)` | yes | `{ ok, error }` |
+| `switchInput(input)` | yes | `{ ok, error }` |
+| `openUrl(url, pkg)` | yes | `{ ok, error }` |
+| `installedPackages()` | yes | JSON array of packages |
+| `appIcon(pkg)` | not yet | PNG data URI, or `null` |
+| `setHome('poudlard' \| 'original')` | not yet | `{ ok, error }` |
+| `homeMode()` | not yet | `"poudlard"` or `"original"` |
+| `version()` | not yet | string |
 
-Ce qui reste à faire côté maquette : `Platform.setHome(mode)` et `Platform.homeMode()` dans `platform.js`, les deux boutons
-**Accueil → Poudlard** / **Accueil → Origine** dans Réglages → À propos (à la place de « Rendre l'accueil Google »), `appIcon`
-en mode classique, les polices dans `app/assets/fonts/` (`@font-face` dans `base.css`), une `tv.html` sans banc d'essai.
-Pas à pas d'installation dans `docs/INSTALLATION.md`, détail du portage dans `android/README.md`.
+Still to do on the mock-up side: `Platform.setHome(mode)` and `Platform.homeMode()` in `platform.js`, the two buttons
+**Home → Poudlard** / **Home → Original** in Settings → About (replacing "Hand the home back to Google"), `appIcon`
+in classic mode, the fonts in `app/assets/fonts/` (`@font-face` in `base.css`), a `tv.html` without the test bench.
+Step-by-step installation in `docs/INSTALLATION.md`, port details in `android/README.md`.

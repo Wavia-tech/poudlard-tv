@@ -1,26 +1,26 @@
-/* Socle : jetons, banc d'essai, scène TV, transitions d'écrans, effets partagés.
-   L'interface TV elle-même vit dans `.stage` et se mesure en cqw (1 cqw = 1 % de la largeur de l'écran). */
+/* Foundation: tokens, test bench, TV stage, screen transitions, shared effects.
+   The TV interface itself lives inside `.stage` and is measured in cqw (1 cqw = 1% of the screen width). */
 :root {
-  /* Banc d'essai */
+  /* Test bench */
   --bg: #090e19; --panel: #111a2c; --line: #24324f; --fg: #e7ebf3; --muted: #8e9bb4;
-  /* Palette de l'interface (blueprint) */
+  /* Interface palette (blueprint) */
   --night: #070B14; --stone: #1C2230; --moon: #C9D9EA; --mist: #8FB3D9; --ivory: #F1EBDD;
   --gold-light: #F1D58A; --gold: #C9A24A; --gold-dark: #6E4C14; --candle: #FFB457; --parchment: #E8D9B5; --ink: #1B1510;
   --wax: #7a1f1f; --house-glow: #ffb457;
-  /* Trois familles, trois rôles */
-  --display: "Cinzel", "Trajan Pro", Georgia, serif;        /* gravé : heure, noms, plaques, titres */
-  --body: "EB Garamond", Garamond, Georgia, serif;           /* lu : date, états, réglages */
-  --fell: "IM Fell English", "EB Garamond", Georgia, serif;  /* écrit par un sorcier : Carte, Bibliothèque, Lettre */
+  /* Three families, three roles */
+  --display: "Cinzel", "Trajan Pro", Georgia, serif;        /* engraved: time, names, plates, titles */
+  --body: "EB Garamond", Garamond, Georgia, serif;           /* read: date, states, settings */
+  --fell: "IM Fell English", "EB Garamond", Georgia, serif;  /* written by a wizard: Map, Library, Letter */
   --title: var(--display); --serif: var(--body); --book: var(--fell);
   --ui: "Segoe UI", system-ui, sans-serif;
-  --k: 1;                      /* facteur de temps : 3 en ralenti */
+  --k: 1;                      /* time factor: 3 in slow motion */
   color-scheme: dark;
 }
 :root[data-slow="1"] { --k: 3; }
 * { box-sizing: border-box; }
 html, body { margin: 0; background: var(--bg); color: var(--fg); font-family: var(--ui); font-size: 15px; line-height: 1.5; }
 
-/* ---- Banc d'essai (hors TV) ---- */
+/* ---- Test bench (outside the TV) ---- */
 .bench { max-width: 1360px; margin: 0 auto; padding: 24px max(16px, env(safe-area-inset-left)) 48px; display: grid; gap: 20px; }
 .bench-head h1 { font-family: var(--title); font-weight: 600; letter-spacing: .08em; font-size: clamp(22px, 3vw, 30px); color: var(--gold); margin: 0; }
 .bench-head p { margin: 6px 0 0; color: var(--muted); max-width: 76ch; }
@@ -40,7 +40,7 @@ html, body { margin: 0; background: var(--bg); color: var(--fg); font-family: va
 .toggle { display: flex; align-items: center; gap: 10px; font-size: 14px; cursor: pointer; margin-bottom: 10px; }
 .toggle input { width: 17px; height: 17px; accent-color: var(--gold); margin: 0; }
 
-/* ---- Scène TV ---- */
+/* ---- TV stage ---- */
 .stage { position: relative; width: 100%; aspect-ratio: 16 / 9; overflow: hidden; border-radius: 6px; background: #000; outline: none;
   container-type: inline-size; cursor: default; font-size: 1cqw; }
 .stage:fullscreen { border-radius: 0; width: 100vw; height: 100vh; aspect-ratio: auto; }
@@ -48,7 +48,7 @@ html, body { margin: 0; background: var(--bg); color: var(--fg); font-family: va
 .screen { position: absolute; inset: 0; overflow: hidden; transition: transform calc(var(--k) * 700ms) cubic-bezier(.65, 0, .25, 1), opacity calc(var(--k) * 600ms) ease; }
 .screen.enter-fade { opacity: 0; }
 .screen.leave-fade { opacity: 0; }
-.screen.enter-up { transform: translateY(100%); }     /* le nouvel écran monte depuis le bas */
+.screen.enter-up { transform: translateY(100%); }     /* the new screen rises from the bottom */
 .screen.leave-up { transform: translateY(-100%); }
 .screen.enter-down { transform: translateY(-100%); }
 .screen.leave-down { transform: translateY(100%); }

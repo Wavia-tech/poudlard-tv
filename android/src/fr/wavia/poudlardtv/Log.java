@@ -1,8 +1,8 @@
 package fr.wavia.poudlardtv;
 
 /**
- * Journal minimal vers logcat (tag unique « PoudlardTV »), à la manière de AppLog dans Free My TV.
- * Rien n'est écrit sur disque, rien ne quitte l'appareil : `adb logcat -s PoudlardTV` suffit pour déboguer.
+ * Minimal logging to logcat (single tag "PoudlardTV"), in the manner of AppLog in Free My TV.
+ * Nothing is written to disk, nothing leaves the device: `adb logcat -s PoudlardTV` is enough to debug.
  */
 final class Log {
     private static final String TAG = "PoudlardTV";

@@ -1,17 +1,17 @@
-// Mode classique (« le lundi matin ») : un launcher ordinaire, lisible par n'importe qui, sans chouette ni décor.
-// Même configuration que Poudlard (parapet, ordre, applis masquées) : seule la couche de présentation change.
+// Classic mode ("Monday morning"): an ordinary launcher, readable by anyone, with no owl and no scenery.
+// Same configuration as Hogwarts mode (parapet, order, hidden apps): only the presentation layer changes.
 //
-// Grille 6 par ligne, tuiles de pierre 16:9, lignes par catégorie : Parapet · Vidéo · Jeux · Autres · Passages,
-// puis une dernière ligne « Réglages » et « Lumos » (rallumer Poudlard). Une catégorie de plus de 6 applis est
-// découpée en plusieurs lignes visuelles (la première porte le titre) : `this.rows` correspond toujours à ce
-// qui est affiché, et la navigation D-pad suit l'écran.
-// Focus = cadre ivoire + scale 1.06 en 150 ms, rien d'autre : c'est voulu.
+// Grid of 6 per row, 16:9 stone tiles, rows by category: Parapet · Vidéo · Jeux · Autres · Passages,
+// then a last row with "Réglages" (Settings) and "Lumos" (relight Hogwarts). A category of more than 6 apps is
+// split into several visual rows (the first carries the title): `this.rows` always matches what is
+// displayed, and D-pad navigation follows the screen.
+// Focus = ivory frame + scale 1.06 in 150 ms, nothing else: by design.
 //
-// Entrée depuis Poudlard : la seule transition longue de cet écran (900 ms). La bougie s'éteint, une fumée
-// monte sur la nuit, la grille apparaît dessous. Rien de tout cela en mouvement réduit, ni au démarrage de la TV.
+// Entering from Hogwarts mode: the only long transition of this screen (900 ms). The candle goes out, smoke
+// rises over the night, the grid appears underneath. None of this in reduced motion, nor at TV boot.
 //
-// Touches : D-pad (mémoire de colonne), OK lance, OK long → Rappeltout, haut sur la première ligne → Réglages,
-// Retour : rien (pas de piège), Retour long ou « Lumos » → mode Poudlard.
+// Keys: D-pad (column memory), OK launches, long OK → Remembrall (Rappeltout), up on the first row → Settings,
+// Back: nothing (no trap), long Back or "Lumos" → Hogwarts mode.
 
 import { getConfig, updateConfig, allApps, removeCustomApp, DOCK_MAX, isReduced } from '../config.js';
 import { Platform } from '../platform.js';
@@ -20,30 +20,30 @@ import { LOGOS } from '../../assets/logos.js';
 import { monogram } from '../monogram.js';
 import { beuglante } from '../beuglante.js';
 
-const COLS = 6;                  // tuiles par ligne visuelle (la grille CSS a le même nombre de colonnes)
-const BANNER_MS = 1200;          // bandeau « Ouverture de X » en maquette
-const BRIDGE_MS = 3000;          // sur la TV : le temps que l'appli prenne l'écran
-const SMOKE_MS = 900;            // la bascule Poudlard → classique
-const SMOKE_GRID_AT = 350;       // la grille apparaît sous la fumée à ce moment-là
-const PUFFS = 5;                 // volutes de fumée
+const COLS = 6;                  // tiles per visual row (the CSS grid has the same column count)
+const BANNER_MS = 1200;          // "Ouverture de X" banner in the mockup
+const BRIDGE_MS = 3000;          // on the TV: time for the app to take the screen
+const SMOKE_MS = 900;            // the Hogwarts → classic switch
+const SMOKE_GRID_AT = 350;       // the grid appears under the smoke at this point
+const PUFFS = 5;                 // smoke puffs
 
-// Libellés des catégories, dans l'ordre d'affichage. Une catégorie vide n'apparaît pas.
+// Category labels, in display order. An empty category does not appear.
 const CATEGORIES = [
   ['video', 'Vidéo'],
   ['jeux', 'Jeux'],
   ['autres', 'Autres'],
-  ['perso', 'Perso'],          // applis ajoutées à la main (V4, config.custom)
+  ['perso', 'Perso'],          // hand-added apps (V4, config.custom)
   ['passage', 'Passages'],
 ];
 
-// Glyphes des deux tuiles spéciales (SVG inline, traits ivoire) : une plume pour Réglages, une bougie pour Lumos.
+// Glyphs of the two special tiles (inline SVG, ivory strokes): a quill for Settings, a candle for Lumos.
 const GLYPHS = {
   settings: '<svg viewBox="0 0 48 48" aria-hidden="true"><path d="M38 8c-9 1-17 8-21 18l-3 9 9-3c10-4 17-12 18-21z"/><path d="M14 35 9 40"/><path d="M22 22l8 8"/></svg>',
   lumos: '<svg viewBox="0 0 48 48" aria-hidden="true"><path d="M24 6c-4 6-6 9-6 13a6 6 0 0 0 12 0c0-4-2-7-6-13z"/><path d="M18 26h12v14H18z"/><path d="M12 40h24"/></svg>',
 };
 
-// Le module Rappeltout est écrit en parallèle par un collègue : import dynamique, et si tout manque, on ignore.
-// On garde aussi `dismissRappeltout` pour refermer une sphère ouverte au démontage de l'écran.
+// The Remembrall module is being written in parallel by a colleague: dynamic import, and if it is missing, ignore it.
+// `dismissRappeltout` is also kept to close an open sphere when the screen unmounts.
 let rappeltoutPromise = null;
 let dismissRappeltout = null;
 function loadRappeltout() {
@@ -58,8 +58,8 @@ function loadRappeltout() {
   return rappeltoutPromise;
 }
 
-// Découpe une liste en tranches de COLS. La première tranche porte le titre, les suivantes sont des
-// lignes de continuation (classe .cls-row-cont, sans titre, collées à la précédente).
+// Slices a list into chunks of COLS. The first chunk carries the title, the following ones are
+// continuation rows (.cls-row-cont class, no title, flush against the previous one).
 function sliceRows(title, items, extra = {}) {
   const out = [];
   for (let i = 0; i < items.length; i += COLS) {
@@ -70,18 +70,18 @@ function sliceRows(title, items, extra = {}) {
 
 export default {
   root: null, ctx: null,
-  rows: [],          // lignes VISUELLES : [{ title, cont, tail?, items: [{ kind: 'app'|'settings'|'lumos', app?, el }], el }]
-  r: 0, c: 0,        // ligne et colonne en focus
-  wantCol: 0,        // mémoire de colonne quand on change de ligne
-  busy: false,       // bandeau, Rappeltout, bascule ou fumée en cours : touches mises en file (Input.hold)
-  held: false,       // vrai tant que nous tenons la file d'attente d'Input
-  _off: 0,           // décalage de défilement courant (px)
+  rows: [],          // VISUAL rows: [{ title, cont, tail?, items: [{ kind: 'app'|'settings'|'lumos', app?, el }], el }]
+  r: 0, c: 0,        // focused row and column
+  wantCol: 0,        // column memory when changing rows
+  busy: false,       // banner, Remembrall, switch or smoke in progress: keys are queued (Input.hold)
+  held: false,       // true while we hold the Input queue
+  _off: 0,           // current scroll offset (px)
   timers: [], msg: null, installed: null,
 
   async mount(root, ctx) {
     this.root = root; this.ctx = ctx; this.timers = [];
     this.busy = false; this.held = false; this._off = 0; this.msg = null;
-    this.installed = Platform.installed();   // Set de packages, ou null (maquette : tout est installé)
+    this.installed = Platform.installed();   // Set of packages, or null (mockup: everything is installed)
 
     root.innerHTML = `
       <div class="cls-clock"><div class="cls-time"></div><div class="cls-date"></div></div>
@@ -92,7 +92,7 @@ export default {
     this.tick();
     this.timers.push(setInterval(() => this.tick(), 15000));
 
-    // Focus de départ : la dernière appli lancée si elle est sur la grille, sinon la première tuile.
+    // Starting focus: the last launched app if it is on the grid, otherwise the first tile.
     this.build();
     const last = getConfig().lastApp;
     let found = null;
@@ -101,9 +101,9 @@ export default {
     this.wantCol = this.c;
     this.focus(true);
 
-    // Bascule Poudlard → classique : la fumée, sauf au démarrage de la TV (params.boot) et en mouvement réduit.
-    // home.js et settings.js peuvent le dire explicitement avec { smoke: true } ; sans paramètre, tout montage
-    // qui n'est pas un démarrage est une bascule.
+    // Hogwarts → classic switch: the smoke, except at TV boot (params.boot) and in reduced motion.
+    // home.js and settings.js can say so explicitly with { smoke: true }; without a parameter, any mount
+    // that is not a boot is a switch.
     const p = ctx.params || {};
     const smoke = p.smoke === true || (p.smoke !== false && !p.boot);
     if (smoke && !isReduced()) this.smoke();
@@ -114,13 +114,13 @@ export default {
     this.timers.forEach((t) => { clearInterval(t); clearTimeout(t); });
     this.timers = [];
     if (this.msg) { this.msg.close(); this.msg = null; }
-    if (typeof dismissRappeltout === 'function') dismissRappeltout();   // une sphère ouverte ne reste pas orpheline
-    this.release();                                                      // jamais de file d'attente laissée fermée
+    if (typeof dismissRappeltout === 'function') dismissRappeltout();   // an open sphere is not left orphaned
+    this.release();                                                      // never leave the input queue closed
     this.busy = false;
     this.rows = [];
   },
 
-  // Horloge Cinzel + date EB Garamond.
+  // Cinzel clock + EB Garamond date.
   tick() {
     const now = new Date();
     const t = this.root.querySelector('.cls-time'), d = this.root.querySelector('.cls-date');
@@ -128,20 +128,20 @@ export default {
     if (d) d.textContent = now.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
   },
 
-  // Facteur de temps du banc d'essai (ralenti ×3).
+  // Test bench time factor (×3 slow motion).
   k() {
     const k = Number(getComputedStyle(this.root).getPropertyValue('--k'));
     return Number.isFinite(k) && k > 0 ? k : 1;
   },
 
-  // Occupé : les touches sont mises en file par input.js et rejouées à la fin, jamais perdues.
+  // Busy: keys are queued by input.js and replayed at the end, never lost.
   hold() { if (!this.held) { this.held = true; Input.hold(); } this.busy = true; },
   release() { this.busy = false; if (this.held) { this.held = false; Input.release(); } },
 
-  // ---- Construction de la grille ---------------------------------------------------------------------------
+  // ---- Building the grid ----------------------------------------------------------------------------------
 
-  // Lignes visuelles à partir de la config partagée : Parapet (dans l'ordre du dock), puis les catégories,
-  // puis Réglages / Lumos. Chaque liste est tranchée par COLS pour que `rows` soit exactement ce qui s'affiche.
+  // Visual rows from the shared config: Parapet (in dock order), then the categories,
+  // then Settings / Lumos. Each list is sliced by COLS so that `rows` is exactly what is displayed.
   computeRows() {
     const cfg = getConfig();
     const apps = allApps().filter((a) => !a.hidden);
@@ -160,7 +160,7 @@ export default {
     return rows;
   },
 
-  // Rend (ou re-rend) toutes les lignes. Les noms viennent du CATALOG : textContent partout.
+  // Renders (or re-renders) every row. Names come from the CATALOG: textContent everywhere.
   build() {
     const host = this.root.querySelector('.cls-rows');
     host.textContent = '';
@@ -195,18 +195,18 @@ export default {
     }
   },
 
-  // Tuile d'appli : plaque de pierre 16:9, logo ivoire centré (ou l'initiale en Cinzel si le logo manque), nom dessous.
-  // Logo à plat, une seule couche : exception assumée du mode classique (blueprint : « focus = cadre + scale, rien d'autre »).
+  // App tile: 16:9 stone plate, centred ivory logo (or the initial in Cinzel if the logo is missing), name below.
+  // Flat logo, a single layer: a deliberate exception of classic mode (blueprint: "focus = frame + scale, nothing else").
   tileApp(app) {
     const el = document.createElement('div');
     el.className = 'cls-tile';
     const plate = document.createElement('div');
     plate.className = 'cls-plate';
-    const L = LOGOS[app.id] || monogram(app.name);      // appli ajoutée à la main : son monogramme
+    const L = LOGOS[app.id] || monogram(app.name);      // hand-added app: its monogram
     if (L && L.src) {
       const box = document.createElement('div');
       box.className = 'cls-icon';
-      // Hauteur fixe, largeur = hauteur × ratio, plafonnée à la plaque.
+      // Fixed height, width = height × ratio, capped to the plate.
       const h = 3.4, w = Math.min(10.5, Math.max(2.2, h * (L.ratio || 1)));
       box.style.width = w + 'cqw';
       box.style.height = h + 'cqw';
@@ -232,7 +232,7 @@ export default {
     return el;
   },
 
-  // Tuiles « Réglages » et « Lumos » : glyphe SVG constant (pas de donnée), nom en EB Garamond.
+  // "Réglages" and "Lumos" tiles: constant SVG glyph (no data), name in EB Garamond.
   tileSpecial(kind) {
     const el = document.createElement('div');
     el.className = 'cls-tile cls-tile-' + kind;
@@ -240,7 +240,7 @@ export default {
     plate.className = 'cls-plate';
     const g = document.createElement('div');
     g.className = 'cls-svg';
-    g.innerHTML = GLYPHS[kind] || '';     // constante du module, jamais une donnée
+    g.innerHTML = GLYPHS[kind] || '';     // module constant, never data
     plate.appendChild(g);
     const name = document.createElement('div');
     name.className = 'cls-name';
@@ -249,13 +249,13 @@ export default {
     return el;
   },
 
-  // Une appli est « installée » si la TV ne dit pas le contraire. Les Passages (HDMI) ne sont pas des packages.
+  // An app is "installed" unless the TV says otherwise. Passages (HDMI) are not packages.
   isInstalled(app) {
     if (!this.installed || !app.pkg) return true;
     return this.installed.has(app.pkg);
   },
 
-  // Entrée de la grille : les lignes se posent en fondu léger, décalées de 40 ms. Rien si mouvement réduit.
+  // Grid entrance: rows settle with a light fade, staggered by 40 ms. Nothing in reduced motion.
   enter() {
     if (isReduced()) return;
     const k = this.k();
@@ -268,9 +268,9 @@ export default {
     });
   },
 
-  // La bascule (900 ms) : un calque de nuit couvre la grille, une braise de bougie en bas s'éteint,
-  // des volutes ivoire montent (ellipses en radial-gradient, aucun blur : la douceur est dans le dégradé),
-  // le calque se dissipe et la grille apparaît dessous à 350 ms. Transform et opacité seulement, en WAAPI.
+  // The switch (900 ms): a night layer covers the grid, a candle ember at the bottom goes out,
+  // ivory puffs rise (radial-gradient ellipses, no blur: the softness is in the gradient),
+  // the layer dissipates and the grid appears underneath at 350 ms. Transform and opacity only, in WAAPI.
   smoke() {
     const k = this.k();
     const layer = document.createElement('div');
@@ -282,8 +282,8 @@ export default {
     for (let i = 0; i < PUFFS; i++) {
       const p = document.createElement('i');
       p.className = 'cls-puff';
-      // Répartition fixe autour du centre bas (pas d'aléa : la bascule est la même à chaque fois).
-      const spread = (i - (PUFFS - 1) / 2) * 7;                   // en cqw, de −14 à +14
+      // Fixed spread around the bottom centre (no randomness: the switch is the same every time).
+      const spread = (i - (PUFFS - 1) / 2) * 7;                   // in cqw, from −14 to +14
       p.style.left = `calc(50% + ${spread}cqw)`;
       p.style.width = (16 + (i % 2) * 6) + 'cqw';
       p.style.height = (9 + (i % 3) * 2) + 'cqw';
@@ -292,17 +292,17 @@ export default {
     }
     this.root.appendChild(layer);
 
-    if (!layer.animate) { layer.remove(); this.enter(); return; }   // pas de WAAPI : pas de cinéma
+    if (!layer.animate) { layer.remove(); this.enter(); return; }   // no WAAPI: no cinema
 
     this.hold();
     const rows = this.root.querySelector('.cls-rows');
-    if (rows) rows.style.opacity = '0';                              // la grille attend sous la fumée
+    if (rows) rows.style.opacity = '0';                              // the grid waits under the smoke
 
-    // La braise : la bougie s'éteint en 300 ms.
+    // The ember: the candle goes out in 300 ms.
     ember.animate([{ opacity: .9, transform: 'translate(-50%, 0) scale(1)' }, { opacity: 0, transform: 'translate(-50%, .6cqw) scale(.7)' }],
       { duration: 300 * k, easing: 'ease-in', fill: 'forwards' });
 
-    // Les volutes : montée + dilatation, opacité 0 → .1 → 0, décalées de 80 ms.
+    // The puffs: rise + expansion, opacity 0 → .1 → 0, staggered by 80 ms.
     puffs.forEach((p, i) => {
       p.animate(
         [
@@ -314,7 +314,7 @@ export default {
       );
     });
 
-    // Le calque de nuit se dissipe à partir du moment où la grille apparaît.
+    // The night layer dissipates from the moment the grid appears.
     layer.animate([{ opacity: 1, offset: 0 }, { opacity: 1, offset: SMOKE_GRID_AT / SMOKE_MS }, { opacity: 0 }],
       { duration: SMOKE_MS * k, easing: 'ease-out', fill: 'forwards' });
 
@@ -328,15 +328,15 @@ export default {
     }, (SMOKE_MS + 80 * (PUFFS - 1)) * k));
   },
 
-  // ---- Focus et défilement --------------------------------------------------------------------------------
+  // ---- Focus and scrolling --------------------------------------------------------------------------------
 
   current() {
     const row = this.rows[this.r];
     return row ? row.items[this.c] : null;
   },
 
-  // Pose le cadre ivoire sur la tuile courante et fait défiler la ligne dans la fenêtre (transform seul).
-  // La ligne en focus reste au-dessus du fondu bas de la fenêtre (2.4 cqw, voir classic.css).
+  // Puts the ivory frame on the current tile and scrolls the row into the window (transform only).
+  // The focused row stays above the window's bottom fade (2.4 cqw, see classic.css).
   focus(instant) {
     this.rows.forEach((row, ri) => row.items.forEach((it, ci) => it.el.classList.toggle('is-focus', ri === this.r && ci === this.c)));
     const scroll = this.root.querySelector('.cls-scroll');
@@ -345,8 +345,8 @@ export default {
     if (!scroll || !host || !row || !row.el) return;
     const viewH = scroll.clientHeight;
     const top = row.el.offsetTop, bottom = top + row.el.offsetHeight;
-    const pad = Math.round(scroll.clientWidth * 0.006);    // marge pour le scale 1.06
-    const fade = Math.round(scroll.clientWidth * 0.024);   // hauteur du fondu bas (.cls-scroll::after)
+    const pad = Math.round(scroll.clientWidth * 0.006);    // margin for the 1.06 scale
+    const fade = Math.round(scroll.clientWidth * 0.024);   // height of the bottom fade (.cls-scroll::after)
     const maxOff = Math.max(0, host.offsetHeight - viewH);
     let off = this._off || 0;
     if (top - pad < off) off = Math.max(0, top - pad);
@@ -364,7 +364,7 @@ export default {
     if (!row) return false;
     if (dc) {
       const nc = this.c + dc;
-      if (nc < 0 || nc >= row.items.length) return false;   // butée : rien, pas de bouclage
+      if (nc < 0 || nc >= row.items.length) return false;   // stop: nothing, no wrap-around
       this.c = nc; this.wantCol = nc;
       this.focus(false);
       return true;
@@ -379,15 +379,15 @@ export default {
 
   // ---- Actions ------------------------------------------------------------------------------------------
 
-  // OK sur une appli : si la TV dit qu'elle n'est plus installée, une Beuglante ; sinon Platform.launch.
-  // Pendant le bandeau, les touches sont mises en file (Input.hold) et rejouées ensuite.
+  // OK on an app: if the TV says it is no longer installed, a Howler (Beuglante); otherwise Platform.launch.
+  // During the banner, keys are queued (Input.hold) and replayed afterwards.
   launch(app) {
     if (!app) return;
     if (!this.isInstalled(app)) { this.complain(app); return; }
     this.hold();
     updateConfig({ lastApp: app.id });
     const result = Platform.launch(app);
-    // Sur la TV, si rien n'a pris l'écran (appli ajoutée sans package, ou package parti entre-temps) : Beuglante, pas de bandeau.
+    // On the TV, if nothing took the screen (added app without a package, or package gone in the meantime): Howler, no banner.
     if (Platform.isTV() && result === 'simulated') {
       this.release();
       const message = app.custom && !app.pkg ? 'La Carte ne connaît pas le chemin de cette appli.' : `${app.name} n'est plus installé.`;
@@ -397,12 +397,12 @@ export default {
     const banner = this.root.querySelector('.cls-banner');
     banner.querySelector('.cls-banner-text').textContent = app.input ? `Passage vers ${app.name}` : `Ouverture de ${app.name}`;
     banner.classList.add('is-in');
-    // Sur la TV, l'appli prend l'écran ; en maquette, le bandeau se retire seul après 1,2 s.
+    // On the TV, the app takes the screen; in the mockup, the banner withdraws on its own after 1.2 s.
     const k = this.k();
     this.timers.push(setTimeout(() => { banner.classList.remove('is-in'); this.release(); }, (result === 'bridge' ? BRIDGE_MS : BANNER_MS) * k));
   },
 
-  // Beuglante « X n'est plus installé. » avec, au plus, une action : retirer du parapet (ou masquer si elle n'y est pas).
+  // Howler "X n'est plus installé." (X is no longer installed) with at most one action: unpin from the parapet (or hide if it is not on it).
   complain(app) {
     const onDock = getConfig().dock.includes(app.id);
     this.msg = beuglante(this.root, {
@@ -430,7 +430,7 @@ export default {
     this.rebuild();
   },
 
-  // Après un changement de config : on reconstruit et on garde le focus au plus près.
+  // After a config change: rebuild and keep the focus as close as possible.
   rebuild() {
     const { r, c } = this;
     this.build();
@@ -440,8 +440,8 @@ export default {
     this.focus(true);
   },
 
-  // OK long : Rappeltout de l'appli (Retirer du parapet / Épingler · Masquer). Si le module manque, on ignore.
-  // Le Rappeltout prend lui-même les touches : pas de file d'attente ici, juste `busy`.
+  // Long OK: the app's Remembrall (unpin from parapet / pin · hide). If the module is missing, ignore it.
+  // The Remembrall takes the keys itself: no queue here, just `busy`.
   async options(app) {
     const rappeltout = await loadRappeltout();
     if (!rappeltout || this.busy) return;
@@ -452,13 +452,13 @@ export default {
       onDock ? { id: 'undock', label: 'Retirer du parapet' } : { id: 'pin', label: 'Épingler au parapet', disabled: getConfig().dock.length >= DOCK_MAX },
       { id: 'hide', label: 'Masquer' },
     ];
-    if (app.custom) options.push({ id: 'remove', label: 'Supprimer cette appli' });   // une appli ajoutée à la main peut repartir
+    if (app.custom) options.push({ id: 'remove', label: 'Supprimer cette appli' });   // a hand-added app can leave again
     const rr = this.root.getBoundingClientRect(), tr = it.el.getBoundingClientRect();
     const anchor = { x: tr.left - rr.left + tr.width / 2, y: tr.top - rr.top + tr.height / 2 };
     this.busy = true;
     let choice = null;
     try { choice = await rappeltout(this.root, { title: app.name, options, anchor }); } catch (e) { choice = null; }
-    if (!this.root || !this.root.isConnected) return;   // écran démonté entre-temps : rien à toucher
+    if (!this.root || !this.root.isConnected) return;   // screen unmounted in the meantime: nothing to touch
     this.busy = false;
     if (choice === 'undock') this.undock(app);
     else if (choice === 'pin') this.pin(app);
@@ -466,7 +466,7 @@ export default {
     else if (choice === 'remove' && app.custom) { removeCustomApp(app.id); this.rebuild(); }
   },
 
-  // Rallumer Poudlard : la préférence est persistante, puis l'accueil rejoue l'allumage Lumos.
+  // Relight Hogwarts: the preference is persisted, then the home screen replays the Lumos boot.
   toPoudlard() {
     if (this.busy) return;
     this.busy = true;
@@ -475,7 +475,7 @@ export default {
   },
 
   onKey(action, ctx) {
-    if (this.busy) return true;     // (pendant un bandeau ou la fumée, input.js met déjà la touche en file)
+    if (this.busy) return true;     // (during a banner or the smoke, input.js already queues the key)
     const it = this.current();
     switch (action) {
       case 'left': this.move(0, -1); return true;
@@ -495,7 +495,7 @@ export default {
         return true;
       case 'menu': ctx.router.go('settings', {}, 'iris'); return true;
       case 'longback': this.toPoudlard(); return true;
-      case 'back': return true;     // rien : pas de piège
+      case 'back': return true;     // nothing: no trap
       default: return false;
     }
   },

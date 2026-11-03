@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Icône carrée (pour les menus système qui n'utilisent pas la bannière). Même motif que banner.xml. -->
+<!-- Square icon (for system menus that do not use the banner). Same motif as banner.xml. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"

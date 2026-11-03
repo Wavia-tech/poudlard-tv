@@ -1,105 +1,105 @@
-# La démarche : faire de sa télévision un objet à soi
+# The approach: making your TV your own
 
-Ce guide raconte comment transformer un écran d'accueil de télévision ordinaire en quelque chose qu'on a envie de regarder tous les soirs, avec Poudlard TV comme exemple. Il est écrit pour quelqu'un qui n'a jamais ouvert un terminal : chaque étape dit ce qu'il faut réunir, ce qu'il faut préparer, puis ce qu'il faut demander à un assistant de code (Claude Code ou équivalent) dans un prompt à coller.
+This guide tells how to turn an ordinary TV home screen into something you want to look at every evening, with Poudlard TV as the example. It is written for someone who has never opened a terminal: each step says what to gather, what to prepare, then what to ask a coding assistant (Claude Code or equivalent) in a prompt to paste.
 
-Une seule règle traverse tout le guide : **on ne casse rien**. À chaque étape, la télévision peut revenir à son état d'origine en moins d'une minute.
+One rule runs through the whole guide: **nothing gets broken**. At every step, the TV can go back to its original state in under a minute.
 
-Le chemin :
+The path:
 
-1. Avant de commencer
-2. Une base propre : retirer la publicité, garder l'accueil d'origine sous la main
-3. Réunir ses ressources
-4. L'accueil : le Parapet
-5. La collection : Ollivanders
-6. Les réglages et le premier lancement
-7. Les sons
-8. Finir proprement
+1. Before you start
+2. A clean base: remove the ads, keep the original home within reach
+3. Gathering your assets
+4. The home: the Parapet
+5. The collection: Ollivanders
+6. Settings and first launch
+7. Sounds
+8. Finishing cleanly
 
 ---
 
-## 1. Avant de commencer
+## 1. Before you start
 
-- **Une Android TV ou Google TV** (TCL, Sony, Hisense, Philips, Xiaomi, Chromecast with Google TV, Google TV Streamer…). Samsung (Tizen) et LG (webOS) n'acceptent pas de launcher tiers : sur ces télévisions, une clé Google TV branchée en HDMI donne le même résultat.
-- **Un ordinateur sur le même Wi-Fi**, avec `adb` (Android platform-tools) et, si vous voulez vous faire aider, Claude Code.
-- **Le mode développeur sur la télévision** : Paramètres → Système → À propos → appuyer sept fois sur « Build ». Puis Options pour les développeurs → Débogage USB (et Débogage réseau si la télévision le propose). À la première connexion, la télévision demande « Autoriser le débogage ? » : oui.
-- **Du temps pour les images, pas pour le code.** Les prompts prennent quelques minutes ; choisir un château, une chouette, une vitrine demande une soirée.
+- **An Android TV or Google TV** (TCL, Sony, Hisense, Philips, Xiaomi, Chromecast with Google TV, Google TV Streamer…). Samsung (Tizen) and LG (webOS) do not accept third-party launchers: on those TVs, a Google TV dongle plugged into HDMI gives the same result.
+- **A computer on the same Wi-Fi**, with `adb` (Android platform-tools) and, if you want help, Claude Code.
+- **Developer mode on the TV**: Settings → System → About → press "Build" seven times. Then Developer options → USB debugging (and Network debugging if the TV offers it). On first connection the TV asks "Allow debugging?": yes.
+- **Time for the images, not for the code.** The prompts take a few minutes; choosing a castle, an owl, a shop window takes an evening.
 
-## 2. Une base propre
+## 2. A clean base
 
-Deux projets ouverts font déjà le gros du travail : [Free My TV](https://github.com/simbasjungles/free-my-tv) et [CleanYourTV](https://github.com/Gathin23/cleanyourtv). Ils retirent les rangées sponsorisées et la publicité de l'accueil, et installent un accueil sobre. Poudlard TV reprend la méthode de Free My TV (installation par `adb`, lancement des applications, filet de sécurité) sans désactiver l'accueil Google : il reste installé, et un réglage le remet en place. Le détail de ce qu'on reprend : `docs/FREE-MY-TV.md`.
+Two open-source projects already do the heavy lifting: [Free My TV](https://github.com/simbasjungles/free-my-tv) and [CleanYourTV](https://github.com/Gathin23/cleanyourtv). They remove the sponsored rows and the ads from the home screen, and install a sober home. Poudlard TV borrows the Free My TV method (install with `adb`, app launching, safety net) without disabling the Google home: it stays installed, and one setting puts it back. The details of what is borrowed: `docs/FREE-MY-TV.md`.
 
-**Ce qu'on fait**
+**What we do**
 
-1. Cloner Poudlard TV, construire l'APK (`android/build.sh`) et l'installer : `docs/INSTALLATION.md`, section 2.
-2. Choisir Poudlard TV comme accueil dans le sélecteur du système quand la télévision le propose. Pas avant d'avoir vérifié que « Retour maintenu deux secondes » ramène bien le mode classique, et que Réglages → À propos → Accueil → Origine rend l'accueil Google.
+1. Clone Poudlard TV, build the APK (`android/build.sh`) and install it: `docs/INSTALLATION.md`, section 2.
+2. Choose Poudlard TV as the home in the system's picker when the TV offers it. Not before checking that "hold Back for two seconds" does bring plain mode back, and that Settings → About → Home → Original gives the Google home back.
 
-**Ce qu'on ne fait pas** : désactiver ou désinstaller l'accueil d'origine, installer un service d'accessibilité, donner une permission réseau au launcher. Si un tutoriel vous le propose, passez votre chemin.
+**What we do not do**: disable or uninstall the original home, install an accessibility service, give the launcher a network permission. If a tutorial suggests it, walk away.
 
-## 3. Réunir ses ressources
+## 3. Gathering your assets
 
-Faites un dossier (par exemple `tv-assets/`) et nommez chaque fichier en minuscules avec des tirets. Tout ce qui suit reste chez vous : le dépôt n'en distribue rien.
+Make a folder (for example `tv-assets/`) and name each file in lowercase with hyphens. Everything below stays with you: the repository distributes none of it.
 
-| Ressource | Sert à | Format | Où la trouver, comment la préparer |
+| Asset | Used for | Format | Where to find it, how to prepare it |
 |---|---|---|---|
-| Le décor de l'accueil | Le Parapet | 16:9, 1920 px de large au moins, JPEG ou WebP | Une image générée (le dépôt documente la méthode dans `tools/README.md`) ou une illustration dont vous avez les droits. Choisissez un tiers inférieur calme : les applications s'y posent. Pas de photo des films. |
-| Les poses de la chouette | Hedwige | PNG détourés, fond transparent, 600 px de haut | Cinq poses suffisent : posée, ailes hautes, ailes basses, plané, atterrissage. Générées sur fond noir uni puis détourées (`tools/detourer_chouette.py`). Toutes vues de trois-quarts, tournées du même côté. |
-| La vitrine | Ollivanders | 16:9, 1672×941 ou proportion identique | Une image de vitrine avec un coffret par film. Les zones de sélection sont des polygones mesurés sur l'image (`app/js/screens/ollivanders.js`, constante `BOXES`). |
-| Les liens des films | Ollivanders | Une adresse web par titre | Sur le site de votre service de streaming, la page du film (ou sa recherche). Pour Netflix : `netflix.com/title/<numéro>`. Vérifiez d'abord sur JustWatch où chaque titre est disponible dans votre pays. Seuls les hôtes de la liste blanche de `app/js/platform.js` sont acceptés. |
-| Les logos des applications | Le Parapet, la Carte | SVG monochromes | Sur la vraie télévision, inutile : le launcher prend l'icône que chaque application fournit au système. Pour la maquette, `tools/README.md` explique comment assembler son propre fichier, à ne pas redistribuer. |
-| La musique de fond | Toute l'interface | OGG, MP3 ou M4A | Un fichier que vous possédez, dans `app/assets/music/`. Sinon, la valse de célesta synthétisée fait le travail. `docs/MUSIQUE.md`. |
+| The home backdrop | The Parapet | 16:9, at least 1920 px wide, JPEG or WebP | A generated image (the repository documents the method in `tools/README.md`) or an illustration you hold the rights to. Choose a calm lower third: the apps sit there. No photo from the films. |
+| The owl poses | Hedwig | Cut-out PNGs, transparent background, 600 px tall | Five poses are enough: perched, wings up, wings down, gliding, landing. Generated on a plain black background then cut out (`tools/cutout_owl.py`). All three-quarter views, facing the same side. |
+| The shop window | Ollivanders | 16:9, 1672×941 or the same ratio | A shop-window image with one box per film. The selection areas are polygons measured on the image (`app/js/screens/ollivanders.js`, constant `BOXES`). |
+| The film links | Ollivanders | One web address per title | On your streaming service's site, the film's page (or its search). For Netflix: `netflix.com/title/<number>`. Check on JustWatch first where each title is available in your country. Only the hosts on the whitelist in `app/js/platform.js` are accepted. |
+| The app logos | The Parapet, the Map | Monochrome SVGs | On the real TV, not needed: the launcher takes the icon each app provides to the system. For the mock-up, `tools/README.md` explains how to assemble your own file, not to be redistributed. |
+| The background music | The whole interface | OGG, MP3 or M4A | A file you own, in `app/assets/music/`. Otherwise, the synthesized celesta waltz does the job. `docs/MUSIC.md`. |
 
-## 4. L'accueil : le Parapet
+## 4. The home: the Parapet
 
-L'accueil tient en une phrase : un décor, l'heure, jusqu'à huit applications réparties sur la largeur, et une chouette qui se pose sur celle qu'on choisit. Rien d'autre. Le reste de l'interface se mérite d'une pression (bas pour la collection, haut pour le son, la Carte et les réglages).
+The home fits in one sentence: a backdrop, the time, up to eight apps spread across the width, and an owl that lands on the one you pick. Nothing else. The rest of the interface is one press away (down for the collection, up for sound, the Map and the settings).
 
-Ce qui fait la différence à l'usage, et qu'on règle en premier :
+What makes the difference in daily use, and what gets tuned first:
 
-- **Le fondu plutôt que la bande.** Les applications ne sont pas posées sur un bandeau : la nuit remonte doucement depuis le bas de l'image et elles s'y posent.
-- **La répartition.** Huit applications au plus, toujours toutes visibles, espacées à intervalles égaux. Jamais de défilement.
-- **Le focus unique.** Une seule chose vit à la fois : l'application en focus passe de l'ivoire gravé à l'or en relief, une bougie s'allume sous elle, la chouette s'y pose. Pas de cadre, pas de panneau de verre.
-- **Le silence visuel.** Pas de nom sous les icônes, pas de boucle permanente : seules les fenêtres du château scintillent.
+- **A fade rather than a strip.** The apps do not sit on a banner: the night rises gently from the bottom of the image and they settle on it.
+- **The spread.** Eight apps at most, always all visible, evenly spaced. Never any scrolling.
+- **A single focus.** Only one thing is alive at a time: the focused app goes from engraved ivory to raised gold, a candle lights up beneath it, the owl lands on it. No frame, no glass panel.
+- **Visual silence.** No name under the icons, no permanent loop: only the castle windows twinkle.
 
-**Prompt à coller** (remplissez les crochets) :
+**Prompt to paste** (fill in the brackets):
 
-> Mon décor est `tv-assets/chateau.jpg`, mes poses de chouette dans `tv-assets/chouette/`. Installe-les dans `app/assets/` sous les noms attendus (`castle.jpg`, `owl-perch.png`, `owl-up.png`, `owl-down.png`, `owl-glide.png`, `owl-land.png`). Mon parapet : [Netflix, Prime Video, Disney+, Canal+, Max, Apple TV, YouTube, PlayStation 5]. Ma maison : [Gryffondor]. Relance la maquette et montre-moi l'accueil avec chaque application en focus. Ne change pas les durées des animations sans me le demander.
+> My backdrop is `tv-assets/chateau.jpg`, my owl poses are in `tv-assets/chouette/`. Install them in `app/assets/` under the expected names (`castle.jpg`, `owl-perch.png`, `owl-up.png`, `owl-down.png`, `owl-glide.png`, `owl-land.png`). My parapet: [Netflix, Prime Video, Disney+, Canal+, Max, Apple TV, YouTube, PlayStation 5]. My house: [Gryffindor]. Relaunch the mock-up and show me the home with each app in focus. Do not change the animation durations without asking me.
 
-Regardez ensuite sur l'écran et corrigez en français courant : « la chouette est trop grosse », « descends les icônes », « le fondu cache le château ». Une demande à la fois.
+Then look at the screen and correct in plain language: "the owl is too big", "move the icons down", "the fade hides the castle". One request at a time.
 
-## 5. La collection : Ollivanders
+## 5. The collection: Ollivanders
 
-Les films ne sont pas une liste : c'est une vitrine. Un coffret par film, du plus modeste au plus élaboré, et OK ouvre le film dans l'application qui le possède.
+The films are not a list: they are a shop window. One box per film, from the plainest to the most elaborate, and OK opens the film in the app that owns it.
 
-1. Préparez l'image de la vitrine (voir Ressources) et placez-la dans `app/assets/ollivanders.webp`.
-2. Notez les liens de chaque film.
-3. Collez le prompt :
+1. Prepare the shop-window image (see Assets) and put it in `app/assets/ollivanders.webp`.
+2. Note down the link of each film.
+3. Paste the prompt:
 
-> Voici ma vitrine `app/assets/ollivanders.webp` et les liens de mes films (titre | application | lien) :
-> - [À l'école des sorciers | Max | https://…]
+> Here is my shop window `app/assets/ollivanders.webp` and the links of my films (title | app | link):
+> - [Philosopher's Stone | Max | https://…]
 > - […]
-> Mesure la zone de chaque coffret sur l'image et mets à jour `BOXES` dans `app/js/screens/ollivanders.js` ; mets les liens dans `LIBRARY` (`app/js/config.js`). La sélection ne dessine aucun contour : un projecteur chaud sur le coffret choisi, le reste de la vitrine qui baisse d'un ton, la caméra qui se penche légèrement. Montre-moi chaque coffret sélectionné.
+> Measure the area of each box on the image and update `BOXES` in `app/js/screens/ollivanders.js`; put the links in `LIBRARY` (`app/js/config.js`). The selection draws no outline: a warm spotlight on the chosen box, the rest of the window dimmed a notch, the camera tilting slightly. Show me each box selected.
 
-## 6. Les réglages et le premier lancement
+## 6. Settings and first launch
 
-Tout se règle à la télécommande, dans la Salle sur Demande (touche Menu, ou la plume en haut à droite) : les applications du parapet et leur ordre, la maison (elle teinte la bougie, le liseré, l'écusson sous l'heure), la chouette (vive, calme, absente), les sons et la musique, le mouvement (auto, réduit, économie), la veille, le mode classique, et « Accueil → Origine ».
+Everything is set with the remote, in the Room of Requirement (Salle sur Demande; Menu key, or the quill at the top right): the parapet apps and their order, the house (it tints the candle, the edging, the crest under the time), the owl (lively, calm, absent), sounds and music, motion (auto, reduced, economy), standby, plain mode, and "Home → Original".
 
-La Lettre d'admission fait tout ça en trois pages au premier lancement. Pour la rejouer : Réglages → À propos → Relancer la Lettre d'admission.
+The Admission Letter (Lettre d'admission) does all of this in three pages on first launch. To replay it: Settings → About → Replay the Admission Letter.
 
-Le mode classique est là pour les autres : la famille, l'invité, le soir où la télévision rame. Retour maintenu deux secondes depuis n'importe quel écran, et le même geste pour revenir.
+Plain mode is there for the others: the family, the guest, the evening when the TV is sluggish. Hold Back for two seconds from any screen, and the same gesture to come back.
 
-## 7. Les sons
+## 7. Sounds
 
-Pas de fichiers audio dans l'interface : une voix de célesta synthétisée, neuf phrases courtes (déplacement, descente, retour, Lumos, Nox, réveil, erreur, coche, confirmation) et une valse de fond, toutes originales. La touche Son en haut à droite coupe tout d'un coup. Pour une musique à vous : `docs/MUSIQUE.md`.
+No audio files in the interface: a synthesized celesta voice, nine short phrases (move, descend, back, Lumos, Nox, wake, error, tick, confirm) and a background waltz, all original. The Sound key at the top right mutes everything at once. For music of your own: `docs/MUSIC.md`.
 
-Ce qu'on ne fait pas : reprendre la musique des films, même modifiée. Un arrangement reste une œuvre dérivée.
+What we do not do: reuse the films' music, even modified. An arrangement is still a derivative work.
 
-## 8. Finir proprement
+## 8. Finishing cleanly
 
-- **Coupez le débogage USB** quand vous avez terminé. Tant qu'il est actif, n'importe quel ordinateur du Wi-Fi peut demander à se connecter. Réactivez-le quand vous voulez changer quelque chose.
-- **Tout se défait.** L'accueil d'origine n'a jamais été touché ; Réglages → À propos → Accueil → Origine le remet en place ; désinstaller l'application remet tout comme avant.
-- **Une étape à la fois.** Un prompt, un regard sur l'écran, une correction en français. Les petites demandes précises marchent mieux qu'un prompt géant.
-- **Gardez votre dossier de ressources.** Changer de décor, de chouette ou de vitrine plus tard, c'est un prompt court.
-- **Les mains loin de la télécommande pendant une installation.** Chaque installation redémarre l'accueil.
+- **Turn off USB debugging** when you are done. While it is on, any computer on the Wi-Fi can ask to connect. Turn it back on when you want to change something.
+- **Everything can be undone.** The original home was never touched; Settings → About → Home → Original puts it back; uninstalling the app puts everything back as before.
+- **One step at a time.** One prompt, one look at the screen, one correction in plain language. Small, precise requests work better than a giant prompt.
+- **Keep your assets folder.** Changing the backdrop, the owl or the shop window later is one short prompt.
+- **Hands off the remote during an install.** Each install restarts the home.
 
 ---
 
-Idée de départ : le reel « I vibecoded my TV to feel like Hogwarts » (@ikevinadams). Méthode d'installation et de retour arrière : Free My TV (MIT). Projet de fan, non officiel : `AVERTISSEMENT.md`.
+Starting idea: the reel "I vibecoded my TV to feel like Hogwarts" (@ikevinadams). Install and roll-back method: Free My TV (MIT). Fan-made, unofficial project: `DISCLAIMER.md`.

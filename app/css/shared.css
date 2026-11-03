@@ -1,7 +1,7 @@
-/* Matières et composants partagés par les écrans. */
+/* Materials and components shared by the screens. */
 
-/* Logo d'appli : ivoire gravé en creux au repos, or en relief en focus (classe is-focus sur un ancêtre, ou .lit sur le logo).
-   Cinq calques masqués par le même SVG (--m). Aucun filtre, aucun blur : le relief vient des décalages. */
+/* App logo: ivory engraved in relief at rest, embossed gold in focus (is-focus class on an ancestor, or .lit on the logo).
+   Five layers masked by the same SVG (--m). No filter, no blur: the relief comes from the offsets. */
 .app-logo { --m: none; position: relative; width: 100%; height: 100%; }
 .app-logo i { position: absolute; inset: 0; -webkit-mask: var(--m) center / contain no-repeat; mask: var(--m) center / contain no-repeat;
   transition: opacity calc(var(--k) * 250ms), transform calc(var(--k) * 250ms), background-color calc(var(--k) * 250ms); }
@@ -17,11 +17,11 @@
 .is-focus .app-logo .l-base, .app-logo.lit .l-base { opacity: 1; background: linear-gradient(165deg, #FFF6CF 0%, #F3D27A 22%, #C08F35 46%, #F6DD8F 62%, #A26F24 82%, #F1CF7C 100%); }
 .is-focus .app-logo .l-shine, .app-logo.lit .l-shine { opacity: 1; animation: logo-shine calc(var(--k) * 700ms) ease-out 1 forwards; }
 @keyframes logo-shine { from { background-position: 160% 0; } to { background-position: -60% 0; } }
-/* Or en fusion (Lumos) : le dégradé coule de haut en bas. */
+/* Molten gold (Lumos): the gradient flows from top to bottom. */
 .app-logo.molten .l-base { background-size: 100% 300%; animation: logo-molten calc(var(--k) * 300ms) ease-in forwards; }
 @keyframes logo-molten { from { background-position: 0 0; } to { background-position: 0 100%; } }
 
-/* Texte gravé dans l'or / dans la pierre. */
+/* Text engraved in gold / in stone. */
 .engraved { font-family: var(--display); font-weight: 600; letter-spacing: .2em; text-transform: uppercase; color: var(--gold-light);
   text-shadow: 0 -.05cqw 0 #FFF6CF59, 0 .1cqw .1cqw #000000b3; }
 .engraved.gold-text { background: linear-gradient(175deg, #FFF6CF 0%, #F3D27A 25%, #C08F35 50%, #F6DD8F 65%, #A26F24 85%, #F1CF7C 100%);
@@ -29,25 +29,25 @@
 .stone-text { font-family: var(--display); font-weight: 600; letter-spacing: .2em; text-transform: uppercase; color: var(--moon); opacity: .75;
   text-shadow: 0 -.05cqw 0 #ffffff33, 0 .1cqw .15cqw #000000cc; }
 
-/* Parchemin (Carte, réglages, Lettre) : image générée si présente, sinon dégradé. */
+/* Parchment (Map, settings, Letter): the generated image if present, otherwise a gradient. */
 .parchment { position: relative; color: var(--ink); background: var(--parchment) url("../assets/parchment.jpg") center / cover no-repeat; box-shadow: 0 1.2cqw 2.4cqw #000a; }
 .parchment::after { content: ""; position: absolute; inset: 0; pointer-events: none; box-shadow: inset 0 0 4cqw #6b4a1a55; }
 
-/* Plaque de laiton. */
+/* Brass plate. */
 .brass { font-family: var(--fell); font-variant: small-caps; letter-spacing: .12em; color: #2b1a0c; padding: .35cqw 1.6cqw;
   background: linear-gradient(#e8d293, #b8954e 55%, #d9bb6b); box-shadow: inset 0 .08cqw 0 #fff6cf80, inset 0 -.08cqw 0 #5a3d0f, 0 .3cqw .6cqw #0009; border-radius: .2cqw; }
 
-/* Sceau de cire (couleur de maison). */
+/* Wax seal (house color). */
 .wax-seal { width: 2.6cqw; height: 2.6cqw; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #ffffff40, transparent 45%), var(--wax, #7a1f1f);
   box-shadow: inset 0 0 0 .22cqw #00000030, inset 0 .1cqw .3cqw #ffffff30, 0 .2cqw .4cqw #0008; }
 
-/* Bande d'aide en bas d'écran. */
+/* Help strip at the bottom of the screen. */
 .keyhint { position: absolute; left: 50%; bottom: 1.6cqw; transform: translateX(-50%); display: flex; gap: 2.4cqw; white-space: nowrap;
   font-family: var(--display); font-size: 1.1cqw; letter-spacing: .25em; text-transform: uppercase; color: var(--mist); opacity: .6; transition: opacity calc(var(--k) * 600ms); }
 .keyhint b { font-weight: 600; color: var(--gold); margin-right: .5cqw; }
 .keyhint.hidden { opacity: 0; }
 
-/* Grain de pellicule : tuile de bruit déplacée par pas, coût nul. Posée par main.js sur la scène. */
+/* Film grain: a noise tile moved in steps, zero cost. Placed on the stage by main.js. */
 .film-grain { position: absolute; inset: -10%; pointer-events: none; z-index: 60; opacity: .045; mix-blend-mode: overlay;
   background-repeat: repeat; animation: grain-step 1s steps(8) infinite; }
 @keyframes grain-step { 0% { transform: translate(0, 0); } 25% { transform: translate(-3%, 2%); } 50% { transform: translate(2%, -3%); } 75% { transform: translate(-1%, -2%); } 100% { transform: translate(3%, 1%); } }

@@ -1,11 +1,11 @@
-// Hedwige : le curseur de l'accueil, et un animal. Vraies photos générées (détourées), fondues entre elles
-// selon l'avancement du vol, jamais commutées au temps. Elle a un poids (accroupissement avant le décollage),
-// une profondeur (elle grandit au milieu de l'arche, son ombre court sur la pierre) et une vie au repos
-// (regard, clignement, ébrouement, sommeil pendant Nox).
+// Hedwig (Hedwige): the home-screen cursor, and an animal. Real generated photos (cut out), cross-faded
+// according to flight progress, never switched on a timer. She has weight (a crouch before take-off),
+// depth (she grows in the middle of the arc, her shadow runs across the stone) and a life at rest
+// (glances, blinks, ruffling, sleep during Nox).
 //
-// Poses attendues dans `poses` (chemins d'images, toutes calées sur les serres, vue de trois-quarts tournée vers la droite) :
-//   perch (posée, regard caméra) · look (tête tournée) · sleep (yeux fermés) · up (vol ailes hautes) · down (vol ailes basses)
-//   glide (plané) · land (atterrissage). Une pose manquante retombe sur la plus proche ; aucune image cassée n'est jamais affichée.
+// Poses expected in `poses` (image paths, all aligned on the talons, three-quarter view facing right):
+//   perch (perched, looking at the camera) · look (head turned) · sleep (eyes closed) · up (flight, wings high) · down (flight, wings low)
+//   glide (gliding) · land (landing). A missing pose falls back to the closest one; a broken image is never shown.
 
 const FALLBACK = { look: 'perch', sleep: 'perch', glide: 'up', land: 'up', down: 'up', up: 'perch' };
 
@@ -29,7 +29,7 @@ export function createOwl(host, opts) {
   }
   host.appendChild(el);
 
-  let state = 'idle', pose = null, facing = 'right';   // pose = null : la première showPose() affiche vraiment
+  let state = 'idle', pose = null, facing = 'right';   // pose = null: the first showPose() really displays
   let pos = { x: 0, y: 0 };
   let flight = null, flightRaf = 0, timers = [];
   let idleTimer = 0, lastDir = 'right';
@@ -53,23 +53,23 @@ export function createOwl(host, opts) {
   function place(x, y) { pos = { x, y }; el.style.transform = `translate(${x}px, ${y}px)`; }
   function currentPos() { const m = new DOMMatrixReadOnly(getComputedStyle(el).transform); return { x: m.m41, y: m.m42 }; }
 
-  // ---- Vie au repos ----
+  // ---- Life at rest ----
   function idleLife() {
     clearTimeout(idleTimer);
     if (reduced()) return;
     const beat = () => {
       if (state !== 'idle') return;
       const r = Math.random();
-      if (r < 0.45) {                                   // regard vers la dernière direction
+      if (r < 0.45) {                                   // glance toward the last direction
         setFacing(lastDir);
         showPose('look', 300);
         idleTimer = setTimeout(() => { if (state === 'idle') { showPose('perch', 300); } idleTimer = setTimeout(beat, 2500 + Math.random() * 4000); }, 1000 + Math.random() * 2000);
         return;
       }
-      if (r < 0.85) {                                   // clignement, parfois double
+      if (r < 0.85) {                                   // blink, sometimes double
         const blink = (n) => { showPose('sleep', 90); setTimeout(() => { showPose('perch', 120); if (n > 1) setTimeout(() => blink(n - 1), 160); }, 110); };
         blink(Math.random() < 0.25 ? 2 : 1);
-      } else {                                          // ébrouement
+      } else {                                          // ruffling
         depth.animate([{ transform: 'scale(1)' }, { transform: 'scale(1.02)', offset: 0.5 }, { transform: 'scale(1)' }], { duration: 300, easing: 'ease-in-out' });
       }
       idleTimer = setTimeout(beat, 3000 + Math.random() * 6000);
@@ -77,7 +77,7 @@ export function createOwl(host, opts) {
     idleTimer = setTimeout(beat, 1500 + Math.random() * 3000);
   }
 
-  // ---- Vol vers un point (coin haut-gauche du conteneur) ----
+  // ---- Flight to a point (top-left corner of the container) ----
   function flyTo(x, y, o = {}) {
     clearTimers();
     cancelAnimationFrame(flightRaf);
@@ -85,7 +85,7 @@ export function createOwl(host, opts) {
     if (flight) { flight.commitStyles(); flight.cancel(); flight = null; }
     const dx = x - from.x, dy = y - from.y, dist = Math.hypot(dx, dy);
     if (dist < 2) { place(x, y); setState('idle'); return Promise.resolve(); }
-    if (reduced()) {                                    // fondu : pas de vol
+    if (reduced()) {                                    // cross-fade: no flight
       el.style.transition = 'opacity 200ms';
       el.style.opacity = '0';
       later(() => { place(x, y); el.style.opacity = '1'; later(() => { el.style.transition = ''; setState('idle'); idleLife(); }, 220); }, 200);
@@ -101,7 +101,7 @@ export function createOwl(host, opts) {
     setState('fly');
     el.dataset.phase = 'crouch';
     showPose('perch', 40);
-    // Accroupissement 80 ms, puis l'arche.
+    // Crouch for 80 ms, then the arc.
     const tilt = (dx < 0 ? -1 : 1) * 8;
     const tr = (px, py, rot = 0) => ({ transform: `translate(${px}px, ${py}px) rotate(${rot}deg)` });
     flight = el.animate([
@@ -114,14 +114,14 @@ export function createOwl(host, opts) {
       tr(x, y, 0),
     ], { duration: dur, easing: 'cubic-bezier(.42,.05,.3,1)', fill: 'forwards' });
     depth.animate([{ transform: 'scale(.96)' }, { transform: 'scale(1)', offset: 0.1 }, { transform: 'scale(1.18)', offset: 0.5 }, { transform: 'scale(1)' }], { duration: dur, easing: 'ease-in-out' });
-    // L'ombre court sur la pierre : elle s'étire quand la chouette monte.
+    // The shadow runs across the stone: it stretches as the owl climbs.
     shadow.animate([
       { transform: 'translateX(0) scaleX(1)', opacity: 0.55 },
       { transform: `translateX(${dx * 0.5}px) scaleX(1.6)`, opacity: 0.2, offset: 0.5 },
       { transform: `translateX(${dx}px) scaleX(1)`, opacity: 0.55 },
     ], { duration: dur, easing: 'cubic-bezier(.42,.05,.3,1)' });
 
-    // Choix de la pose par l'avancement du trajet, pas par le temps.
+    // Pose chosen by progress along the path, not by time.
     const anim = flight;
     let lastFlap = 0;
     const loop = () => {
@@ -158,13 +158,13 @@ export function createOwl(host, opts) {
     place(x, y); showPose('perch', 1); setState('idle'); idleLife();
   }
 
-  // Butée : elle ne bouge pas, petit hochement de tête.
+  // Hitting the edge: she does not move, just a small nod of the head.
   function nod() {
     if (reduced()) return;
     depth.animate([{ transform: 'rotate(0deg)' }, { transform: 'rotate(4deg)', offset: 0.5 }, { transform: 'rotate(0deg)' }], { duration: 240, easing: 'ease-in-out' });
   }
 
-  // Lumos : elle décolle verticalement hors cadre pendant que la lumière monte.
+  // Lumos: she takes off vertically out of frame while the light rises.
   function liftOff(ms = 500) {
     clearTimers(); clearTimeout(idleTimer);
     setState('fly'); showPose('up', 60);
@@ -174,7 +174,7 @@ export function createOwl(host, opts) {
     flight = el.animate([{ transform: `translate(${from.x}px, ${from.y}px)`, opacity: 1 }, { transform: `translate(${from.x}px, ${from.y - 600}px)`, opacity: 0 }], { duration: ms * k, easing: 'cubic-bezier(.5,0,.8,.4)', fill: 'forwards' });
     return new Promise((r) => later(r, ms * k));
   }
-  // Retour de hors cadre vers un point (après Lumos, après la grue).
+  // Return from out of frame to a point (after Lumos, after the crane shot).
   function comeBack(x, y, ms = 600) {
     if (flight) { flight.cancel(); flight = null; }
     el.style.opacity = '1';
@@ -182,7 +182,7 @@ export function createOwl(host, opts) {
     return flyTo(x, y, { arena: { h: 1200 } });
   }
 
-  // Nox : elle rentre la tête et dort ; au réveil, elle ouvre les yeux et cligne.
+  // Nox: she tucks her head in and sleeps; on waking, she opens her eyes and blinks.
   function sleep() { clearTimeout(idleTimer); setState('sleep'); showPose('sleep', 400); depth.animate([{ transform: 'scale(1)' }, { transform: 'scale(.97)' }], { duration: 800, fill: 'forwards', easing: 'ease-out' }); }
   function wake() { setState('idle'); depth.animate([{ transform: 'scale(.97)' }, { transform: 'scale(1)' }], { duration: 400, fill: 'forwards' }); showPose('perch', 200); later(() => { showPose('sleep', 90); later(() => showPose('perch', 120), 110); }, 600); idleLife(); }
 
