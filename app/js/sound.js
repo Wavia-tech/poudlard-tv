@@ -453,7 +453,7 @@ function playNote(note, at, out = graph.input, bag = voices, max = MAX_VOICES) {
     if (f > ctx.sampleRate * 0.45) continue;                       // partial beyond Nyquist: skip it
     const osc = ctx.createOscillator(), g = ctx.createGain();
     osc.type = 'sine'; osc.frequency.value = f; osc.detune.value = detune;
-    const peak = note.g * p.level;
+    const peak = note.g * p.level * 0.4;                           // −8 dB on every cue: a presence, never a signal
     const dur = note.d * p.decay;
     g.gain.setValueAtTime(0.0001, at);
     g.gain.linearRampToValueAtTime(peak, at + 0.028);              // 28 ms attack: a glass that is stroked, not struck
