@@ -994,6 +994,8 @@ export default {
 
   // ---------------------------------------------------------------- keys
   onKey(action, ctx) {
+    if (action === 'okdown') { const c = this.focusedCell(); if (c && c.el && !this.busy && !this.spell && !this.move) c.el.classList.add('is-press'); return true; }
+    { const c = this.focusedCell(); if (c && c.el) c.el.classList.remove('is-press'); }
     if (this.leaving || this.menuOpen) return true;
     if (this.busy) {                                         // during Lumos: Back cancels as long as the intent has not fired
       if (action === 'back' || action === 'longback') this.cancelLaunch();

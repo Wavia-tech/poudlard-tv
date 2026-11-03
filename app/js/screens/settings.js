@@ -29,6 +29,7 @@ const RUBRIQUES = [
 const OWL = [['vive', 'Vive'], ['calme', 'Calme'], ['absente', 'Absente']];
 const YESNO = [[true, 'Oui'], [false, 'Non']];
 const MOTION = [['auto', 'Auto'], ['reduit', 'Réduit'], ['economie', 'Économie']];
+const SKY = [['auto', 'Selon l’heure'], ['nuit', 'Nuit claire']];
 // Background music (sound.js): 'auto' = personal file (assets/music/ambiance.ogg, .mp3 or .m4a, not in the repo,
 // see docs/MUSIC.md) if it exists, otherwise the celesta waltz. The notes speak to the person holding the
 // remote: never a file path on screen.
@@ -474,7 +475,11 @@ export default {
 
   // ---- Section: Motion and energy ---------------------------------------------------------------------------
   rub_motion(body) {
-    const items = [this.enumRow(body, 'Mouvement', MOTION, () => getConfig().motion, (v) => { updateConfig({ motion: v }); this.reduced = isReduced(); this.root.classList.toggle('is-reduced', this.reduced); }, (v) => MOTION_NOTE[v])];
+    const items = [
+      this.enumRow(body, 'Mouvement', MOTION, () => getConfig().motion, (v) => { updateConfig({ motion: v }); this.reduced = isReduced(); this.root.classList.toggle('is-reduced', this.reduced); }, (v) => MOTION_NOTE[v]),
+      this.enumRow(body, 'Ciel', SKY, () => getConfig().sky || 'auto', (v) => updateConfig({ sky: v }),
+        (v) => (v === 'auto' ? 'Crépuscule, nuit, nuit profonde, aube : le ciel suit l’heure.' : 'Une nuit claire, toujours.')),
+    ];
     body.appendChild(el('div', 'set-note set-note-dim', matchMedia('(prefers-reduced-motion: reduce)').matches ? 'Le système demande des animations réduites : il est respecté quel que soit ce réglage.' : 'Le réglage « Réduit » du système est respecté s’il est activé.'));
     return { items, axis: 'v', start: 0 };
   },
@@ -638,6 +643,8 @@ export default {
   // ---- Keys -------------------------------------------------------------------------------------------------
   onKey(action, ctx) {
     void ctx;
+    if (action === 'okdown') { const it = this.level === 'right' && this.items[this.row]; if (it && it.el && !this.busy) it.el.classList.add('is-press'); return true; }
+    { const it = this.items[this.row]; if (it && it.el) it.el.classList.remove('is-press'); }
     if (this.busy) return true;                                   // the sand is falling: 320 ms without keys
     if (action === 'longback') { this.goClassic(); return true; }  // reversibility: classic mode from anywhere
     if (action === 'home') { this.leave(); return true; }

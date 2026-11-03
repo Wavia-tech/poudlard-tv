@@ -374,6 +374,8 @@ export default {
   // ---- Keys -------------------------------------------------------------------------------------------------
   onKey(action, ctx) {
     void ctx;
+    if (action === 'okdown') { const it = this.grid[this.r] && this.grid[this.r][this.c]; if (it && !this.done && !this.turning) it.el.classList.add('is-press'); return true; }
+    { const it = this.grid[this.r] && this.grid[this.r][this.c]; if (it) it.el.classList.remove('is-press'); }
     if (this.done) return true;
     if (this.turning || this.armed) return true;
     if (this.only && (action === 'back' || action === 'home' || action === 'longback' || action === 'menu')) { this.done = true; this.ctx.router.back('fade'); return true; }

@@ -1,11 +1,12 @@
 // Launcher configuration: app catalog, Library collections, settings, validated local storage.
 // No data ever leaves the device. Everything read from storage goes through `sanitize()`.
 
+// House colours: the same four tokens as base.css (html[data-house]); kept here for the previews drawn before a choice.
 export const HOUSES = {
-  gryffondor: { name: 'Gryffondor', wax: '#7a1f1f', glow: '#ffb457' },
-  serpentard: { name: 'Serpentard', wax: '#1f4a2e', glow: '#9fe3b8' },
-  serdaigle: { name: 'Serdaigle', wax: '#1f3a6b', glow: '#9fc4ff' },
-  poufsouffle: { name: 'Poufsouffle', wax: '#8a6a1c', glow: '#ffe28a' },
+  gryffondor: { name: 'Gryffondor', wax: '#7a1f1f', glow: '#ffb457', ink: '#3a1810', night: '#140a0c' },
+  serpentard: { name: 'Serpentard', wax: '#1f4a2e', glow: '#9fe3b8', ink: '#10261a', night: '#07130d' },
+  serdaigle: { name: 'Serdaigle', wax: '#1f3a6b', glow: '#9fc4ff', ink: '#101c33', night: '#070e1c' },
+  poufsouffle: { name: 'Poufsouffle', wax: '#8a6a1c', glow: '#ffe28a', ink: '#2c2008', night: '#120e04' },
 };
 
 // Catalog: stable id, display name, category, Android package (for the real launcher), deep-link scheme when known.
@@ -80,6 +81,7 @@ export const DEFAULT_CONFIG = Object.freeze({
   sounds: false,
   music: 'auto',                // background music: 'auto' (personal file if present, otherwise celesta) | 'celesta' | 'aucune'
   motion: 'auto',               // 'auto' | 'reduit' | 'economie'
+  sky: 'auto',                  // the Parapet's sky: 'auto' (dusk, night, deep night, dawn by the hour) | 'nuit' (always a clear night)
   idleSeconds: 0,               // sleep (Nox); 0 = never (Corentin's choice: sleep OFF by default)
   lastApp: null,
   firstRunDone: false,
@@ -126,6 +128,7 @@ export function sanitize(raw) {
   if (typeof raw.sounds === 'boolean') c.sounds = raw.sounds;
   if (['auto', 'celesta', 'aucune'].includes(raw.music)) c.music = raw.music;
   if (['auto', 'reduit', 'economie'].includes(raw.motion)) c.motion = raw.motion;
+  if (['auto', 'nuit'].includes(raw.sky)) c.sky = raw.sky;
   if (Number.isInteger(raw.idleSeconds) && raw.idleSeconds >= 0 && raw.idleSeconds <= 3600) c.idleSeconds = raw.idleSeconds;
   if (typeof raw.lastApp === 'string' && knows(raw.lastApp)) c.lastApp = raw.lastApp;
   if (raw.firstRunDone === true) c.firstRunDone = true;

@@ -38,7 +38,7 @@
 .rpt-line { position: relative; font-family: var(--body); font-weight: 500; font-size: 1.9cqw; line-height: 1.28; white-space: nowrap; opacity: .72;
   padding: 0 1.6cqw; transition: opacity calc(var(--k) * 150ms), transform calc(var(--k) * 150ms); }
 .rpt-line.is-on { opacity: 1; color: var(--gold-light); transform: translateX(.2cqw); }
-.rpt-line.is-on::before { content: "✦"; position: absolute; left: -.2cqw; top: 50%; transform: translateY(-50%); font-size: 1.1cqw; color: var(--gold); }
+.rpt-line.is-on::before { content: "✦"; position: absolute; left: -.2cqw; top: 50%; transform: translateY(-50%); font-size: var(--t-hint); color: var(--gold); }
 .rpt-line.is-disabled { opacity: .38; font-style: italic; }
 .rpt-line.is-disabled.is-on { opacity: .55; color: var(--moon); }
 .rpt-line.is-disabled.is-on::before { color: var(--mist); }

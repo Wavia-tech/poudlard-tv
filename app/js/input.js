@@ -1,5 +1,6 @@
 // Input: keyboard (mock-up), Android TV remote (D-pad), on-screen remote.
-// Everything becomes an action: left, right, up, down, ok, back, menu, longok (OK held 700 ms), longback (Back held 2 s).
+// Everything becomes an action: left, right, up, down, ok, back, menu, longok (OK held 700 ms), longback (Back held 2 s),
+// plus `okdown` (the OK key goes down: the screens add .is-press to the focused element; never queued).
 // While a screen is "busy" (Lumos), key presses are queued and replayed, never lost.
 
 const KEYMAP = {
@@ -18,6 +19,7 @@ const activity = new Set();
 let queue = null;            // null = pass-through; array = queue
 
 function dispatch(action) {
+  if (action === 'okdown') { if (!queue && handler) handler(action); return; }   // cosmetic: never queued, never activity
   activity.forEach((fn) => fn(action));
   if (queue) { if (queue.length < 4) queue.push(action); return; }
   if (handler) handler(action);
@@ -40,7 +42,10 @@ export const Input = {
       e.preventDefault();
       const h = holds[action];
       if (h) {                                  // OK and Back fire on release, unless held long
-        if (!e.repeat && !h.timer) h.timer = setTimeout(() => { h.fired = true; h.timer = 0; dispatch(h.long); }, h.ms);
+        if (!e.repeat && !h.timer) {
+          if (action === 'ok') dispatch('okdown');   // the press itself (focus.css .is-press), before any hold timer
+          h.timer = setTimeout(() => { h.fired = true; h.timer = 0; dispatch(h.long); }, h.ms);
+        }
         return;
       }
       const now = performance.now();

@@ -13,17 +13,18 @@ function applyTheme(c) {
   html.dataset.mode = c.mode;
   html.dataset.house = c.house || 'none';
   html.dataset.motion = c.motion;
-  const h = c.house ? HOUSES[c.house] : null;
-  html.style.setProperty('--wax', h ? h.wax : '#7a1f1f');
-  html.style.setProperty('--house-glow', h ? h.glow : '#ffb457');
+  // The house palette is CSS (base.css, html[data-house]): nothing inline. HOUSES stays the source of the names.
+  void HOUSES;
   Fx.configure({ dust: c.motion === 'auto', sound: c.sounds, calm: c.motion !== 'auto' });
+  Fx.setRate(c.motion === 'economie' ? 66 : 33);
 }
 
 // Film grain: a noise tile drawn once, then shifted in steps (see shared.css).
 function mountGrain() {
   const c = document.createElement('canvas'); c.width = c.height = 128;
   const x = c.getContext('2d'); const img = x.createImageData(128, 128);
-  for (let i = 0; i < img.data.length; i += 4) { const v = 90 + Math.random() * 120; img.data[i] = img.data[i + 1] = img.data[i + 2] = v; img.data[i + 3] = 255; }
+  // Centred on the Night (#070B14) ± 12: bright specks on top, dark specks underneath, no blend mode needed.
+  for (let i = 0; i < img.data.length; i += 4) { const d = (Math.random() - 0.5) * 24; img.data[i] = 0x07 + d + 30; img.data[i + 1] = 0x0B + d + 30; img.data[i + 2] = 0x14 + d + 30; img.data[i + 3] = 255; }
   x.putImageData(img, 0, 0);
   const el = document.createElement('div'); el.className = 'film-grain'; el.style.backgroundImage = `url(${c.toDataURL()})`;
   stage.appendChild(el);
@@ -42,9 +43,10 @@ let idleTimer = 0;
 function armIdle() {
   clearTimeout(idleTimer);
   const c = getConfig();
-  if (!c.idleSeconds || c.mode === 'classique') return;
+  if (!c.idleSeconds) return;
   idleTimer = setTimeout(() => {
     const cur = Router.current();
+    if (c.mode === 'classique') { if (cur === 'classic' && SCREENS.classic.dim) SCREENS.classic.dim(); return; }   // classic: the rows dim, nothing else
     if (cur === 'home' && SCREENS.home.nox) SCREENS.home.nox();
     else if (cur !== 'sorting') Router.replace('home', { nox: true }, 'fade');
   }, c.idleSeconds * 1000);

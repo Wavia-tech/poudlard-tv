@@ -1,5 +1,6 @@
-// Screen router. A screen = { mount(root, ctx), unmount(), onKey(action) -> bool, resume?() }.
-// One active screen at a time; a stack for "back"; transitions through CSS classes (fade, up, down, iris).
+// Screen router. A screen = { mount(root, ctx), unmount(), onKey(action) -> bool, onLeave?(transition) }.
+// One active screen at a time; a stack for "back"; transitions through CSS classes (fade, up, down, iris, crane,
+// uncrane, snuff). `onLeave` lets the leaving screen play its own flourish (the owl lifts off, the candle goes out).
 
 import { Input } from './input.js';
 import { Platform } from './platform.js';
@@ -12,6 +13,8 @@ let ctx = null;
 let busy = false;
 
 const TRANSITION_MS = 700;
+// Camera moves keep the previous layer a little longer so the two screens overlap.
+const OVERLAP_MS = { crane: 120, uncrane: 120 };
 
 function makeLayer(name) {
   const el = document.createElement('section');
@@ -27,6 +30,7 @@ async function swap(name, params, transition, push) {
   if (!def) return;
   if (busy) { pending = { name, params, transition, push }; return; }
   busy = true;
+  if (document.documentElement.dataset.motion && document.documentElement.dataset.motion !== 'auto' && transition !== 'fade') transition = 'fade';   // reduced motion: plain fades
   const el = makeLayer(name);
   el.classList.add(`enter-${transition}`);
   stage.appendChild(el);
@@ -37,6 +41,7 @@ async function swap(name, params, transition, push) {
   Input.setHandler(null);                       // while mounting, keys are ignored (never sent to a half-built screen)
   if (prev && push) stack.push(prev.name);
   Platform.refresh();                           // the lists read from the TV are re-read once per screen
+  if (prev && prev.screen.onLeave) { try { prev.screen.onLeave(transition); } catch (e) { /* the leaving screen's flourish failed: no matter */ } }
   // The transition starts right away; mounting (which may wait for images) does not delay it.
   requestAnimationFrame(() => {
     el.classList.remove(`enter-${transition}`);
@@ -49,7 +54,7 @@ async function swap(name, params, transition, push) {
     if (prev) { try { prev.screen.unmount && prev.screen.unmount(); } catch (e) { /* screen already unmounted */ } prev.el.remove(); }
     busy = false;
     if (pending) { const p = pending; pending = null; swap(p.name, p.params, p.transition, p.push); }
-  }, TRANSITION_MS);
+  }, TRANSITION_MS + (OVERLAP_MS[transition] || 0));
 }
 
 export const Router = {

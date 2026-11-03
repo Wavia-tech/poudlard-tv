@@ -160,7 +160,7 @@
 /* ---- Lumos, ink version: the room lights up by candle under the launched cartouche ----
    A direct child of .map-sheet: the multiply does see the parchment (to be checked on the bench on the TV; see the reminder below). */
 .map-candlelight { position: absolute; left: 50%; top: 50%; width: 34cqw; height: 34cqw; margin: -17cqw 0 0 -17cqw; border-radius: 50%; opacity: 0; pointer-events: none;
-  background: radial-gradient(circle, #ffb457 0%, #ffd9a0 32%, #ffffff 68%); mix-blend-mode: multiply; transition: opacity calc(var(--k) * 250ms); }
+  background: radial-gradient(circle, #ffb457 0%, #ffd9a0 32%, #ffffff 68%); transition: opacity calc(var(--k) * 250ms); }
 .map-candlelight.is-on { opacity: .9; }
 .map-toast { position: absolute; left: 50%; bottom: 5.4cqw; z-index: 48; font-size: 1.7cqw; white-space: nowrap; opacity: 0; transform: translate(-50%, .8cqw); pointer-events: none;
   transition: opacity calc(var(--k) * 300ms), transform calc(var(--k) * 300ms); }

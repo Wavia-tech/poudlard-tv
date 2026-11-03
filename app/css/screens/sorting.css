@@ -17,7 +17,7 @@
 .is-open .sort-letter { transform: rotate(-.6deg) translateY(0); opacity: 1; }
 .sort-letter::before { content: ""; position: absolute; inset: 0; pointer-events: none; z-index: 1;
   background: linear-gradient(to bottom, #3a260e14, transparent 7%, transparent 93%, #3a260e1a), linear-gradient(to right, #3a260e10, transparent 6%, transparent 94%, #3a260e10); }
-.sort-kicker { font-family: var(--display); font-weight: 600; font-size: 1.3cqw; letter-spacing: .3em; text-transform: uppercase; color: var(--gold-dark); }
+.sort-kicker { font-family: var(--display); font-weight: 600; font-size: var(--t-hint); letter-spacing: .3em; text-transform: uppercase; color: var(--gold-dark); }
 .sort-step { position: absolute; top: 3.2cqw; right: 9.6cqw; font-family: var(--fell); font-variant: small-caps; font-size: 1.6cqw; letter-spacing: .1em; color: var(--ink); opacity: .65; }
 /* The letter's seal, at the top right, in the color of the draft's house. */
 .sort-seal { position: absolute; top: 2cqw; right: 3.2cqw; width: 4.6cqw; height: 4.6cqw; display: grid; place-items: center; z-index: 2; transform: rotate(8deg); }

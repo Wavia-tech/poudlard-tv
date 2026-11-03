@@ -1,0 +1,15 @@
+/* One focus grammar for every screen: rest → focus (--t-focus) → press (--t-press-in / --t-press-out) → land (--t-land).
+   The screens keep their own look (gold, ivory frame, ink underline); these classes only add the shared timings.
+   .is-press: set by the screens on the 'okdown' action (input.js), removed on 'ok' / 'longok'.
+   .is-land : set by the Parapet for --t-land after Hedwig lands (a small settle of the focused app). */
+.is-focus.is-press { transition: transform calc(var(--k) * var(--t-press-in)) var(--ease-out); }
+.is-focus:not(.is-press) { transition-duration: calc(var(--k) * var(--t-press-out)); }
+.home-app.is-focus.is-press { transform: scale(1.23); }
+.map-cell.is-focus.is-press { transform: scale(1); }
+.cls-tile.is-focus.is-press .cls-plate { transform: scale(1.02); }
+.set-btn.is-focus.is-press, .sort-btn.is-focus.is-press { transform: scale(.98); }
+.home-bar-item.is-focus.is-press { transform: scale(1.1); }
+.home-app.is-land { animation: focus-land calc(var(--k) * var(--t-land)) var(--ease-settle); }
+@keyframes focus-land { 0% { transform: scale(1.28); } 50% { transform: scale(1.31); } 100% { transform: scale(1.28); } }
+html:not([data-motion="auto"]) .is-land { animation: none; }
+html:not([data-motion="auto"]) .is-focus.is-press, html:not([data-motion="auto"]) .is-focus:not(.is-press) { transition-duration: calc(var(--k) * 200ms); }

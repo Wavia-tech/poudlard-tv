@@ -28,11 +28,14 @@ app/
                              inputs() → [{id,port,label,connected}] | null, hasLiveTv(), appIcon(pkg), homeMode() → 'poudlard'|'original'|'simulated', version().
                              Android bridge (Bridge.java): launch, switchInput, openUrl, installedPackages, installedApps, appIcon, setHome (hint: held |
                              role | settings | press-home | fire), homeMode, openSystem, inputs, hasLiveTv, liveTv, store, version (docs/FREE-MY-TV.md).
-  js/input.js                actions: left right up down ok back menu longok longback home; Input.press(a); Input.hold()/release() (queue)
-  js/router.js               Router.go(name, params, transition) / replace / back / current / refocus; transitions: fade | up | down | iris
-  js/fx.js                   Fx.burst(x, y, n, power) / Fx.lumos(host, x, y, ms) / Fx.cue(name) / Fx.ambient(mode) / Fx.chime / Fx.whoosh() / Fx.initAudio()
+  js/input.js                actions: left right up down ok back menu longok longback home, plus okdown (press feedback, never queued); Input.press(a); Input.hold()/release() (queue)
+  js/router.js               Router.go(name, params, transition) / replace / back / current / refocus; transitions: fade | up | down | iris | crane | uncrane | snuff
+                             (a screen may expose onLeave(transition) for its own flourish; reduced motion turns everything into a 200 ms fade)
+  js/fx.js                   ONE scene clock: Fx.tick(fn) / Fx.untick(fn) / Fx.setRate(ms) (33 ms, 66 in economy and Nox); Fx.burst(x, y, n, power) / Fx.lumos(host, x, y, ms) /
+                             Fx.cue(name) / Fx.ambient(mode) / Fx.chime / Fx.whoosh() / Fx.initAudio(). No screen runs its own requestAnimationFrame loop.
+  css/focus.css              the focus grammar: rest → focus (--t-focus) → press (.is-press on the `okdown` action) → land (.is-land, Parapet); tokens in base.css
   js/sound.js                Web Audio celesta: original cues + background music (original synthesized waltz, or a personal file kept out of the repo); see "Sound"
-  js/owl.js                  Hedwig (used only by the home screen)
+  js/owl.js                  Hedwig: one sprite sheet (assets/owl-sheet.webp, tools/cutout_owl.py --sheet) on two layers, banking per flight segment, feathers on landing, startle, lookAt
   js/monogram.js             monogram(name) → { src, ratio, luma }: fallback logo when LOGOS[id] is missing
   js/crests.js               house crests (pen strokes, no official coat of arms)
   js/rappeltout.js           shared context menu (see API)
@@ -43,7 +46,7 @@ app/
   assets/logos.js            OUT OF THE REPO (.gitignore): a copy of logos.example.js, or a private file { id: { src: SVG dataURI, ratio, luma } } (tools/logos-build.mjs)
   assets/music/              OUT OF THE REPO: personal background music, ambiance.ogg, .mp3 or .m4a (probed in that order), never distributed (docs/MUSIC.md)
   assets/fonts/              OUT OF THE REPO by default: OFL fonts + licence, to add for the APK (@font-face in base.css)
-  assets/*.jpg|png|webp      generated images: castle.jpg (1920x1088), parchment.jpg, mist.png (alpha), owl-*.png (cut out), ollivanders.webp (shop window).
+  assets/*.jpg|png|webp      generated images: castle.jpg (1920x1088), parchment.jpg, mist.png (alpha), owl-sheet.webp (7 cells of 825x640, ivory rim baked in), feather.webp, ollivanders.webp (shop window).
                              If an image is missing: a sober fallback, never a broken image.
 ```
 
@@ -69,10 +72,12 @@ export default {
 
 Rules:
 - Exactly one element in focus at a time; it carries the `is-focus` class. Never a mouse.
-- Units: everything in `cqw` inside the stage (1 cqw = 1% of the TV screen width; at 1080p, 1 cqw = 19.2 px). Readable from 3 m: labels ≥ 1.5 cqw, titles ≥ 2.1 cqw, clock 5.8 cqw.
-- Motion: `transform` and `opacity` only; durations 150–700 ms multiplied by `var(--k)` (the test bench's slow motion); FORBIDDEN: animated `filter`,
-  `blur`, `backdrop-filter`, animated `box-shadow`, permanent visible loops (apart from the window flicker and the mist). Honor
-  `isReduced()` (prefers-reduced-motion or the setting): then 200 ms fades and nothing more.
+- Units: everything in `cqw` inside the stage (1 cqw = 1% of the TV screen width; at 1080p, 1 cqw = 19.2 px). Type scale from base.css tokens
+  (`--t-hint` 1.5, `--t-body` 1.85, `--t-label` 2.05, `--t-title` 2.4, `--t-clock` 6 cqw): a raw size below `--t-hint` is forbidden. Safe area `--safe-x` / `--safe-y`.
+- Motion: `transform` and `opacity` only; durations 150–700 ms multiplied by `var(--k)` (the test bench's slow motion); FORBIDDEN: `filter`, `blur`,
+  `backdrop-filter`, `mix-blend-mode`, animated `box-shadow`, a second requestAnimationFrame loop (use `Fx.tick`), permanent visible loops (apart from the
+  window flicker, the mist and the Nox starfield). Honor `isReduced()` (prefers-reduced-motion or the setting): then 200 ms fades and nothing more.
+- House palette: four CSS tokens set by `html[data-house]` in base.css (`--wax`, `--house-glow`, `--house-ink`, `--house-night`); never set inline.
 - Logos: always `const L = LOGOS[app.id] || monogram(app.name)`; the public repo has no logos, so the screen must look good with monograms. Engraved ivory at rest, embossed gold in focus. Template:
   `<div class="app-logo ivory-logo" style="--m:url('…')"><i class="l-ext"></i><i class="l-rimD"></i><i class="l-rimL"></i><i class="l-base"></i><i class="l-shine"></i></div>`
   (+ the `luma` class if LOGOS[id].luma); on the `.is-focus` parent, shared.css switches to gold. Size the box with LOGOS[id].ratio

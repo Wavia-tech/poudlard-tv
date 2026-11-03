@@ -10,29 +10,58 @@ import { crestSvg } from '../crests.js';
 import { createOwl } from '../owl.js';
 
 const FOCUS_SCALE = 1.28;
-const LOGO_H = 3.4;            // cqw: logo height at rest
+const LOGO_H = 3.6;            // cqw: logo height at rest (3 m floor)
 const LOGO_W_MAX = 9.5;        // cqw
 const PER_ROW = 8;             // beyond this: a second row
-const NOX_CORNER_MS = 10 * 60 * 1000;
+const NOX_WANDER_MS = 20 * 60 * 1000;   // one lap of the clock's wander during Nox
 const BAR = ['sound', 'map', 'settings'];
+const OWL_CELLS = ['perch', 'look', 'sleep', 'up', 'down', 'glide', 'land'];   // the order of tools/cutout_owl.py --sheet
+const CANCEL_MS = 350;         // after OK, Back cancels the launch until the intent fires
 
 const loadRappeltout = () => import('../rappeltout.js').then((m) => m.rappeltout).catch(() => null);
 const loadBeuglante = () => import('../beuglante.js').then((m) => m.beuglante).catch(() => null);
 const logoOf = (app) => LOGOS[app.id] || monogram(app.name);
 
+// Nox starfield: three 512 px tiles of ivory dots, drawn once per page, then drifted by CSS (home.css).
+let STAR_TILES = null;
+function starTiles() {
+  if (STAR_TILES) return STAR_TILES;
+  STAR_TILES = [12, 14, 16].map((count, n) => {
+    const c = document.createElement('canvas'); c.width = c.height = 512;
+    const g = c.getContext('2d');
+    for (let i = 0; i < count; i++) {
+      const x = Math.random() * 512, y = Math.random() * 512, r = 0.6 + Math.random() * (0.9 + n * 0.3);
+      g.globalAlpha = 0.35 + Math.random() * 0.5; g.fillStyle = Math.random() < 0.2 ? '#C9D9EA' : '#F1EBDD';
+      g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill();
+    }
+    return c.toDataURL();
+  });
+  return STAR_TILES;
+}
+
+// The sky by the hour (config.sky 'auto'): dusk 17-20, night, deep night 1-5, dawn 5-8.
+function skyState(hour) {
+  if (hour >= 17 && hour < 20) return 'dusk';
+  if (hour >= 1 && hour < 5) return 'deep';
+  if (hour >= 5 && hour < 8) return 'dawn';
+  return 'night';
+}
+
 export default {
   root: null, ctx: null, owl: null, apps: [], items: [], i: 0, bar: 0, zone: 'dock', busy: false, mode: 'normal',
-  windows: [], raf: 0, timers: [], ro: null, hintTimer: 0, noxTimers: [], lastFrame: 0,
+  windows: [], untick: null, timers: [], ro: null, hintTimer: 0, noxTimers: [], noxAnim: null, launchTimers: [], cancelUntil: 0, castleReady: null,
 
   async mount(root, ctx) {
-    this.root = root; this.ctx = ctx; this.timers = []; this.mode = 'normal'; this.zone = 'dock';
+    this.root = root; this.ctx = ctx; this.timers = []; this.mode = 'normal'; this.zone = 'dock'; this.launchTimers = []; this.cancelUntil = 0;
     this.apps = dockApps();
     const last = getConfig().lastApp;
     this.i = Math.max(0, this.apps.findIndex((a) => a.id === last));
     root.innerHTML = `
       <div class="home-plane"><img class="home-castle" alt=""><canvas class="home-lights"></canvas><div class="home-moon"></div></div>
+      <div class="home-tint"></div>
       <div class="home-mist"></div>
       <div class="home-shade"></div>
+      <div class="home-stars home-stars-1"></div><div class="home-stars home-stars-2"></div><div class="home-stars home-stars-3"></div>
       <div class="home-event"></div>
       <div class="home-clock"><div class="home-time"></div><div class="home-date"><span class="home-cap"></span><span class="home-date-rest"></span></div></div>
       <div class="home-crest" aria-hidden="true"></div>
@@ -46,41 +75,50 @@ export default {
       <div class="home-arena"></div>
       <div class="keyhint home-hint"><span><b>▼</b>La Bibliothèque</span><span><b>▲</b>Son · Carte · Réglages</span><span><b>OK</b>Ouvrir</span></div>
       <div class="home-dim"></div><div class="home-disc"></div><div class="home-bloom"></div>
-      <div class="home-launch"><div class="home-launch-logo"></div><div class="home-launch-title engraved gold-text"></div><div class="home-launch-sub"></div></div>
+      <div class="home-launch"><img class="home-launch-banner" alt=""><div class="home-launch-logo"></div><div class="home-launch-title engraved gold-text"></div><div class="home-launch-sub"></div></div>
       <div class="home-plate"><div class="home-plate-title engraved">Nox ?</div><div class="home-plate-sub">Passer en mode classique, sans décor ni chouette.</div><div class="home-plate-opts"><span class="home-plate-opt" data-v="yes">Oui, Nox</span><span class="home-plate-opt is-focus" data-v="no">Non</span></div></div>`;
 
     const castle = root.querySelector('.home-castle');
-    castle.addEventListener('load', () => this.findWindows(castle));
-    castle.addEventListener('error', () => { castle.remove(); root.classList.add('no-castle'); });
+    this.castleReady = new Promise((resolve) => {
+      castle.addEventListener('load', () => { this.findWindows(castle); resolve(true); });
+      castle.addEventListener('error', () => { castle.remove(); root.classList.add('no-castle'); resolve(false); });
+    });
     castle.src = 'assets/castle.jpg';
     const mistProbe = new Image();
     mistProbe.onerror = () => root.querySelector('.home-mist').classList.add('fallback');
     mistProbe.src = 'assets/mist.png';
+    const tiles = starTiles();
+    root.querySelectorAll('.home-stars').forEach((s, n) => { s.style.backgroundImage = `url(${tiles[n]})`; });
 
     this.buildDock();
     this.syncBar();
     this.syncHouse();
-    this.unsub = onConfigChange(() => this.syncHouse());
+    this.unsub = onConfigChange(() => { this.syncHouse(); this.tick(); });
     this.ro = new ResizeObserver(() => this.layout(true));
     this.ro.observe(root);
     this.tick();
     this.timers.push(setInterval(() => this.tick(), 15000));
 
     if (getConfig().owl !== 'absente') {
-      const p = (n) => `assets/owl-${n}.png`;
       this.owl = createOwl(root.querySelector('.home-arena'), {
-        poses: { perch: p('perch'), look: p('look'), sleep: p('sleep'), up: p('up'), down: p('down'), glide: p('glide'), land: p('land') },
+        sheet: 'assets/owl-sheet.webp', cells: OWL_CELLS, feather: 'assets/feather.webp',
         size: root.clientWidth * 0.082, reduced: () => isReduced() || getConfig().owl === 'calme',
       });
     }
     this.layout(true);
-    this.raf = requestAnimationFrame((t) => this.frame(t));
+    this.untick = ctx.fx.tick((t) => this.frame(t));          // the window flicker rides the shared scene clock
     this.armHint();
     this.scheduleEvents();
     if (ctx.config().sounds) ctx.fx.initAudio();
-    if (ctx.params.boot) this.boot(ctx.params.short ? 300 : 700);
+    if (ctx.params.boot) this.boot(isReduced() ? 300 : ctx.params.short ? 700 : 1800);
     if (ctx.params.nox) this.nox();
     if (ctx.params.askClassic) this.timers.push(setTimeout(() => this.plate(true), 750));
+  },
+
+  // The leaving screen's flourish (router.js): the owl lifts off before the crane, the candle goes out before the Room.
+  onLeave(transition) {
+    if (transition === 'crane' && this.owl) this.owl.liftOff(450);
+    if (transition === 'snuff') { const light = this.root && this.root.querySelector('.home-candlelight'); if (light) light.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 150, fill: 'forwards' }); }
   },
 
   // The chosen house: its crest under the clock, its name, and its colours (wax, glow) everywhere via main.js.
@@ -94,9 +132,12 @@ export default {
 
   unmount() {
     if (this.unsub) this.unsub();
-    cancelAnimationFrame(this.raf);
+    if (this.untick) this.untick(); this.untick = null;
+    this.ctx.fx.setRate(getConfig().motion === 'economie' ? 66 : 33);
     this.timers.forEach(clearTimeout); this.timers.forEach(clearInterval);
+    this.launchTimers.forEach(clearTimeout); this.launchTimers = [];
     this.noxTimers.forEach(clearTimeout);
+    if (this.noxAnim) { this.noxAnim.cancel(); this.noxAnim = null; }
     clearTimeout(this.hintTimer);
     if (this.ro) this.ro.disconnect();
     if (this.owl) this.owl.destroy();
@@ -139,6 +180,7 @@ export default {
     const d = now.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
     this.root.querySelector('.home-cap').textContent = d.charAt(0).toUpperCase();   // the drop cap
     this.root.querySelector('.home-date-rest').textContent = d.slice(1);
+    this.root.dataset.sky = getConfig().sky === 'nuit' ? 'night' : skyState(now.getHours());
   },
 
   // ---- Flickering windows: warm spots of the image, drawn small and discreet ----
@@ -175,11 +217,9 @@ export default {
     }
   },
 
+  // One frame of the window flicker, on the shared scene clock (Fx.tick): the castle's own canvas, half resolution.
   frame(t) {
-    this.raf = requestAnimationFrame((tt) => this.frame(tt));
-    const eco = getConfig().motion === 'economie' || this.mode === 'nox';
-    if (t - this.lastFrame < (eco ? 66 : 33)) return;
-    this.lastFrame = t;
+    if (!this.root) return;
     const cv = this.root.querySelector('.home-lights');
     if (!cv || !this.windows.length || !this.glow) return;
     const W = cv.clientWidth, H = cv.clientHeight; if (!W) return;
@@ -202,7 +242,7 @@ export default {
   scheduleEvents() {
     const next = () => {
       this.timers.push(setTimeout(() => {
-        if (this.mode === 'normal' && !isReduced()) {
+        if ((this.mode === 'normal' || this.mode === 'nox') && !isReduced()) {   // the shooting star also crosses the Nox sky
           const ev = this.root.querySelector('.home-event');
           ev.style.top = (5 + Math.random() * 16) + '%'; ev.style.left = (15 + Math.random() * 70) + '%';
           ev.animate([{ opacity: 0, transform: 'rotate(-18deg) translateX(0)' }, { opacity: 0.9, offset: 0.1 }, { opacity: 0, transform: 'rotate(-18deg) translateX(-16cqw)' }], { duration: 420, easing: 'ease-out' });
@@ -236,6 +276,7 @@ export default {
       if (el.dataset.k === 'sound') { el.classList.toggle('off', !c.sounds); el.querySelector('.home-bar-label').textContent = c.sounds ? 'Son' : 'Muet'; }
     });
     this.root.classList.toggle('bar-active', this.zone === 'bar');
+    if (this.owl) this.owl.lookAt(this.zone === 'bar' ? 'up' : 'down');   // she glances up at the bar
   },
   toggleSound() {
     const on = !getConfig().sounds;
@@ -266,9 +307,20 @@ export default {
       const k = Number(getComputedStyle(root).getPropertyValue('--k')) || 1;
       this.owl.flyTo(t.x, t.y, { arena: { h: root.clientHeight }, timeScale: k, onLand: () => {
         this.ctx.fx.burst(t.cx, t.y + this.owl.size().h * 0.98, 8, W / 60);
+        this.land(el);
         setTimeout(() => light.classList.add('on'), 80 * k);
       } });
     } else setTimeout(() => light.classList.add('on'), 250);
+  },
+  // The focused app settles under the owl's weight (focus.css .is-land, --t-land).
+  land(el) {
+    if (!el || isReduced()) return;
+    el.classList.remove('is-land'); void el.offsetWidth; el.classList.add('is-land');
+    this.timers.push(setTimeout(() => el.classList.remove('is-land'), 200 * (Number(getComputedStyle(this.root).getPropertyValue('--k')) || 1)));
+  },
+  press(on) {
+    const el = this.zone === 'bar' ? this.root.querySelectorAll('.home-bar-item')[this.bar] : this.items[this.i];
+    if (el) el.classList.toggle('is-press', on);
   },
   // Centre of an app in screen coordinates (rows are centred, so we read the boxes).
   center(el) {
@@ -286,84 +338,141 @@ export default {
   },
 
   // ---- Lumos ----
+  // t=0 anticipation (press, the logo charges, the candle flares) · t=100 the light (dim, molten, disc, bloom) ·
+  // t=350 the intent. Until then, Back cancels everything (nothing was started yet).
   async launch() {
     if (this.busy) return;
     const app = this.apps[this.i]; if (!app) return;
-    this.busy = true; Input.hold();
+    this.busy = true;                                         // keys still reach onKey (Back cancels) until the intent fires
+    let held = false;
     const root = this.root, fx = this.ctx.fx, k = Number(getComputedStyle(root).getPropertyValue('--k')) || 1;
-    const logoEl = this.items[this.i].querySelector('.app-logo');
+    const item = this.items[this.i], logoEl = item.querySelector('.app-logo');
     const { cx, cy } = this.center(logoEl);
-    root.querySelector('.home-dim').classList.add('on');
-    logoEl.classList.add('molten');
-    if (this.owl) this.owl.liftOff(500);
-    if (fx.cue) fx.cue('lumos'); else fx.arpeggio();
+    const light = root.querySelector('.home-candlelight');
+    const timers = []; this.launchTimers = timers;
+    const at = (ms, fn) => timers.push(setTimeout(fn, ms * k));
+    item.classList.add('is-press'); logoEl.classList.add('charging'); light.classList.add('flare');
+    this.cancelUntil = performance.now() + CANCEL_MS * k;
     const disc = root.querySelector('.home-disc'), bloom = root.querySelector('.home-bloom');
-    disc.animate([{ opacity: 0.95, transform: `translate(${cx}px, ${cy}px) scale(.15)` }, { opacity: 0.9, transform: `translate(${cx}px, ${cy}px) scale(9)`, offset: 0.55 }, { opacity: 0, transform: `translate(${cx}px, ${cy}px) scale(34)` }], { duration: 700 * k, easing: 'cubic-bezier(.2,.7,.3,1)' });
-    bloom.animate([{ opacity: 0 }, { opacity: 1, offset: 0.4 }, { opacity: 0 }], { duration: 900 * k, easing: 'ease-in-out' });
+    const box = root.querySelector('.home-launch');
+    at(100, () => {
+      item.classList.remove('is-press');
+      root.querySelector('.home-dim').classList.add('on');
+      logoEl.classList.add('molten');
+      if (this.owl) this.owl.liftOff(500);
+      if (fx.cue) fx.cue('lumos'); else fx.arpeggio();
+      disc.animate([{ opacity: 0.95, transform: `translate(${cx}px, ${cy}px) scale(.15)` }, { opacity: 0.9, transform: `translate(${cx}px, ${cy}px) scale(9)`, offset: 0.55 }, { opacity: 0, transform: `translate(${cx}px, ${cy}px) scale(34)` }], { duration: 700 * k, easing: 'cubic-bezier(.2,.7,.3,1)' });
+      bloom.animate([{ opacity: 0 }, { opacity: 0.6, offset: 0.4 }, { opacity: 0 }], { duration: 900 * k, easing: 'ease-in-out' });
+    });
     const L = logoOf(app);
-    const box = root.querySelector('.home-launch'); const lg = box.querySelector('.home-launch-logo');
+    const lg = box.querySelector('.home-launch-logo'), banner = box.querySelector('.home-launch-banner');
     lg.className = `home-launch-logo app-logo lit${L.luma ? ' luma' : ''}`;
     lg.innerHTML = '<i class="l-ext"></i><i class="l-rimD"></i><i class="l-rimL"></i><i class="l-base"></i><i class="l-shine"></i>';
     lg.style.setProperty('--m', `url("${L.src}")`);
+    const uri = app.pkg ? Platform.appIcon(app.pkg) : null;        // the TV's own banner when it has one
+    box.classList.toggle('has-banner', Boolean(uri));
+    if (uri) banner.src = uri; else banner.removeAttribute('src');
     box.querySelector('.home-launch-title').textContent = `Ouverture de ${app.name}`;
     box.querySelector('.home-launch-sub').textContent = app.input ? `Entrée ${app.input}` : '';
     updateConfig({ lastApp: app.id });
-    const showCard = setTimeout(() => box.classList.add('show'), 420 * k);
-    this.timers.push(showCard);
+    const showCard = setTimeout(() => box.classList.add('show'), 420 * k); timers.push(showCard);
     const done = () => {
-      box.classList.remove('show'); root.querySelector('.home-dim').classList.remove('on'); logoEl.classList.remove('molten');
+      timers.forEach(clearTimeout);
+      box.classList.remove('show'); root.querySelector('.home-dim').classList.remove('on');
+      item.classList.remove('is-press'); logoEl.classList.remove('molten', 'charging'); light.classList.remove('flare');
       if (this.owl) { const t = this.owlTarget(); this.owl.comeBack(t.x, t.y); }
-      this.busy = false; Input.release();
+      this.cancelUntil = 0; this.busy = false;
+      if (held) { held = false; Input.release(); }
     };
-    // The intent fires at 350 ms. The TV's answer decides the rest: refused → everything settles at once and the
-    // Howler reads the TV's sentence; taken → the card stays while the app takes the screen (4 s), 2.4 s in the mock-up.
-    this.timers.push(setTimeout(async () => {
+    this.launchDone = done;
+    // The intent fires at 350 ms; from then on keys are queued and replayed at the end. The TV's answer decides the
+    // rest: refused → everything settles at once and the Howler reads the TV's sentence; taken → the card stays while
+    // the app takes the screen (4 s), 2.4 s in the mock-up.
+    at(CANCEL_MS, async () => {
+      this.cancelUntil = 0;
+      held = true; Input.hold();
       const r = Platform.launch(app);
       if (r.status === 'failed') {
         clearTimeout(showCard);
         done();
         const beuglante = await loadBeuglante();
         if (fx.cue) fx.cue('error');
+        if (this.owl) this.owl.startle();
         const action = r.missing && app.pkg ? { label: 'Retirer du parapet', onChoose: () => this.removeFromDock(app.id) } : undefined;
         if (beuglante) beuglante(root, { message: r.error, action });
         return;
       }
-      this.timers.push(setTimeout(done, ((r.status === 'bridge' ? 4000 : 2400) - 350) * k));
-    }, 350 * k));
+      at((r.status === 'bridge' ? 4000 : 2400) - CANCEL_MS, done);
+    });
+  },
+  // Back before the intent: the light recedes, nothing was launched.
+  cancelLaunch() {
+    if (!this.busy || !this.cancelUntil || performance.now() > this.cancelUntil) return false;
+    if (this.launchDone) this.launchDone();
+    this.ctx.fx.chime(659, 0.02);
+    return true;
   },
 
-  // ---- Boot ----
+  // ---- Boot: a Lumos. Dark castle, a point of light, the iris, the windows relight left to right, the clock
+  // writes itself, the dock rises, the owl arrives last. `ms`: the whole thing (1800 cold, 700 short, 300 reduced). ----
   boot(ms) {
     const root = this.root; root.classList.add('booting');
     const W = root.clientWidth, H = root.clientHeight;
     const disc = root.querySelector('.home-disc');
     Input.hold();
     const k = Number(getComputedStyle(root).getPropertyValue('--k')) || 1;
+    const s = ms / 1800;                                      // the short and reduced boots keep the same shape, compressed
+    const at = (t, fn) => this.timers.push(setTimeout(fn, t * s * k));
     root.style.clipPath = 'circle(0 at 50% 58%)';
-    this.timers.push(setTimeout(() => {
-      disc.animate([{ opacity: 1, transform: `translate(${W * 0.5}px, ${H * 0.58}px) scale(.1)` }, { opacity: 1, transform: `translate(${W * 0.5}px, ${H * 0.58}px) scale(12)`, offset: 0.7 }, { opacity: 0, transform: `translate(${W * 0.5}px, ${H * 0.58}px) scale(30)` }], { duration: ms * k, easing: 'ease-out' });
-      const reveal = root.animate([{ clipPath: 'circle(0 at 50% 58%)' }, { clipPath: 'circle(150% at 50% 58%)' }], { duration: ms * k, easing: 'ease-out', fill: 'forwards' });
+    this.windows.forEach((p) => { p.lit = 0; });
+    const ready = this.castleReady || Promise.resolve(false);
+    ready.then(() => { if (!this.root) return; this.windows.forEach((p) => { p.lit = 0; }); });
+    at(0, () => disc.animate([{ opacity: 1, transform: `translate(${W * 0.5}px, ${H * 0.58}px) scale(.05)` }, { opacity: 1, transform: `translate(${W * 0.5}px, ${H * 0.58}px) scale(.4)` }], { duration: 300 * s * k, easing: 'ease-out', fill: 'forwards' }));
+    at(300, () => {
+      disc.animate([{ opacity: 1, transform: `translate(${W * 0.5}px, ${H * 0.58}px) scale(.4)` }, { opacity: 1, transform: `translate(${W * 0.5}px, ${H * 0.58}px) scale(12)`, offset: 0.7 }, { opacity: 0, transform: `translate(${W * 0.5}px, ${H * 0.58}px) scale(30)` }], { duration: 600 * s * k, easing: 'ease-out' });
+      const reveal = root.animate([{ clipPath: 'circle(0 at 50% 58%)' }, { clipPath: 'circle(150% at 50% 58%)' }], { duration: 600 * s * k, easing: 'ease-out', fill: 'forwards' });
       reveal.onfinish = () => { reveal.cancel(); root.style.clipPath = ''; };
-      this.timers.push(setTimeout(() => root.classList.remove('booting'), ms * 0.6 * k));
-      this.timers.push(setTimeout(() => Input.release(), ms * k));
-    }, 120));
+    });
+    at(450, () => {
+      ready.then(() => {
+        if (!this.root) return;
+        const sorted = [...this.windows].sort((a, b) => a.x - b.x);
+        sorted.forEach((p, n) => this.timers.push(setTimeout(() => { p.lit = 1; }, (n / Math.max(1, sorted.length)) * 900 * s * k)));
+      });
+      if (this.ctx.fx.cue) this.ctx.fx.cue('wake');
+    });
+    at(700, () => { const c = root.querySelector('.home-clock'); c.classList.add('write-in'); root.classList.remove('booting'); });
+    at(1000, () => {
+      if (this.owl && this.items.length && !isReduced()) {
+        const t = this.owlTarget();
+        this.owl.comeBack(t.x, t.y, { onLand: () => { this.ctx.fx.burst(t.cx, t.y + this.owl.size().h * 0.98, 8, W / 60); this.land(this.items[this.i]); } });
+      }
+    });
+    at(1800, () => { root.querySelector('.home-clock').classList.remove('write-in'); Input.release(); });
   },
 
-  // ---- Nox ----
+  // ---- Nox: a slow starfield (three drifting tiles), the clock wanders on a 20 min loop (never the same pixel),
+  // the windows go out one by one, the owl sleeps, the scene clock drops to 15 fps. ----
   nox() {
     if (this.mode === 'nox') return;
     this.mode = 'nox';
     const root = this.root; root.classList.add('nox');
+    this.ctx.fx.setRate(66);
     if (this.ctx.fx.cue) this.ctx.fx.cue('nox');
     if (this.owl) this.owl.sleep();
     const order = [...this.windows].sort(() => Math.random() - 0.5);
     const keep = Math.floor(order.length / 3);
     order.slice(keep).forEach((p, n) => this.noxTimers.push(setTimeout(() => { const t0 = performance.now(); const fade = () => { const k = Math.min(1, (performance.now() - t0) / 1500); p.lit = 1 - k * 0.95; if (k < 1) requestAnimationFrame(fade); }; fade(); }, (n / Math.max(1, order.length)) * 20000)));
     root.querySelector('.home-moon').style.opacity = '.4';
-    let left = false;
-    this.noxTimers.push(setTimeout(() => root.classList.add('nox-corner'), 12000));
-    const corner = () => { left = !left; root.classList.toggle('nox-left', left); this.noxTimers.push(setTimeout(corner, NOX_CORNER_MS)); };
-    this.noxTimers.push(setTimeout(corner, NOX_CORNER_MS));
+    if (!isReduced()) {
+      const W = root.clientWidth;
+      const pts = [[0, 0], [30, 12], [-20, 16], [-36, -6], [10, -18], [38, 4], [-8, 18], [-30, -14], [0, 0]];   // in cqw, within ±38 / ±18
+      this.noxTimers.push(setTimeout(() => {
+        if (!this.root || this.mode !== 'nox') return;
+        this.noxAnim = root.querySelector('.home-clock').animate(pts.map(([x, y], i) => ({ transform: `translate(${x * W / 100}px, ${y * W / 100}px)`, offset: i / (pts.length - 1) })),
+          { duration: NOX_WANDER_MS, iterations: Infinity, easing: 'linear', composite: 'add' });
+      }, 2000));
+    }
     const plane = root.querySelector('.home-plane'); let dir = 1;
     const drift = () => { plane.style.transform = `translateX(${dir * 3}%)`; dir = -dir; this.noxTimers.push(setTimeout(drift, 90000)); };
     this.noxTimers.push(setTimeout(drift, 100));
@@ -372,9 +481,11 @@ export default {
     if (this.mode !== 'nox') return;
     this.mode = 'normal';
     this.noxTimers.forEach(clearTimeout); this.noxTimers = [];
-    const root = this.root; root.classList.remove('nox', 'nox-corner', 'nox-left');
+    if (this.noxAnim) { this.noxAnim.cancel(); this.noxAnim = null; }
+    this.ctx.fx.setRate(getConfig().motion === 'economie' ? 66 : 33);
+    const root = this.root; root.classList.remove('nox');
     const sorted = [...this.windows].sort((a, b) => a.x - b.x);
-    sorted.forEach((p, n) => setTimeout(() => { p.lit = 1; }, (n / Math.max(1, sorted.length)) * 1200));
+    sorted.forEach((p, n) => setTimeout(() => { p.lit = 1; }, (n / Math.max(1, sorted.length)) * 700));
     root.querySelector('.home-moon').style.opacity = '';
     if (this.ctx.fx.cue) this.ctx.fx.cue('wake');
     if (this.owl) this.owl.wake();
@@ -424,8 +535,10 @@ export default {
   },
 
   onKey(action, ctx) {
+    if (action === 'okdown') { if (!this.busy && this.mode !== 'nox') this.press(true); return true; }
     if (this.mode === 'nox') { if (action !== 'ok') this.wake(); return action !== 'left' && action !== 'right'; }
-    if (this.busy) return true;
+    if (this.busy) { if (action === 'back') this.cancelLaunch(); return true; }
+    this.press(false);
     this.armHint();
     if (this.mode === 'plate') {
       const opts = [...this.root.querySelectorAll('.home-plate-opt')];
@@ -448,7 +561,7 @@ export default {
         const k = BAR[this.bar];
         if (k === 'sound') this.toggleSound();
         else if (k === 'map') this.goMap(ctx);
-        else { if (ctx.fx.cue) ctx.fx.cue('enter'); ctx.router.go('settings', {}, 'iris'); }
+        else { if (ctx.fx.cue) ctx.fx.cue('enter'); ctx.router.go('settings', {}, 'snuff'); }
         return true;
       }
       return true;
@@ -458,9 +571,9 @@ export default {
     if (action === 'left') { if (this.i > 0) { this.i--; this.layout(false); ctx.fx.cue ? ctx.fx.cue('move', { dir: -1 }) : ctx.fx.chime(1046, 0.02); } else if (this.owl) this.owl.nod(); return true; }
     if (action === 'ok') { if (n) this.launch(); else this.goMap(ctx); return true; }
     if (action === 'longok') { if (n) this.rappeltout(); return true; }
-    if (action === 'down') { if (this.owl) this.owl.liftOff(450); if (ctx.fx.cue) ctx.fx.cue('enter'); else ctx.fx.chime(880, 0.03); ctx.router.go('library', {}, 'up'); return true; }
-    if (action === 'up') { this.zone = 'bar'; this.syncBar(); this.layout(true); if (this.owl) this.owl.nod(); return true; }
-    if (action === 'menu') { ctx.router.go('settings', {}, 'iris'); return true; }
+    if (action === 'down') { if (ctx.fx.cue) ctx.fx.cue('enter'); else ctx.fx.chime(880, 0.03); ctx.router.go('library', {}, 'crane'); return true; }   // onLeave lifts the owl
+    if (action === 'up') { this.zone = 'bar'; this.syncBar(); this.layout(true); return true; }
+    if (action === 'menu') { ctx.router.go('settings', {}, 'snuff'); return true; }
     if (action === 'longback') { this.plate(true); return true; }
     return false;
   },

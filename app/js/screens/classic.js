@@ -90,7 +90,7 @@ export default {
 
     root.innerHTML = `
       <div class="cls-clock"><div class="cls-time"></div><div class="cls-date"></div></div>
-      <div class="cls-scroll"><div class="cls-rows"></div></div>
+      <div class="cls-scroll"><div class="cls-pool"></div><div class="cls-rows"></div></div>
       <div class="keyhint"><span><b>▲</b>Réglages</span><span><b>OK</b>Ouvrir</span><span><b>OK long</b>Options</span><span><b>Retour long</b>Poudlard</span></div>
       <div class="cls-banner"><span class="cls-banner-text"></span></div>`;
 
@@ -229,6 +229,12 @@ export default {
       g.textContent = (app.name || '?').trim().charAt(0).toUpperCase();
       plate.appendChild(g);
     }
+    // On the TV, the app's own banner (Platform.appIcon, a data URI) sits behind the overlay; the mock-up keeps monograms.
+    if (app.pkg && Platform.isTV()) {
+      const uri = Platform.appIcon(app.pkg);
+      if (uri) { const img = document.createElement('img'); img.className = 'cls-banner-img'; img.decoding = 'async'; img.alt = ''; img.src = uri; plate.prepend(img); el.classList.add('has-banner'); }
+    }
+    if (app.id === getConfig().lastApp) { const last = document.createElement('span'); last.className = 'cls-last brass'; last.textContent = 'Dernière'; plate.appendChild(last); }
     const name = document.createElement('div');
     name.className = 'cls-name';
     name.textContent = app.name;
@@ -236,6 +242,21 @@ export default {
     if (!this.isInstalled(app)) el.classList.add('is-absent');
     return el;
   },
+
+  // The house candle pool slides under the focused tile (transform only, 150 ms), and the rows dim when idle.
+  movePool(instant) {
+    const pool = this.root.querySelector('.cls-pool'); const it = this.current();
+    if (!pool || !it || !it.el) { if (pool) pool.classList.remove('is-on'); return; }
+    const host = this.root.querySelector('.cls-rows');
+    const x = it.el.offsetLeft + it.el.parentElement.offsetLeft + it.el.offsetWidth / 2, y = it.el.parentElement.parentElement.offsetTop + it.el.offsetTop + it.el.offsetHeight * 0.3 - (this._off || 0);
+    if (instant) pool.style.transition = 'none';
+    pool.style.transform = `translate(${x - pool.offsetWidth / 2}px, ${y - pool.offsetHeight / 2}px)`;
+    if (instant) { void pool.offsetWidth; pool.style.transition = ''; }
+    pool.classList.add('is-on');
+    void host;
+  },
+  dim() { if (this.root) this.root.classList.add('is-dim'); },
+  undim() { if (!this.root || !this.root.classList.contains('is-dim')) return false; this.root.classList.remove('is-dim'); return true; },
 
   // "Réglages" and "Lumos" tiles: constant SVG glyph (no data), name in EB Garamond.
   tileSpecial(kind) {
@@ -408,6 +429,7 @@ export default {
     if (instant) host.style.transition = 'none';
     host.style.transform = `translateY(${-off}px)`;
     if (instant) { void host.offsetWidth; host.style.transition = ''; }
+    this.movePool(instant);
   },
 
   move(dr, dc) {
@@ -522,8 +544,11 @@ export default {
   },
 
   onKey(action, ctx) {
-    if (this.busy) return true;     // (during a banner or the smoke, input.js already queues the key)
     const it = this.current();
+    if (action === 'okdown') { if (!this.busy && it && it.el) it.el.classList.add('is-press'); return true; }
+    if (this.busy) return true;     // (during a banner or the smoke, input.js already queues the key)
+    if (it && it.el) it.el.classList.remove('is-press');
+    if (this.undim()) return true;  // idle dim: the first key only wakes the grid, the focus does not move
     switch (action) {
       case 'left': this.move(0, -1); return true;
       case 'right': this.move(0, 1); return true;

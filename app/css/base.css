@@ -6,17 +6,30 @@
   /* Interface palette (blueprint) */
   --night: #070B14; --stone: #1C2230; --moon: #C9D9EA; --mist: #8FB3D9; --ivory: #F1EBDD;
   --gold-light: #F1D58A; --gold: #C9A24A; --gold-dark: #6E4C14; --candle: #FFB457; --parchment: #E8D9B5; --ink: #1B1510;
-  --wax: #7a1f1f; --house-glow: #ffb457;
-  /* Three families, three roles */
-  --display: "Cinzel", "Trajan Pro", Georgia, serif;        /* engraved: time, names, plates, titles */
+  /* House palette: four tokens, set by html[data-house] below (never inline). Neutral = Gryffindor's red wax, candle glow. */
+  --wax: #7a1f1f; --house-glow: #ffb457; --house-ink: #3a1810; --house-night: #140a0c;
+  /* Three families, three roles (all SIL OFL, bundled in assets/fonts/) */
+  --display: "Cinzel", Georgia, serif;                       /* engraved: time, names, plates, titles */
   --body: "EB Garamond", Garamond, Georgia, serif;           /* read: date, states, settings */
   --fell: "IM Fell English", "EB Garamond", Georgia, serif;  /* written by a wizard: Map, Library, Letter */
   --title: var(--display); --serif: var(--body); --book: var(--fell);
   --ui: "Segoe UI", system-ui, sans-serif;
+  /* Type scale at 3 m: nothing below --t-hint. Safe area: nothing closer to an edge than --safe-x / --safe-y. */
+  --t-hint: 1.5cqw; --t-body: 1.85cqw; --t-label: 2.05cqw; --t-title: 2.4cqw; --t-clock: 6cqw;
+  --safe-x: 5cqw; --safe-y: 4.5cqw; --track-wide: .2em; --track-tight: .14em;
+  /* Focus grammar (focus.css): rest → focus → press → land. */
+  --t-focus: 250ms; --t-press-in: 90ms; --t-press-out: 160ms; --t-land: 180ms;
+  --ease-out: cubic-bezier(.2, .8, .2, 1); --ease-settle: cubic-bezier(.3, .7, .2, 1);
   --k: 1;                      /* time factor: 3 in slow motion */
   color-scheme: dark;
 }
 :root[data-slow="1"] { --k: 3; }
+/* The four houses: wax (seals), glow (candle, focus rings), ink (strokes on parchment), night (the Parapet's shade). */
+html[data-house="gryffondor"] { --wax: #7a1f1f; --house-glow: #ffb457; --house-ink: #3a1810; --house-night: #140a0c; }
+html[data-house="serpentard"] { --wax: #1f4a2e; --house-glow: #9fe3b8; --house-ink: #10261a; --house-night: #07130d; }
+html[data-house="serdaigle"] { --wax: #1f3a6b; --house-glow: #9fc4ff; --house-ink: #101c33; --house-night: #070e1c; }
+html[data-house="poufsouffle"] { --wax: #8a6a1c; --house-glow: #ffe28a; --house-ink: #2c2008; --house-night: #120e04; }
+html[data-house="none"] { --wax: #7a1f1f; --house-glow: #ffb457; --house-ink: #1B1510; --house-night: #070B14; }
 * { box-sizing: border-box; }
 html, body { margin: 0; background: var(--bg); color: var(--fg); font-family: var(--ui); font-size: 15px; line-height: 1.5; }
 
@@ -54,13 +67,24 @@ html, body { margin: 0; background: var(--bg); color: var(--fg); font-family: va
 .screen.leave-down { transform: translateY(100%); }
 .screen.enter-iris { clip-path: circle(0% at 50% 60%); }
 .screen.leave-iris { opacity: 0; }
+/* Camera moves (router.js): the crane down to Ollivanders (the Parapet lifts and grows while the shop window
+   rises from below), its reverse, and the candle-snuff into the Room of Requirement (a short fade to black). */
+.screen.enter-crane { transform: translateY(42%); opacity: 0; }
+.screen.leave-crane { transform: translateY(-10%) scale(1.06); opacity: 0; }
+.screen.enter-uncrane { transform: translateY(-10%) scale(1.06); opacity: 0; }
+.screen.leave-uncrane { transform: translateY(42%); opacity: 0; }
+.screen.leave-snuff { opacity: 0; transition-duration: calc(var(--k) * 150ms); }
+.screen.enter-snuff { opacity: 0; }
 .screen { clip-path: circle(150% at 50% 60%); transition-property: transform, opacity, clip-path; }
+html:not([data-motion="auto"]) .screen.enter-crane, html:not([data-motion="auto"]) .screen.enter-uncrane { transform: none; }
+html:not([data-motion="auto"]) .screen.leave-crane, html:not([data-motion="auto"]) .screen.leave-uncrane { transform: none; }
+html:not([data-motion="auto"]) .screen { transition-duration: calc(var(--k) * 200ms); }
 
 .fx-dust { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 40; }
 .fx-lumos { position: absolute; top: 0; left: 0; width: 6cqw; height: 6cqw; margin: -3cqw 0 0 -3cqw; border-radius: 50%; pointer-events: none; z-index: 45;
   background: radial-gradient(closest-side, #fffef4, #ffe39acc 40%, #ffd06a00); }
 
 .screen-error { position: absolute; inset: 0; display: grid; place-content: center; gap: 1cqw; text-align: center; background: var(--night); }
-.screen-error .engraved { font-size: 2.4cqw; }
+.screen-error .engraved { font-size: var(--t-title); }
 
 @media (prefers-reduced-motion: reduce) { .screen { transition-duration: 1ms; } }

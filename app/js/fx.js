@@ -1,6 +1,12 @@
-// Shared effects: gold dust (canvas), the Lumos flash, and the soundtrack (delegated to sound.js: a synthesized
-// celesta for the cues, an original background score or a personal file; no audio file is distributed).
+// Shared effects: ONE scene clock, gold dust (canvas), the Lumos flash, and the soundtrack (delegated to sound.js:
+// a synthesized celesta for the cues, an original background score or a personal file; no audio file is distributed).
 // Everything respects `prefers-reduced-motion` and the "motion: calme" setting.
+//
+// The clock: a single requestAnimationFrame for the whole interface, gated to 33 ms (30 fps) or 66 ms in economy
+// mode and during Nox (Fx.setRate). Screens register callbacks with Fx.tick(fn) / Fx.untick(fn) instead of
+// running their own loop (the Parapet's window flicker does this). The dust is the first callback and only
+// clears its canvas while a particle is alive. The canvas backing store is capped at 960 px wide (dpr 0.5 on a
+// 1080p stage): the dust is soft anyway, and a weak TV WebView has one canvas to composite, not two per frame.
 import { Sound } from './sound.js';
 
 let canvas = null, ctx2d = null, W = 0, H = 0;
@@ -8,6 +14,10 @@ const parts = [];
 let enabled = { dust: true, sound: false, calm: false };
 let raf = 0;
 let lastMove = -1e9;     // timestamp (ms) of the last `move` played through chime(), to merge the legacy chords
+const ticks = new Set(); // callbacks (now, dt) run on each gated frame
+let rate = 33;           // ms between two frames
+let lastFrame = 0;
+let dirty = false;       // the dust canvas needs a clear on the next frame
 
 const glow = document.createElement('canvas');
 glow.width = glow.height = 32;
@@ -27,21 +37,21 @@ function resize() {
   if (!canvas) return;
   const r = canvas.parentElement.getBoundingClientRect();
   W = r.width; H = r.height;
-  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const dpr = W >= 1600 ? 0.5 : Math.min(window.devicePixelRatio || 1, 1);
   canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr);
   ctx2d.setTransform(dpr, 0, 0, dpr, 0, 0);
+  dirty = true;
 }
 
 let last = 0;
-function frame(now) {
-  raf = requestAnimationFrame(frame);
-  const dt = Math.min(0.05, (now - last) / 1000); last = now;
+function drawDust(now, dt) {
   if (!ctx2d || !W) return;
-  ctx2d.clearRect(0, 0, W, H);
-  if (!enabled.dust || reduced()) { parts.length = 0; return; }
+  if (!enabled.dust || reduced()) { if (parts.length || dirty) { parts.length = 0; ctx2d.clearRect(0, 0, W, H); dirty = false; } return; }
   if (parts.filter((p) => p.amb).length < 40) {
     parts.push({ amb: true, x: Math.random() * W, y: H * (0.5 + Math.random() * 0.55), vx: (Math.random() - 0.5) * 6, vy: -(5 + Math.random() * 12), life: 0, max: 5 + Math.random() * 6, s: 0.6 + Math.random() * 1.3 });
   }
+  if (!parts.length && !dirty) return;
+  ctx2d.clearRect(0, 0, W, H); dirty = false;
   ctx2d.globalCompositeOperation = 'lighter';
   const t = now / 1000;
   for (let j = parts.length - 1; j >= 0; j--) {
@@ -59,6 +69,14 @@ function frame(now) {
   ctx2d.globalCompositeOperation = 'source-over';
 }
 
+function frame(now) {
+  raf = requestAnimationFrame(frame);
+  if (now - lastFrame < rate) return;
+  const dt = Math.min(0.05, (now - last) / 1000); last = now; lastFrame = now;
+  drawDust(now, dt);
+  for (const fn of ticks) { try { fn(now, dt); } catch (e) { ticks.delete(fn); console.error('tick', e); } }
+}
+
 export const Fx = {
   // `host`: the full-screen element the particle canvas is placed on.
   mount(host) {
@@ -70,6 +88,12 @@ export const Fx = {
     resize();
     if (!raf) raf = requestAnimationFrame(frame);
   },
+  // The scene clock: one callback per animated thing, all on the same gated frame.
+  tick(fn) { ticks.add(fn); return () => ticks.delete(fn); },
+  untick(fn) { ticks.delete(fn); },
+  // 33 ms by default; 66 ms in economy mode or during Nox.
+  setRate(ms) { rate = Math.max(16, ms | 0); },
+  rate() { return rate; },
   // `sound`: mutes or unmutes the cues instantly (sound.js handles the 30 ms mute and stops the notes in flight).
   configure(opts) {
     enabled = { ...enabled, ...opts };

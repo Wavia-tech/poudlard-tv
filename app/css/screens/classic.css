@@ -39,6 +39,23 @@
   transition: opacity calc(var(--k) * var(--cls-focus-ms)) ease-out; }
 .cls-tile.is-focus .cls-plate { transform: scale(1.06); }
 .cls-tile.is-focus .cls-plate::after { opacity: .9; }
+/* The TV's own banner behind the overlay (TV only; the mock-up shows monograms). */
+.cls-banner-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; border-radius: .7cqw; opacity: .85; }
+.cls-tile.has-banner .cls-icon, .cls-tile.has-banner .cls-glyph { display: none; }
+/* The last launched app wears a small brass plate. */
+.cls-last { position: absolute; right: .5cqw; top: .5cqw; font-size: var(--t-hint); padding: .1cqw .8cqw; }
+/* The house candle pool under the focused tile: a soft ellipse moved by transform. */
+.cls-pool { position: absolute; left: 0; top: 0; width: 22cqw; height: 11cqw; pointer-events: none; opacity: 0; z-index: 0;
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--house-glow) 18%, transparent), transparent 70%);
+  transition: transform calc(var(--k) * 150ms) var(--ease-out), opacity calc(var(--k) * 150ms); }
+.cls-pool.is-on { opacity: 1; }
+.cls-rows { position: relative; z-index: 1; }
+/* Category titles get a hairline rule; the top light of a plate takes a hint of the house. */
+.cls-row-title::after { content: ""; display: block; height: .06cqw; margin-top: .3cqw; background: linear-gradient(to right, #8fb3d955, transparent 70%); }
+.cls-plate { box-shadow: inset 0 .08cqw 0 color-mix(in srgb, var(--house-glow) 10%, #ffffff14), inset 0 -.1cqw 0 #00000080; }
+/* Idle: the rows dim in 1.2 s, the clock stays; the first key only wakes them (classic.js). */
+.screen-classic .cls-rows { transition: transform calc(var(--k) * 350ms) cubic-bezier(.3, .7, .2, 1), opacity calc(var(--k) * 1200ms); }
+.screen-classic.is-dim .cls-rows { opacity: .4; }
 
 /* Centered flat ivory logo: only the .l-base layer, at 90% (burn-in). Focus does not change it (the gold from shared.css is neutralized):
    a deliberate exception of classic mode (blueprint: "focus = frame + scale, nothing else"). */

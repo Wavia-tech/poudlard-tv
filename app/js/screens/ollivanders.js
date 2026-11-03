@@ -1,7 +1,8 @@
 // Ollivanders: the film collection shown as a wandmaker's shop window.
 // The reference image (assets/ollivanders.webp) is displayed as is. Selection draws no outline at all:
-// a warm spotlight lights the chosen box (the rest of the shop dims gently), the camera leans slightly
-// towards it, and a few specks of gold dust rise from the wand.
+// a warm spotlight lights the chosen box (the rest of the shop dims gently through a soft hole that is one
+// static radial mask moved by transform, no blur), a beam of light falls on it from above, the camera leans
+// slightly towards it, and a few specks of gold dust rise along the beam. Transform and opacity only.
 import { LIBRARY, appById, getConfig, isReduced } from '../config.js';
 import { Platform } from '../platform.js';
 import { Input } from '../input.js';
@@ -20,7 +21,7 @@ const BOXES = [
   [[1195, 320], [1285, 316], [1370, 790], [1180, 790]],
   [[1340, 322], [1440, 318], [1565, 790], [1385, 790]],
 ];
-const FEATHER = 22;   // blur of the spotlight edge (image units)
+const HOLE = 1.6;     // the hole's box is 1.6 × the film box (the soft edge lives in the mask gradient)
 const loadRappeltout = () => import('../rappeltout.js').then((m) => m.rappeltout).catch(() => null);
 const loadBeuglante = () => import('../beuglante.js').then((m) => m.beuglante).catch(() => null);
 
@@ -35,18 +36,9 @@ export default {
     root.innerHTML = `
       <div class="olv-scene">
         <img class="olv-bg" alt="">
-        <svg class="olv-overlay" viewBox="0 0 ${IMG.w} ${IMG.h}" preserveAspectRatio="none" aria-hidden="true">
-          <defs>
-            <filter id="olv-feather" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="${FEATHER}"/></filter>
-            <mask id="olv-mask" maskUnits="userSpaceOnUse" x="0" y="0" width="${IMG.w}" height="${IMG.h}">
-              <rect width="${IMG.w}" height="${IMG.h}" fill="#fff"/>
-              <polygon class="olv-hole" fill="#000" filter="url(#olv-feather)" points=""/>
-            </mask>
-            <radialGradient id="olv-warm"><stop offset="0" stop-color="#ffd38a" stop-opacity=".45"/><stop offset=".55" stop-color="#ffb457" stop-opacity=".12"/><stop offset="1" stop-color="#ffb457" stop-opacity="0"/></radialGradient>
-          </defs>
-          <rect class="olv-shade" width="${IMG.w}" height="${IMG.h}" mask="url(#olv-mask)"/>
-          <ellipse class="olv-warmth" fill="url(#olv-warm)"/>
-        </svg>
+        <div class="olv-shade"></div>
+        <div class="olv-beam"></div>
+        <div class="olv-warmth"></div>
       </div>
       <div class="olv-caption"><div class="olv-caption-title"></div><div class="olv-caption-sub"></div></div>
       <div class="keyhint olv-hint"><span><b>◀ ▶</b>Choisir</span><span><b>OK</b>Ouvrir le film</span><span><b>▲</b>Parapet</span></div>
@@ -60,37 +52,52 @@ export default {
     if (ctx.config().sounds) ctx.fx.initAudio();
   },
 
-  unmount() { this.timers.forEach(clearTimeout); cancelAnimationFrame(this.raf); clearTimeout(this.dustTimer); },
+  unmount() { this.timers.forEach(clearTimeout); clearTimeout(this.dustTimer); },
 
   // Centre of a box (image pixels and screen pixels).
   centerImg(n) { const b = this.items[n].box; return { x: b.reduce((s, p) => s + p[0], 0) / 4, y: b.reduce((s, p) => s + p[1], 0) / 4 }; },
   center(n) { const c = this.centerImg(n); return { x: c.x / IMG.w * this.root.clientWidth, y: c.y / IMG.h * this.root.clientHeight }; },
+  // Box of a film in screen fractions: centre and size.
+  boxOf(n) {
+    const b = this.items[n].box;
+    const xs = b.map((p) => p[0]), ys = b.map((p) => p[1]);
+    const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
+    return { cx: (x0 + x1) / 2 / IMG.w, cy: (y0 + y1) / 2 / IMG.h, w: (x1 - x0) / IMG.w, h: (y1 - y0) / IMG.h };
+  },
 
-  // The spotlight hole slides from one box to the next: interpolation of the 8 coordinates, 380 ms.
-  moveHole(target, instant) {
-    const hole = this.root.querySelector('.olv-hole');
-    const flat = target.flat();
-    const set = (pts) => hole.setAttribute('points', pts.map((v) => v.toFixed(1)).join(' '));
-    cancelAnimationFrame(this.raf);
-    if (instant || !this.cur || isReduced()) { this.cur = flat; set(flat); return; }
-    const from = this.cur, t0 = performance.now(), k = Number(getComputedStyle(this.root).getPropertyValue('--k')) || 1, dur = 380 * k;
-    const step = (now) => {
-      let t = Math.min(1, (now - t0) / dur); t = 1 - Math.pow(1 - t, 3);                 // ease-out
-      const pts = from.map((v, n) => v + (flat[n] - v) * t);
-      set(pts); this.cur = pts;
-      if (t < 1) this.raf = requestAnimationFrame(step);
-    };
-    this.raf = requestAnimationFrame(step);
+  // The veil (with its static hole), the beam and the warmth move by transform to the chosen box (380 ms,
+  // cubic-bezier(.33,0,.2,1) in CSS). The hole is cut once at HOLE × the first box; the veil then only translates
+  // (its centre onto the box) and scales (the box's size relative to the first).
+  moveHole(n, instant) {
+    const root = this.root, W = root.clientWidth, H = root.clientHeight;
+    const b = this.boxOf(n);
+    const shade = root.querySelector('.olv-shade'), beam = root.querySelector('.olv-beam'), warm = root.querySelector('.olv-warmth');
+    if (!this.holeBase) {
+      const b0 = this.boxOf(0);
+      this.holeBase = { w: b0.w * HOLE, h: b0.h * HOLE };
+      // Radii in % of the veil (three screens): half the hole, divided by three.
+      const rx = (this.holeBase.w * 100 / 6).toFixed(2), ry = (this.holeBase.h * 100 / 6).toFixed(2);
+      const m = `radial-gradient(ellipse ${rx}% ${ry}% at 50% 50%, transparent 55%, #000 72%)`;
+      shade.style.webkitMaskImage = m; shade.style.maskImage = m;
+    }
+    const sx = (b.w * HOLE) / this.holeBase.w, sy = (b.h * HOLE) / this.holeBase.h;
+    const tx = (b.cx - 0.5) * W, ty = (b.cy - 0.5) * H;
+    const set = (el, v) => { if (instant) el.style.transition = 'none'; el.style.transform = v; if (instant) { void el.offsetWidth; el.style.transition = ''; } };
+    set(shade, `translate(${tx.toFixed(1)}px, ${ty.toFixed(1)}px) scale(${sx.toFixed(3)}, ${sy.toFixed(3)})`);
+    // The beam hangs from the top, leaning ±4° with the box's position; the warmth sits a little above the box.
+    const lean = (b.cx - 0.5) * 8;
+    set(beam, `translate(${(b.cx * W - W * 0.07).toFixed(1)}px, 0) rotate(${lean.toFixed(2)}deg)`);
+    set(warm, `translate(${(b.cx * W - W * 0.09).toFixed(1)}px, ${(b.cy * H - H * 0.36).toFixed(1)}px)`);
+    // A single rise of the warmth on each move (no infinite breathing).
+    if (!instant && !isReduced()) warm.animate([{ opacity: 0.55 }, { opacity: 1 }], { duration: 600, easing: 'ease-out', fill: 'forwards' });
   },
 
   focus(n, instant) {
     this.i = Math.max(0, Math.min(this.items.length - 1, n));
     const it = this.items[this.i];
-    this.moveHole(it.box, instant);
-    // Warm light resting on the box, and the camera leaning towards it.
+    this.moveHole(this.i, instant);
+    // The camera leaning towards the box.
     const c = this.centerImg(this.i);
-    const warm = this.root.querySelector('.olv-warmth');
-    warm.setAttribute('cx', c.x); warm.setAttribute('cy', c.y - 40); warm.setAttribute('rx', 150); warm.setAttribute('ry', 290);
     const scene = this.root.querySelector('.olv-scene');
     scene.style.transformOrigin = `${c.x / IMG.w * 100}% ${c.y / IMG.h * 100}%`;
     scene.classList.add('lean');
@@ -101,11 +108,11 @@ export default {
     if (!instant) { cap.classList.remove('is-write'); void cap.offsetWidth; cap.classList.add('is-write'); }
   },
 
-  // A few specks of gold rise from the chosen wand, now and then.
+  // A few specks of gold rise along the beam, now and then.
   dust() {
     clearTimeout(this.dustTimer);
     const tick = () => {
-      if (!isReduced() && !this.busy) { const c = this.center(this.i); this.ctx.fx.burst(c.x, c.y - this.root.clientHeight * 0.12, 3, this.root.clientWidth / 90); }
+      if (!isReduced() && !this.busy && this.root) { const c = this.center(this.i); const y = c.y - this.root.clientHeight * (0.12 + Math.random() * 0.3); this.ctx.fx.burst(c.x + (Math.random() - 0.5) * this.root.clientWidth * 0.04, y, 3, this.root.clientWidth / 90); }
       this.dustTimer = setTimeout(tick, 1400 + Math.random() * 1200);
     };
     this.dustTimer = setTimeout(tick, 600);
@@ -145,14 +152,17 @@ export default {
   },
 
   onKey(action, ctx) {
+    if (action === 'okdown') { if (!this.busy) this.root.querySelector('.olv-scene').classList.add('is-press'); return true; }
     if (this.busy) return true;
+    this.root.querySelector('.olv-scene').classList.remove('is-press');
     if (action === 'right') { if (this.i < this.items.length - 1) { this.focus(this.i + 1); ctx.fx.cue ? ctx.fx.cue('move', { dir: 1 }) : ctx.fx.chime(1175, 0.02); } return true; }
     if (action === 'left') { if (this.i > 0) { this.focus(this.i - 1); ctx.fx.cue ? ctx.fx.cue('move', { dir: -1 }) : ctx.fx.chime(1046, 0.02); } return true; }
     if (action === 'ok') { this.launch(); return true; }
     if (action === 'longok') { this.rappeltout(); return true; }
-    if (action === 'up' || action === 'back') { if (ctx.fx.cue) ctx.fx.cue('return'); else ctx.fx.whoosh(); ctx.router.go('home', {}, 'down'); return true; }
-    if (action === 'longback') { ctx.router.go('home', { askClassic: true }, 'down'); return true; }
-    if (action === 'menu') { ctx.router.go('settings', {}, 'iris'); return true; }
+    if (action === 'up' || action === 'back') { if (ctx.fx.cue) ctx.fx.cue('return'); else ctx.fx.whoosh(); ctx.router.go('home', {}, 'uncrane'); return true; }
+    if (action === 'home') { ctx.router.replace('home', {}, 'fade'); return true; }
+    if (action === 'longback') { ctx.router.go('home', { askClassic: true }, 'uncrane'); return true; }
+    if (action === 'menu') { ctx.router.go('settings', {}, 'snuff'); return true; }
     return false;
   },
 };

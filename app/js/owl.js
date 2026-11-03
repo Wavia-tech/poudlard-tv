@@ -1,52 +1,62 @@
 // Hedwig (Hedwige): the home-screen cursor, and an animal. Real generated photos (cut out), cross-faded
 // according to flight progress, never switched on a timer. She has weight (a crouch before take-off),
-// depth (she grows in the middle of the arc, her shadow runs across the stone) and a life at rest
-// (glances, blinks, ruffling, sleep during Nox).
+// depth (she grows in the middle of the arc, her shadow runs across the stone), banking (she rolls into each
+// segment of the flight), feathers that fall when she lands, a startle when something goes wrong, glances
+// toward the bar, and a life at rest (glances, blinks, ruffling, sleep during Nox).
 //
-// Poses expected in `poses` (image paths, all aligned on the talons, three-quarter view facing right):
-//   perch (perched, looking at the camera) · look (head turned) · sleep (eyes closed) · up (flight, wings high) · down (flight, wings low)
-//   glide (gliding) · land (landing). A missing pose falls back to the closest one; a broken image is never shown.
+// Poses come from ONE sprite sheet (assets/owl-sheet.webp, built by tools/cutout_owl.py --sheet): one row of
+// equal cells, in `cells` order, the ivory rim baked in (no CSS filter). Two layers show the current and the
+// previous cell and swap opacities: one texture, two elements, zero filter.
+//   createOwl(host, { sheet, cells: ['perch','look','sleep','up','down','glide','land'], feather?, size, reduced })
+// A missing sheet hides the owl (never a broken image); a missing pose falls back to the closest one.
 
 const FALLBACK = { look: 'perch', sleep: 'perch', glide: 'up', land: 'up', down: 'up', up: 'perch' };
+const FEATHERS = 3;
 
 export function createOwl(host, opts) {
-  const { poses, size = 110, reduced = () => false } = opts;
+  const { sheet, cells = [], feather = null, size = 110, reduced = () => false } = opts;
   const el = document.createElement('div');
   el.className = 'owl';
   el.style.setProperty('--owl-size', size + 'px');
-  el.innerHTML = '<div class="owl-shadow"></div><div class="owl-dir"><div class="owl-depth"><div class="owl-poses"></div></div></div>';
+  el.innerHTML = '<div class="owl-shadow"></div><div class="owl-dir"><div class="owl-depth"><div class="owl-poses"><div class="owl-layer"></div><div class="owl-layer"></div></div></div></div><div class="owl-feathers"></div>';
   const dir = el.querySelector('.owl-dir'), depth = el.querySelector('.owl-depth'), posesEl = el.querySelector('.owl-poses'), shadow = el.querySelector('.owl-shadow');
-  const imgs = {};
-  const available = new Set();
-  for (const [name, src] of Object.entries(poses)) {
-    const img = document.createElement('img');
-    img.className = `owl-pose owl-pose-${name}`; img.alt = ''; img.draggable = false;
-    img.addEventListener('load', () => available.add(name));
-    img.addEventListener('error', () => { img.remove(); delete imgs[name]; });
-    img.src = src;
-    posesEl.appendChild(img);
-    imgs[name] = img;
+  const layers = [...el.querySelectorAll('.owl-layer')];
+  const feathersEl = el.querySelector('.owl-feathers');
+  const index = Object.fromEntries(cells.map((n, i) => [n, i]));
+  const n = Math.max(1, cells.length);
+  let ready = false;
+  if (sheet) {
+    const probe = new Image();
+    probe.onload = () => { ready = true; el.classList.add('is-ready'); };
+    probe.onerror = () => { el.classList.add('is-missing'); };
+    probe.src = sheet;
+    layers.forEach((l) => { l.style.backgroundImage = `url("${sheet}")`; l.style.backgroundSize = `${n * 100}% 100%`; });
+  } else {
+    el.classList.add('is-missing');
   }
   host.appendChild(el);
 
-  let state = 'idle', pose = null, facing = 'right';   // pose = null: the first showPose() really displays
+  let state = 'idle', pose = null, facing = 'right', front = 0;   // pose = null: the first showPose() really displays
   let pos = { x: 0, y: 0 };
   let flight = null, flightRaf = 0, timers = [];
   let idleTimer = 0, lastDir = 'right';
 
   const later = (fn, ms) => { const t = setTimeout(fn, ms); timers.push(t); return t; };
   const clearTimers = () => { timers.forEach(clearTimeout); timers = []; };
-  const resolvePose = (name) => { let n = name; while (n && !imgs[n]) n = FALLBACK[n]; return n || 'perch'; };
+  const resolvePose = (name) => { let p = name; while (p && !(p in index)) p = FALLBACK[p]; return p in index ? p : cells[0]; };
 
+  // The hidden layer takes the new cell, then the two layers swap opacities (60-120 ms cross-fade).
   function showPose(name, ms = 60) {
-    const n = resolvePose(name);
-    if (n === pose) return;
-    pose = n;
+    const p = resolvePose(name);
+    if (p === pose) return;
+    pose = p;
     const k = reduced() ? 1 : ms;
-    for (const [key, img] of Object.entries(imgs)) {
-      img.style.transitionDuration = k + 'ms';
-      img.style.opacity = key === n ? '1' : '0';
-    }
+    const back = 1 - front;
+    layers[back].style.backgroundPosition = n > 1 ? `${(index[p] / (n - 1)) * 100}% 0` : '0 0';
+    layers[back].style.transitionDuration = k + 'ms'; layers[front].style.transitionDuration = k + 'ms';
+    layers[back].style.opacity = '1'; layers[front].style.opacity = '0';
+    posesEl.classList.toggle('is-perched', p === 'perch' || p === 'look' || p === 'sleep');
+    front = back;
   }
   function setState(s) { state = s; el.dataset.state = s; }
   function setFacing(f) { facing = f; dir.style.transform = f === 'left' ? 'scaleX(-1)' : ''; }
@@ -67,7 +77,7 @@ export function createOwl(host, opts) {
         return;
       }
       if (r < 0.85) {                                   // blink, sometimes double
-        const blink = (n) => { showPose('sleep', 90); setTimeout(() => { showPose('perch', 120); if (n > 1) setTimeout(() => blink(n - 1), 160); }, 110); };
+        const blink = (c) => { showPose('sleep', 90); setTimeout(() => { showPose('perch', 120); if (c > 1) setTimeout(() => blink(c - 1), 160); }, 110); };
         blink(Math.random() < 0.25 ? 2 : 1);
       } else {                                          // ruffling
         depth.animate([{ transform: 'scale(1)' }, { transform: 'scale(1.02)', offset: 0.5 }, { transform: 'scale(1)' }], { duration: 300, easing: 'ease-in-out' });
@@ -77,7 +87,28 @@ export function createOwl(host, opts) {
     idleTimer = setTimeout(beat, 1500 + Math.random() * 3000);
   }
 
+  // ---- Feathers: three small ones fall and turn when she lands ----
+  function dropFeathers() {
+    if (!feather || reduced()) return;
+    for (let i = 0; i < FEATHERS; i++) {
+      const f = document.createElement('i');
+      f.className = 'owl-feather';
+      f.style.backgroundImage = `url("${feather}")`;
+      f.style.left = `${35 + i * 15}%`;
+      feathersEl.appendChild(f);
+      const sx = (i - 1) * 2 + (Math.random() - 0.5), rot = (i % 2 ? 1 : -1) * (30 + Math.random() * 20);
+      const a = f.animate([
+        { transform: 'translate(0, 0) rotate(0deg)', opacity: 0.9 },
+        { transform: `translate(${sx * 0.6}cqw, 3cqw) rotate(${rot * 0.6}deg)`, opacity: 0.8, offset: 0.5 },
+        { transform: `translate(${sx}cqw, 6cqw) rotate(${rot}deg)`, opacity: 0 },
+      ], { duration: 900 + i * 120, easing: 'cubic-bezier(.2,.6,.3,1)', delay: i * 60 });
+      a.onfinish = () => f.remove();
+    }
+  }
+
   // ---- Flight to a point (top-left corner of the container) ----
+  // Banking: the roll of each segment comes from its own direction (atan2 × 0.35, ±12° at most), so a long
+  // climb and a short hop do not lean the same way.
   function flyTo(x, y, o = {}) {
     clearTimers();
     cancelAnimationFrame(flightRaf);
@@ -101,18 +132,20 @@ export function createOwl(host, opts) {
     setState('fly');
     el.dataset.phase = 'crouch';
     showPose('perch', 40);
-    // Crouch for 80 ms, then the arc.
-    const tilt = (dx < 0 ? -1 : 1) * 8;
-    const tr = (px, py, rot = 0) => ({ transform: `translate(${px}px, ${py}px) rotate(${rot}deg)` });
-    flight = el.animate([
-      tr(from.x, from.y, 0),
-      { ...tr(from.x, from.y + 4, 0), offset: 0.08 },
-      { ...tr(from.x + dx * 0.12, from.y - lift * 0.55, -tilt * 0.5), offset: 0.22 },
-      { ...tr(from.x + dx * 0.55, Math.min(from.y, y) - lift, tilt * 0.4), offset: 0.55 },
-      { ...tr(x - dx * 0.03, y - lift * 0.22, tilt), offset: 0.82 },
-      { ...tr(x, y - H * 0.02, 3), offset: 0.9 },
-      tr(x, y, 0),
-    ], { duration: dur, easing: 'cubic-bezier(.42,.05,.3,1)', fill: 'forwards' });
+    // Waypoints of the arc; the roll of each is the direction of the segment that reaches it, mirrored by facing.
+    const pts = [
+      [from.x, from.y], [from.x, from.y + 4], [from.x + dx * 0.12, from.y - lift * 0.55], [from.x + dx * 0.55, Math.min(from.y, y) - lift],
+      [x - dx * 0.03, y - lift * 0.22], [x, y - H * 0.02], [x, y],
+    ];
+    const offsets = [0, 0.08, 0.22, 0.55, 0.82, 0.9, 1];
+    const sign = dx < 0 ? -1 : 1;
+    const bank = (i) => {
+      if (i === 0 || i === pts.length - 1) return 0;
+      const ang = Math.atan2(pts[i][1] - pts[i - 1][1], (pts[i][0] - pts[i - 1][0]) * sign);
+      return Math.max(-12, Math.min(12, ang * 0.35 * 180 / Math.PI)) * sign;
+    };
+    const frames = pts.map((p, i) => ({ transform: `translate(${p[0]}px, ${p[1]}px) rotate(${bank(i).toFixed(1)}deg)`, offset: offsets[i] }));
+    flight = el.animate(frames, { duration: dur, easing: 'cubic-bezier(.42,.05,.3,1)', fill: 'forwards' });
     depth.animate([{ transform: 'scale(.96)' }, { transform: 'scale(1)', offset: 0.1 }, { transform: 'scale(1.18)', offset: 0.5 }, { transform: 'scale(1)' }], { duration: dur, easing: 'ease-in-out' });
     // The shadow runs across the stone: it stretches as the owl climbs.
     shadow.animate([
@@ -146,6 +179,7 @@ export function createOwl(host, opts) {
         anim.commitStyles(); anim.cancel(); flight = null;
         place(x, y);
         setState('land');
+        if (!short) dropFeathers();
         if (o.onLand) o.onLand();
         later(() => { showPose('perch', 120); setState('idle'); idleLife(); resolve(); }, 180 * k);
       };
@@ -158,10 +192,26 @@ export function createOwl(host, opts) {
     place(x, y); showPose('perch', 1); setState('idle'); idleLife();
   }
 
-  // Hitting the edge: she does not move, just a small nod of the head.
+  // Hitting the edge: she does not move, just a small nod of the head. Twice within 600 ms: a startled hop.
+  let lastNod = 0;
   function nod() {
     if (reduced()) return;
+    const now = performance.now();
+    if (now - lastNod < 600) { lastNod = 0; startle(); return; }
+    lastNod = now;
     depth.animate([{ transform: 'rotate(0deg)' }, { transform: 'rotate(4deg)', offset: 0.5 }, { transform: 'rotate(0deg)' }], { duration: 240, easing: 'ease-in-out' });
+  }
+  // Something went wrong (a Howler, a refused edge): a crouch, a hop, wings up for a beat.
+  function startle() {
+    if (reduced() || state !== 'idle') return;
+    depth.animate([{ transform: 'scale(1)' }, { transform: 'scale(.92)', offset: 0.3 }, { transform: 'translateY(-1cqw) scale(1.02)', offset: 0.65 }, { transform: 'scale(1)' }], { duration: 320, easing: 'ease-out' });
+    showPose('up', 60);
+    later(() => { if (state === 'idle') showPose('perch', 120); }, 180);
+  }
+  // A glance toward the bar (above) or back to the camera.
+  function lookAt(where) {
+    if (state !== 'idle') return;
+    if (where === 'up') { setFacing(lastDir); showPose('look', 250); } else showPose('perch', 250);
   }
 
   // Lumos: she takes off vertically out of frame while the light rises.
@@ -175,11 +225,11 @@ export function createOwl(host, opts) {
     return new Promise((r) => later(r, ms * k));
   }
   // Return from out of frame to a point (after Lumos, after the crane shot).
-  function comeBack(x, y, ms = 600) {
+  function comeBack(x, y, o = {}) {
     if (flight) { flight.cancel(); flight = null; }
     el.style.opacity = '1';
     place(x, y - 500);
-    return flyTo(x, y, { arena: { h: 1200 } });
+    return flyTo(x, y, { arena: { h: 1200 }, onLand: o.onLand });
   }
 
   // Nox: she tucks her head in and sleeps; on waking, she opens her eyes and blinks.
@@ -193,5 +243,5 @@ export function createOwl(host, opts) {
   showPose('perch', 1);
   setState('idle');
   idleLife();
-  return { el, flyTo, teleport, nod, liftOff, comeBack, sleep, wake, hide, show, destroy, setFacing, get state() { return state; }, get pos() { return pos; }, size: () => ({ w: el.offsetWidth, h: el.offsetHeight }) };
+  return { el, flyTo, teleport, nod, startle, lookAt, liftOff, comeBack, sleep, wake, hide, show, destroy, setFacing, get state() { return state; }, get pos() { return pos; }, get ready() { return ready; }, size: () => ({ w: el.offsetWidth, h: el.offsetHeight }) };
 }
