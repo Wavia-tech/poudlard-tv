@@ -20,18 +20,18 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 
 /**
- * L'accueil. Une WebView plein écran qui charge la maquette (assets/web/) et lui donne le pont `window.Android`.
+ * The home screen. A full-screen WebView that loads the mock-up (assets/web/) and gives it the `window.Android` bridge.
  *
- * Structure reprise de HomeActivity.java de Free My TV (Copyright (c) 2026 Free My TV contributors, licence MIT :
- * texte complet dans android/README.md, section « Licence de Free My TV ») : garde-fou d'abord, test « trop de
- * plantages », puis l'interface ; la touche Home arrive dans onNewIntent ; onResume force l'opacité sur TCL.
+ * Structure taken from Free My TV's HomeActivity.java (Copyright (c) 2026 Free My TV contributors, MIT license:
+ * full text in android/README.md, section "Free My TV license"): safeguard first, "too many crashes" test,
+ * then the interface; the Home key arrives in onNewIntent; onResume forces opacity on TCL.
  *
- * Touches : les flèches et OK arrivent nativement dans la page (la WebView les traduit en ArrowLeft…, Enter).
- * Retour et Menu sont capturés ici (sinon Retour fermerait l'activité) et rejoués dans la page comme des
- * KeyboardEvent « Escape » / « ContextMenu », appui ET relâchement, pour que l'appui long de input.js fonctionne.
+ * Keys: arrows and OK reach the page natively (the WebView translates them into ArrowLeft…, Enter).
+ * Back and Menu are captured here (otherwise Back would close the activity) and replayed into the page as
+ * "Escape" / "ContextMenu" KeyboardEvents, key down AND key up, so that the long press in input.js works.
  *
- * Veille : aucun FLAG_KEEP_SCREEN_ON. Un accueil est l'écran affiché par défaut ; la télé garde son économiseur
- * et sa mise en veille exactement comme avant (règle de réversibilité, docs/FREE-MY-TV.md §10).
+ * Sleep: no FLAG_KEEP_SCREEN_ON. A home screen is the screen shown by default; the TV keeps its screensaver
+ * and its standby exactly as before (reversibility rule, docs/FREE-MY-TV.md §10).
  */
 public final class HomeActivity extends Activity {
     private static final String JS_KEY =
@@ -51,7 +51,7 @@ public final class HomeActivity extends Activity {
         assets = new WebAssets(getAssets());
 
         if (Watchdog.crashedTooOften(this)) {
-            // Trop de plantages : on ne reconstruit pas l'interface, on explique et on laisse l'original reprendre.
+            // Too many crashes: we do not rebuild the interface, we explain and let the original take over.
             HomeMode.giveBackHome(this);
             setContentView(crashedView());
             return;
@@ -71,12 +71,12 @@ public final class HomeActivity extends Activity {
         v.setFocusable(true);
         v.setFocusableInTouchMode(true);
         WebSettings s = v.getSettings();
-        s.setJavaScriptEnabled(true);           // la maquette est en JS ; le pont est le seul accès à la télé
-        s.setDomStorageEnabled(true);           // localStorage : la config de config.js, liée à l'origine WebAssets.ROOT
-        s.setMediaPlaybackRequiresUserGesture(false); // Web Audio (sound.js) dès la première touche de la télécommande
-        s.setAllowFileAccess(false);            // tout passe par WebAssets, jamais par file://
+        s.setJavaScriptEnabled(true);           // the mock-up is JS; the bridge is the only access to the TV
+        s.setDomStorageEnabled(true);           // localStorage: the config.js configuration, tied to the WebAssets.ROOT origin
+        s.setMediaPlaybackRequiresUserGesture(false); // Web Audio (sound.js) from the first remote key press
+        s.setAllowFileAccess(false);            // everything goes through WebAssets, never through file://
         s.setAllowContentAccess(false);
-        s.setBlockNetworkLoads(true);           // obligatoire sans INTERNET ; shouldInterceptRequest reste appelé
+        s.setBlockNetworkLoads(true);           // mandatory without INTERNET; shouldInterceptRequest is still called
         s.setCacheMode(WebSettings.LOAD_NO_CACHE);
         s.setGeolocationEnabled(false);
         s.setSupportMultipleWindows(false);
@@ -98,15 +98,15 @@ public final class HomeActivity extends Activity {
 
             @Override
             public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
-                // La page ne navigue jamais ailleurs : un lien externe passe par Android.openUrl, pas par la WebView.
+                // The page never navigates elsewhere: an external link goes through Android.openUrl, not the WebView.
                 return request.getUrl() == null || !WebAssets.HOST.equals(request.getUrl().getHost());
             }
 
             @Override
             public boolean onRenderProcessGone(WebView view, RenderProcessGoneDetail detail) {
-                // Le moteur de rendu est mort (mémoire, bug) : c'est un plantage comme un autre pour le garde-fou.
-                // Contrat Android : quand on renvoie true, la WebView concernée doit être retirée ET détruite ici.
-                Log.w("moteur WebView perdu (crash=" + (detail != null && detail.didCrash()) + ")");
+                // The render engine died (memory, bug): for the safeguard it is a crash like any other.
+                // Android contract: when returning true, the affected WebView must be removed AND destroyed here.
+                Log.w("WebView render engine lost (crash=" + (detail != null && detail.didCrash()) + ")");
                 int n = Watchdog.record(HomeActivity.this);
                 dropWebView();
                 if (n >= Watchdog.LIMIT) {
@@ -115,13 +115,13 @@ public final class HomeActivity extends Activity {
                 } else {
                     recreate();
                 }
-                return true; // on a géré : l'appli ne doit pas être tuée par le système
+                return true; // handled: the app must not be killed by the system
             }
         });
         return v;
     }
 
-    /** Détache et détruit la WebView, puis l'oublie : plus aucune touche ne lui est rejouée, onDestroy n'y touche plus. */
+    /** Detaches and destroys the WebView, then forgets it: no key is replayed to it any more, onDestroy leaves it alone. */
     private void dropWebView() {
         if (web == null) return;
         WebView v = web;
@@ -129,20 +129,20 @@ public final class HomeActivity extends Activity {
         try {
             if (v.getParent() instanceof ViewGroup) ((ViewGroup) v.getParent()).removeView(v);
         } catch (RuntimeException e) {
-            Log.w("détachement de la WebView", e);
+            Log.w("detaching the WebView", e);
         }
         try {
             v.destroy();
         } catch (RuntimeException e) {
-            Log.w("destruction de la WebView", e);
+            Log.w("destroying the WebView", e);
         }
     }
 
-    // ---------------------------------------------------------------- touches
+    // ---------------------------------------------------------------- keys
 
     @Override
     public boolean dispatchKeyEvent(KeyEvent event) {
-        // Sans WebView (écran de secours natif), les touches vont aux boutons natifs.
+        // Without a WebView (native fallback screen), keys go to the native buttons.
         if (web == null) return super.dispatchKeyEvent(event);
         String key = null;
         switch (event.getKeyCode()) {
@@ -163,7 +163,7 @@ public final class HomeActivity extends Activity {
         } else if (action == KeyEvent.ACTION_UP) {
             sendKey(key, "keyup", false);
         }
-        return true; // consommé : Retour ne ferme jamais l'accueil
+        return true; // consumed: Back never closes the home screen
     }
 
     private void sendKey(String key, String type, boolean repeat) {
@@ -171,7 +171,7 @@ public final class HomeActivity extends Activity {
         web.evaluateJavascript(String.format(JS_KEY, repeat ? "true" : "false", key, type), null);
     }
 
-    /** La touche Home relance l'activité (singleTask) : on remet l'accueil à son état d'entrée, comme Free My TV. */
+    /** The Home key relaunches the activity (singleTask): we reset the home to its entry state, as Free My TV does. */
     @Override
     protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
@@ -185,19 +185,19 @@ public final class HomeActivity extends Activity {
 
     @Override
     public void onBackPressed() {
-        // Jamais : Retour est géré dans dispatchKeyEvent. Un accueil ne se ferme pas.
-        // Sur l'écran de secours (web == null), Retour ne fait rien non plus : les deux boutons disent quoi faire.
+        // Never: Back is handled in dispatchKeyEvent. A home screen does not close.
+        // On the fallback screen (web == null), Back does nothing either: the two buttons say what to do.
     }
 
-    // ---------------------------------------------------------------- cycle de vie
+    // ---------------------------------------------------------------- lifecycle
 
     @Override
     protected void onResume() {
         super.onResume();
         hideSystemUi();
-        // TCL Android 11+ garde l'appli précédente visible par-dessus un accueil translucide (retour terrain Free My TV).
+        // TCL Android 11+ keeps the previous app visible over a translucent home (Free My TV field report).
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && "TCL".equalsIgnoreCase(Build.MANUFACTURER)) {
-            try { setTranslucent(false); } catch (RuntimeException ignored) { /* pas disponible partout */ }
+            try { setTranslucent(false); } catch (RuntimeException ignored) { /* not available everywhere */ }
         }
         if (web != null) {
             web.onResume();
@@ -209,7 +209,7 @@ public final class HomeActivity extends Activity {
     @Override
     protected void onPause() {
         if (web != null) {
-            // Pause totale quand l'accueil n'est pas visible : ni animation, ni audio, ni timer (règle du README).
+            // Full pause when the home is not visible: no animation, no audio, no timer (README rule).
             web.pauseTimers();
             web.onPause();
         }
@@ -224,7 +224,7 @@ public final class HomeActivity extends Activity {
 
     @Override
     protected void onDestroy() {
-        dropWebView(); // sans effet si l'écran de secours l'a déjà fait
+        dropWebView(); // no effect if the fallback screen already did it
         super.onDestroy();
     }
 
@@ -238,13 +238,13 @@ public final class HomeActivity extends Activity {
                 | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY);
     }
 
-    // ---------------------------------------------------------------- écrans de secours (natifs, sans WebView)
+    // ---------------------------------------------------------------- fallback screens (native, no WebView)
 
     /**
-     * Après trois plantages : un texte, deux boutons. Rien d'autre ne peut planter.
-     *  - « Ouvrir l'accueil d'origine » : la porte HOME reste désactivée, l'accueil d'origine est lancé.
-     *  - « Réessayer Poudlard TV » : efface le compteur et reconstruit l'interface. La porte HOME reste désactivée
-     *    tant que la personne n'a pas refait « Faire de Poudlard l'accueil » dans les réglages : la sécurité est gardée.
+     * After three crashes: one text, two buttons. Nothing else can crash.
+     *  - « Ouvrir l'accueil d'origine » (open the original home): the HOME entry point stays disabled, the original home is launched.
+     *  - « Réessayer Poudlard TV » (retry Poudlard TV): clears the counter and rebuilds the interface. The HOME entry point stays disabled
+     *    until the person redoes « Faire de Poudlard l'accueil » in the settings: the safety net is kept.
      */
     private View crashedView() {
         LinearLayout box = column();

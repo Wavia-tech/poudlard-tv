@@ -1,4 +1,4 @@
-// Registre des écrans. Chaque module exporte { mount, unmount, onKey }.
+// Screen registry. Each module exports { mount, unmount, onKey }.
 import home from './home.js';
 import library from './ollivanders.js';
 import map from './map.js';

@@ -1,7 +1,7 @@
-// Ollivanders : la collection des films présentée comme la vitrine d'un fabricant de baguettes.
-// L'image de référence (assets/ollivanders.webp) est affichée telle quelle. La sélection ne dessine aucun contour :
-// un projecteur chaud éclaire le coffret choisi (le reste de l'échoppe s'assombrit doucement), la caméra se penche
-// légèrement vers lui, et quelques grains de poussière d'or montent de la baguette.
+// Ollivanders: the film collection shown as a wandmaker's shop window.
+// The reference image (assets/ollivanders.webp) is displayed as is. Selection draws no outline at all:
+// a warm spotlight lights the chosen box (the rest of the shop dims gently), the camera leans slightly
+// towards it, and a few specks of gold dust rise from the wand.
 import { LIBRARY, appById, getConfig, isReduced } from '../config.js';
 import { Platform } from '../platform.js';
 import { Input } from '../input.js';
@@ -9,7 +9,7 @@ import { LOGOS } from '../../assets/logos.js';
 import { monogram } from '../monogram.js';
 
 const IMG = { w: 1672, h: 941 };
-// Les huit coffrets, de gauche à droite, en pixels de l'image : haut-gauche, haut-droite, bas-droite, bas-gauche.
+// The eight boxes, left to right, in image pixels: top-left, top-right, bottom-right, bottom-left.
 const BOXES = [
   [[248, 318], [338, 313], [350, 790], [162, 790]],
   [[340, 318], [438, 313], [506, 790], [352, 790]],
@@ -20,7 +20,7 @@ const BOXES = [
   [[1195, 320], [1285, 316], [1370, 790], [1180, 790]],
   [[1340, 322], [1440, 318], [1565, 790], [1385, 790]],
 ];
-const FEATHER = 22;   // flou du bord du projecteur (unités image)
+const FEATHER = 22;   // blur of the spotlight edge (image units)
 const loadRappeltout = () => import('../rappeltout.js').then((m) => m.rappeltout).catch(() => null);
 
 export default {
@@ -61,11 +61,11 @@ export default {
 
   unmount() { this.timers.forEach(clearTimeout); cancelAnimationFrame(this.raf); clearTimeout(this.dustTimer); },
 
-  // Centre d'un coffret (pixels image et pixels écran).
+  // Centre of a box (image pixels and screen pixels).
   centerImg(n) { const b = this.items[n].box; return { x: b.reduce((s, p) => s + p[0], 0) / 4, y: b.reduce((s, p) => s + p[1], 0) / 4 }; },
   center(n) { const c = this.centerImg(n); return { x: c.x / IMG.w * this.root.clientWidth, y: c.y / IMG.h * this.root.clientHeight }; },
 
-  // Le trou du projecteur glisse d'un coffret à l'autre : interpolation des 8 coordonnées, 380 ms.
+  // The spotlight hole slides from one box to the next: interpolation of the 8 coordinates, 380 ms.
   moveHole(target, instant) {
     const hole = this.root.querySelector('.olv-hole');
     const flat = target.flat();
@@ -86,7 +86,7 @@ export default {
     this.i = Math.max(0, Math.min(this.items.length - 1, n));
     const it = this.items[this.i];
     this.moveHole(it.box, instant);
-    // Lumière chaude posée sur le coffret, et la caméra qui se penche vers lui.
+    // Warm light resting on the box, and the camera leaning towards it.
     const c = this.centerImg(this.i);
     const warm = this.root.querySelector('.olv-warmth');
     warm.setAttribute('cx', c.x); warm.setAttribute('cy', c.y - 40); warm.setAttribute('rx', 150); warm.setAttribute('ry', 290);
@@ -100,7 +100,7 @@ export default {
     if (!instant) { cap.classList.remove('is-write'); void cap.offsetWidth; cap.classList.add('is-write'); }
   },
 
-  // Quelques grains d'or montent de la baguette choisie, de temps en temps.
+  // A few specks of gold rise from the chosen wand, now and then.
   dust() {
     clearTimeout(this.dustTimer);
     const tick = () => {
@@ -110,7 +110,7 @@ export default {
     this.dustTimer = setTimeout(tick, 600);
   },
 
-  // Lumos : le coffret s'illumine, puis le film s'ouvre dans l'appli qui le possède (lien de la config).
+  // Lumos: the box lights up, then the film opens in the app that owns it (link from the config).
   launch() {
     if (this.busy) return;
     const it = this.items[this.i]; const app = appById(it.app); if (!app) return;
@@ -120,7 +120,7 @@ export default {
     root.classList.add('is-launch');
     fx.lumos(root, c.x, c.y, 800);
     if (fx.cue) fx.cue('lumos'); else fx.arpeggio();
-    // Le lien s'ouvre tout de suite (dans le geste OK, sinon le navigateur bloque l'onglet) ; la lumière habille l'attente.
+    // The link opens right away (inside the OK gesture, otherwise the browser blocks the tab); the light dresses the wait.
     const result = Platform.openContent(app, it);
     const dim = root.querySelector('.olv-dim');
     const L = LOGOS[app.id] || monogram(app.name);

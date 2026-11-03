@@ -1,43 +1,43 @@
 # ---------------------------------------------------------------------------
-# Poudlard TV — ce qui ne doit jamais entrer dans le dépôt public
+# Poudlard TV — what must never enter the public repository
 # ---------------------------------------------------------------------------
 
-# Logos officiels des applications (marques), fichier privé reconstruit avec
-# tools/logos-build.mjs. Le dépôt fournit app/assets/logos.example.js.
+# Official app logos (trademarks), a private file rebuilt with
+# tools/logos-build.mjs. The repository provides app/assets/logos.example.js.
 app/assets/logos.js
 /logos.js
 
-# Musique de fond : fichier personnel, jamais distribué (docs/MUSIQUE.md).
-# Tout le dossier est ignoré, y compris une note de licence qu'on y mettrait.
+# Background music: personal file, never distributed (docs/MUSIC.md).
+# The whole folder is ignored, including any license note you might put there.
 app/assets/music/*
 !app/assets/music/.gitkeep
 
-# Polices embarquées pour l'APK (OFL) : à ajouter avec leur licence si on les
-# versionne ; ignorées par défaut pour garder le dépôt léger.
+# Fonts embedded in the APK (OFL): add them with their license if you
+# version them; ignored by default to keep the repository light.
 app/assets/fonts/
 
-# Page d'hébergement de la maquette (variante d'index.html pour une publication
-# en artefact) : fichier de travail, pas une page du launcher.
+# Hosting page for the mock-up (an index.html variant for publishing as an
+# artifact): a working file, not a launcher page.
 app/artifact.html
 
-# Portage Android (android/, sans Gradle) : sorties de build.sh, paquets, clés.
+# Android port (android/, no Gradle): build.sh outputs, packages, keys.
 android/out/
 android/*.keystore
 android/*.jks
 *.apk
 *.aab
 
-# Scripts de génération des décors liés au poste d'origine (chemins locaux) :
-# la méthode est décrite dans tools/README.md, les scripts restent privés.
+# Scenery generation scripts tied to the original workstation (local paths):
+# the method is described in tools/README.md, the scripts stay private.
 tools/*.ps1
 
-# Dossiers de travail (rendus intermédiaires, images brutes, écrans écartés).
+# Working folders (intermediate renders, raw images, discarded screens).
 _ecarte/
 outputs/
 output/
 rig/
 
-# Système et éditeurs.
+# System and editors.
 .DS_Store
 Thumbs.db
 desktop.ini
@@ -47,5 +47,5 @@ desktop.ini
 .idea/
 node_modules/
 
-# Configuration locale de l'app Claude (lancement du serveur de maquette)
+# Local configuration of the Claude app (launching the mock-up server)
 .claude/

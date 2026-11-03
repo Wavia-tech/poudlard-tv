@@ -1,5 +1,5 @@
-// Configuration du launcher : catalogue d'applis, collections de la Bibliothèque, réglages, stockage local validé.
-// Aucune donnée ne quitte l'appareil. Tout ce qui est lu du stockage passe par `sanitize()`.
+// Launcher configuration: app catalog, Library collections, settings, validated local storage.
+// No data ever leaves the device. Everything read from storage goes through `sanitize()`.
 
 export const HOUSES = {
   gryffondor: { name: 'Gryffondor', wax: '#7a1f1f', glow: '#ffb457' },
@@ -8,8 +8,8 @@ export const HOUSES = {
   poufsouffle: { name: 'Poufsouffle', wax: '#8a6a1c', glow: '#ffe28a' },
 };
 
-// Catalogue : id stable, nom affiché, catégorie, package Android (pour le vrai launcher), schéma de lien profond si connu.
-// `input` : entrée HDMI pour les Passages (consoles, box) ; le vrai launcher la lit via TvInputManager.
+// Catalog: stable id, display name, category, Android package (for the real launcher), deep-link scheme when known.
+// `input`: HDMI input for Passages (consoles, set-top boxes); the real launcher reads it through TvInputManager.
 export const CATALOG = [
   { id: 'netflix', name: 'Netflix', cat: 'video', pkg: 'com.netflix.ninja', deeplink: 'nflx://www.netflix.com/title/{id}' },
   { id: 'prime', name: 'Prime Video', cat: 'video', pkg: 'com.amazon.amazonvideo.livingroom' },
@@ -38,11 +38,11 @@ const IDS = new Set(CATALOG.map((a) => a.id));
 const isKnownId = (id) => IDS.has(id) || /^c_\d{1,6}$/.test(id);
 export const DOCK_MAX = 8;
 
-// Collections de la Bibliothèque. `symbol` : motif gravé sur la couverture ; `app` : appli qui possède le titre ;
-// `content` : identifiant pour le lien profond (jamais une URL saisie à l'écran).
+// Library collections. `symbol`: motif engraved on the cover; `app`: the app that owns the title;
+// `content`: identifier for the deep link (never a URL typed on screen).
 export const LIBRARY = [
   {
-    // `url` : page du film sur Max (liens fournis par Corentin). Seuls les hôtes de URL_HOSTS sont acceptés par platform.js.
+    // `url`: the film's page on Max (links supplied by Corentin). Only the hosts in URL_HOSTS are accepted by platform.js.
     id: 'hp', title: 'Harry Potter', background: 'library', items: [
       { n: 1, title: "À l'école des sorciers", year: 2001, symbol: 'stone', color: '#7a2328', app: 'max', content: 'hp1', url: "https://www.max.com/fr/fr/search?q=Harry+Potter+à+l'école+des+sorciers" },
       { n: 2, title: 'La Chambre des secrets', year: 2002, symbol: 'serpent', color: '#25492c', app: 'max', content: 'hp2', url: 'https://www.max.com/fr/fr/search?q=Harry+Potter+et+la+Chambre+des+secrets' },
@@ -66,18 +66,18 @@ export const LIBRARY = [
 export const DEFAULT_CONFIG = Object.freeze({
   version: 3,
   mode: 'poudlard',             // 'poudlard' | 'classique'
-  house: null,                  // null tant que la Lettre d'admission n'est pas passée
-  dock: ['netflix', 'prime', 'disney', 'canal', 'max', 'appletv', 'youtube', 'ps5'],   // ordre = ordre d'affichage, 8 max
-  hidden: [],                   // applis cachées de la Carte (jamais perdues : on peut les réafficher)
+  house: null,                  // null until the Admission Letter has been completed
+  dock: ['netflix', 'prime', 'disney', 'canal', 'max', 'appletv', 'youtube', 'ps5'],   // order = display order, 8 max
+  hidden: [],                   // apps hidden from the Map (never lost: they can be shown again)
   owl: 'vive',                  // 'vive' | 'calme' | 'absente'
   sounds: false,
-  music: 'auto',                // musique de fond : 'auto' (fichier personnel si présent, sinon célesta) | 'celesta' | 'aucune'
+  music: 'auto',                // background music: 'auto' (personal file if present, otherwise celesta) | 'celesta' | 'aucune'
   motion: 'auto',               // 'auto' | 'reduit' | 'economie'
-  idleSeconds: 0,               // veille (Nox) ; 0 = jamais (choix de Corentin : veille OFF par défaut)
+  idleSeconds: 0,               // sleep (Nox); 0 = never (Corentin's choice: sleep OFF by default)
   lastApp: null,
   firstRunDone: false,
-  library: { hidden: [], apps: {} },   // titres masqués ('collection:content') et appli choisie par titre
-  custom: [],                          // applis ajoutées à la main : { id: 'c_<n>', name, pkg? } ; logo = monogramme
+  library: { hidden: [], apps: {} },   // hidden titles ('collection:content') and the app chosen per title
+  custom: [],                          // apps added by hand: { id: 'c_<n>', name, pkg? }; logo = monogram
 });
 const NAME_RE = /^[\p{L}\p{N} .+'&-]{1,20}$/u;
 const PKG_RE = /^[a-zA-Z][\w]*(\.[a-zA-Z][\w]*)+$/;
@@ -92,11 +92,11 @@ const idList = (v, known, max = Infinity) => {
   return (Array.isArray(v) ? v : []).filter((id) => typeof id === 'string' && known.has(id) && !seen.has(id) && seen.add(id)).slice(0, max);
 };
 
-// Ne garde que des valeurs connues et bien typées : un stockage corrompu ou étranger ne peut rien injecter.
+// Keeps only known, well-typed values: corrupted or foreign storage cannot inject anything.
 export function sanitize(raw) {
   const c = structuredClone(DEFAULT_CONFIG);
   if (!raw || typeof raw !== 'object') return c;
-  // Applis ajoutées à la main : nom court et sobre, package Android optionnel et bien formé, 12 au plus.
+  // Apps added by hand: short, plain name, optional well-formed Android package, 12 at most.
   if (Array.isArray(raw.custom)) {
     const seen = new Set();
     c.custom = raw.custom.filter((a) => a && typeof a === 'object' && /^c_\d{1,6}$/.test(String(a.id)) && NAME_RE.test(String(a.name)) && !seen.has(a.id) && seen.add(a.id))
@@ -126,7 +126,7 @@ export function loadConfig() {
   try {
     const raw = localStorage.getItem(KEY);
     const parsed = raw ? JSON.parse(raw) : null;
-    // Migration : avant la version 3, la veille valait 90 s par défaut ; Corentin la veut désactivée.
+    // Migration: before version 3, sleep defaulted to 90 s; Corentin wants it disabled.
     if (parsed && typeof parsed === 'object' && !(Number(parsed.version) >= 3)) { parsed.idleSeconds = 0; parsed.version = 3; }
     current = sanitize(parsed);
   } catch (e) {
@@ -139,7 +139,7 @@ export function getConfig() { return current; }
 
 export function updateConfig(patch) {
   current = sanitize({ ...current, ...patch });
-  try { localStorage.setItem(KEY, JSON.stringify(current)); } catch (e) { /* stockage indisponible : on garde en mémoire */ }
+  try { localStorage.setItem(KEY, JSON.stringify(current)); } catch (e) { /* storage unavailable: keep it in memory */ }
   listeners.forEach((fn) => fn(current));
   return current;
 }
@@ -148,15 +148,15 @@ export function resetConfig() { return updateConfig(structuredClone(DEFAULT_CONF
 export function onConfigChange(fn) { listeners.add(fn); return () => listeners.delete(fn); }
 
 const byId = Object.fromEntries(CATALOG.map((a) => [a.id, a]));
-// Une appli ajoutée à la main a la catégorie 'perso' et pas de logo officiel (voir monogram.js).
+// An app added by hand has the category 'perso' and no official logo (see monogram.js).
 const customApp = (a) => ({ ...a, cat: 'perso', custom: true });
 export function appById(id) { return byId[id] || (current.custom.find((a) => a.id === id) ? customApp(current.custom.find((a) => a.id === id)) : null); }
 export function dockApps() { return current.dock.map(appById).filter(Boolean); }
-// Toutes les applis connues (catalogue puis ajouts), avec leur état (sur le parapet / cachée).
+// Every known app (catalog, then custom additions), with its state (on the Parapet / hidden).
 export function allApps() {
   return [...CATALOG, ...current.custom.map(customApp)].map((a) => ({ ...a, onDock: current.dock.includes(a.id), hidden: current.hidden.includes(a.id) }));
 }
-// Ajoute une appli à la main et la pose sur le parapet s'il reste une place. Retourne son id.
+// Adds an app by hand and places it on the Parapet if there is room left. Returns its id.
 export function addCustomApp(name, pkg) {
   const n = current.custom.reduce((m, a) => Math.max(m, Number(a.id.slice(2)) || 0), 0) + 1;
   const id = `c_${n}`;
@@ -167,8 +167,8 @@ export function addCustomApp(name, pkg) {
 export function removeCustomApp(id) {
   updateConfig({ custom: current.custom.filter((a) => a.id !== id), dock: current.dock.filter((x) => x !== id), hidden: current.hidden.filter((x) => x !== id) });
 }
-// Mouvement réduit : décidé par le réglage de l'interface seulement. Sur une TV, le réglage d'accessibilité
-// du système (prefers-reduced-motion) ne doit pas figer Hedwige à l'insu de l'utilisateur.
+// Reduced motion: decided by the interface setting only. On a TV, the system accessibility setting
+// (prefers-reduced-motion) must not freeze Hedwig (Hedwige) without the user knowing.
 export function isReduced() {
   return current.motion !== 'auto';
 }

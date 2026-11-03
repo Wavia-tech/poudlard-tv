@@ -1,30 +1,30 @@
-// Beuglante : le message d'erreur du launcher. Une enveloppe rouge (la seule chose rouge vif de l'interface)
-// glisse du bas de l'écran, tremble quatre fois, délivre son message en IM Fell, puis se consume d'elle-même.
+// Howler (Beuglante): the launcher's error message. A red envelope (the only bright red thing in the interface)
+// slides up from the bottom of the screen, shakes four times, delivers its message in IM Fell, then burns itself up.
 //
 //   beuglante(host, { message, action?: { label, onChoose } }) → { close() }
 //
-// - `message` : texte contrôlé (constantes, noms du CATALOG) ; il est posé en textContent, jamais en innerHTML.
-// - `action`  : au plus une option, prise en compte seulement si elle a un libellé ET une fonction `onChoose`
-//               (sinon elle est ignorée : jamais une ligne « OK · … » qui ne fait rien). Si elle existe, la
-//               Beuglante prend la main sur les touches (Input.setHandler) : OK la choisit, Retour referme sans
-//               rien faire, le reste est avalé. En se fermant, elle rend la main au routeur (Router.refocus()).
-//               Sans action, aucune touche n'est capturée : l'écran dessous continue.
-// - Une seule Beuglante à la fois : en ouvrir une seconde consume la première immédiatement.
-// - Mouvement : transform et opacité seulement. Avec isReduced() : fondu 200 ms, pas de tremblement, pas de montée.
+// - `message`: controlled text (constants, CATALOG names); it is set as textContent, never as innerHTML.
+// - `action` : at most one option, taken into account only if it has a label AND an `onChoose` function
+//              (otherwise it is ignored: never an "OK · …" line that does nothing). If present, the
+//              Howler takes over the keys (Input.setHandler): OK chooses it, Back closes without doing
+//              anything, everything else is swallowed. On closing, it hands the keys back to the router (Router.refocus()).
+//              Without an action, no key is captured: the screen underneath carries on.
+// - Only one Howler at a time: opening a second one burns the first immediately.
+// - Motion: transform and opacity only. With isReduced(): 200 ms fade, no shaking, no slide-up.
 
 import { Input } from './input.js';
 import { Router } from './router.js';
 import { isReduced } from './config.js';
 
-const SLIDE_MS = 450;     // montée depuis le bas
-const SHAKE_MS = 640;     // quatre tremblements (±1.5°)
-const LIFE_MS = 4000;     // durée de vie avant de se consumer
-const BURN_MS = 700;      // fondu de consumation (opacité + légère montée)
+const SLIDE_MS = 450;     // slide up from the bottom
+const SHAKE_MS = 640;     // four shakes (±1.5°)
+const LIFE_MS = 4000;     // lifetime before burning up
+const BURN_MS = 700;      // burn-up fade (opacity + slight rise)
 const REDUCED_FADE_MS = 200;
 
-let current = null;       // la Beuglante affichée, s'il y en a une
+let current = null;       // the Howler on display, if any
 
-// Facteur de temps du banc d'essai (ralenti ×3) : les minuteurs JS suivent les durées CSS.
+// Test-bench time factor (×3 slow motion): JS timers follow the CSS durations.
 function timeScale(host) {
   const k = Number(getComputedStyle(host).getPropertyValue('--k'));
   return Number.isFinite(k) && k > 0 ? k : 1;
@@ -73,7 +73,7 @@ export function beuglante(host, { message, action } = {}) {
   if (!host) return { close() {} };
   if (current) current.close();
 
-  // Une action n'existe que complète : libellé + fonction. Sinon, pas de ligne d'action ni de prise de touches.
+  // An action only exists when complete: label + function. Otherwise, no action line and no key capture.
   const act = action && action.label && typeof action.onChoose === 'function' ? action : null;
 
   const reduced = isReduced();
@@ -81,8 +81,8 @@ export function beuglante(host, { message, action } = {}) {
   const el = build(message, act);
   if (reduced) el.classList.add('is-reduced');
   host.appendChild(el);
-  // Force le premier calcul de style dans l'état « avant » (hors écran, ou opacité 0) : sans cette lecture,
-  // la classe is-in posée dans le rAF serait le premier style calculé et la glissade ne se jouerait pas.
+  // Forces the first style computation in the "before" state (off screen, or opacity 0): without this read,
+  // the is-in class set in the rAF would be the first computed style and the slide would not play.
   void el.offsetWidth;
 
   const timers = [];
@@ -98,7 +98,7 @@ export function beuglante(host, { message, action } = {}) {
       timers.length = 0;
       if (current === handle) current = null;
       if (tookInput) { tookInput = false; Router.refocus(); }
-      // Consumation : opacité + légère montée, puis retrait du DOM.
+      // Burn-up: opacity + slight rise, then removal from the DOM.
       el.classList.remove('is-in', 'is-shake');
       el.classList.add('is-burn');
       setTimeout(() => el.remove(), (reduced ? REDUCED_FADE_MS : BURN_MS) * k);
@@ -106,22 +106,22 @@ export function beuglante(host, { message, action } = {}) {
   };
   current = handle;
 
-  // Prise de touches : seulement si une action est proposée.
+  // Key capture: only if an action is offered.
   if (act) {
     tookInput = true;
     Input.setHandler((a) => {
       if (closed) return true;
       if (a === 'ok') {
         handle.close();
-        try { act.onChoose(); } catch (e) { /* l'action a échoué : la Beuglante est déjà refermée, rien à casser */ }
+        try { act.onChoose(); } catch (e) { /* the action failed: the Howler is already closed, nothing to break */ }
         return true;
       }
       if (a === 'back') { handle.close(); return true; }
-      return true;   // toute autre touche est avalée tant que l'enveloppe est à l'écran
+      return true;   // every other key is swallowed while the envelope is on screen
     });
   }
 
-  // Chorégraphie : glisse du bas, tremble, vit, se consume.
+  // Choreography: slide up from the bottom, shake, live, burn.
   requestAnimationFrame(() => {
     if (closed) return;
     el.classList.add('is-in');

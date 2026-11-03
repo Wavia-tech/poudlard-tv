@@ -1,26 +1,26 @@
-/* La Carte du Maraudeur. Préfixe .map-. Tout en cqw (écran : 100 × 56.25 cqw).
-   Matières : parchemin (.parchment, image ou dégradé de repli), encre (--ink) pour tout ce qui est dessiné à la plume,
-   cire de maison pour les sceaux, laiton pour la plaque d'ouverture. En mouvement : transform, opacity, clip-path (dépliage),
-   mask-size (encre qui apparaît) et stroke-dashoffset (trait de plume). Aucun filter, aucun blur, aucune boucle.
+/* The Marauder's Map. Prefix .map-. Everything in cqw (screen: 100 × 56.25 cqw).
+   Materials: parchment (.parchment, image or fallback gradient), ink (--ink) for everything drawn in pen,
+   house wax for the seals, brass for the opening plate. In motion: transform, opacity, clip-path (unfolding),
+   mask-size (ink appearing) and stroke-dashoffset (pen stroke). No filter, no blur, no loop.
 
-   États posés par map.js sur la section :
-     .is-in       l'écran est arrivé en place (fin de la transition du routeur) : la mise en scène d'ouverture démarre.
-                  Sans .is-in, parchemin replié, formule et encre invisibles : rien ne se joue pendant le glissement.
-     .is-leaving  « Méfait accompli » : tout s'efface à l'envers, plus vite.
-     .is-move     mode Déplacer (parapet miniature à la place de la formule).
-     .is-reduced  mouvement réduit : des fondus de 200 ms, rien d'autre. */
+   States set by map.js on the section:
+     .is-in       the screen has arrived in place (end of the router transition): the opening staging starts.
+                  Without .is-in, the parchment stays folded, the spell and the ink invisible: nothing plays during the slide.
+     .is-leaving  "Mischief managed": everything fades out in reverse, faster.
+     .is-move     Move mode (a miniature parapet in place of the spell).
+     .is-reduced  reduced motion: 200 ms fades, nothing else. */
 
 .screen-map { background: var(--night); perspective: 160cqw; }
 .screen-map .map-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
 
-/* ---- Derrière le parchemin : la Nuit et quelques étoiles (canvas dessiné une fois), vignette ---- */
+/* ---- Behind the parchment: the Night and a few stars (canvas drawn once), vignette ---- */
 .map-sky { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
 .map-vignette { position: absolute; inset: 0; pointer-events: none;
   background: radial-gradient(ellipse at 50% 50%, #0000 40%, #070b14cc 100%), linear-gradient(to bottom, #070b14 0%, #070b1400 18%, #070b1400 82%, #070b14 100%); }
 
-/* ---- Le parchemin : 86 % de l'écran, se déplie depuis le centre en deux volets puis s'aplanit (rotateY 6° → 0) ----
-   Le clip-path rogne l'ombre de .parchment : l'épaisseur est portée par un calque frère (.map-shadow) derrière la feuille,
-   ombre STATIQUE dont seule l'opacité transite, une fois la feuille dépliée. */
+/* ---- The parchment: 86% of the screen, unfolds from the center in two leaves then flattens (rotateY 6° → 0) ----
+   The clip-path crops the shadow of .parchment: the thickness is carried by a sibling layer (.map-shadow) behind the sheet,
+   a STATIC shadow whose opacity alone transitions, once the sheet is unfolded. */
 .map-shadow { position: absolute; left: 7cqw; top: 3.94cqw; width: 86cqw; height: 48.37cqw; border-radius: .35cqw; pointer-events: none;
   box-shadow: 0 1.2cqw 2.4cqw #000a, 0 .3cqw .6cqw #0008; opacity: 0; transition: opacity calc(var(--k) * 200ms) ease; }
 .screen-map.is-in .map-shadow { opacity: 1; transition-delay: calc(var(--k) * 720ms); }
@@ -35,7 +35,7 @@
 .screen-map.is-leaving .map-sheet { animation: map-fold calc(var(--k) * 300ms) cubic-bezier(.65, 0, .25, 1) calc(var(--k) * 180ms) both; }
 @keyframes map-fold { from { clip-path: inset(0 0 0 0 round .35cqw); } to { clip-path: inset(0 50% 0 50% round .35cqw); } }
 
-/* Grain du papier : tache de bougie en haut à gauche, bords jaunis ; plis en croix (la carte était pliée en quatre). */
+/* Paper grain: a candle stain at the top left, yellowed edges; cross folds (the map was folded in four). */
 .map-paper { position: absolute; inset: 0; pointer-events: none;
   background: radial-gradient(ellipse 22% 26% at 9% 8%, #6b4a1a3d, #6b4a1a00 70%), radial-gradient(ellipse 60% 70% at 50% 50%, #0000 55%, #5a3d1422 100%),
     linear-gradient(115deg, #ffffff10, #00000006 50%, #ffffff0a); }
@@ -43,19 +43,19 @@
   background: linear-gradient(90deg, #0000 calc(50% - .25cqw), #5a3d1430 calc(50% - .05cqw), #fff5dd55 50%, #5a3d1422 calc(50% + .12cqw), #0000 calc(50% + .3cqw)),
     linear-gradient(180deg, #0000 calc(50% - .25cqw), #5a3d1426 calc(50% - .05cqw), #fff5dd44 50%, #5a3d141a calc(50% + .12cqw), #0000 calc(50% + .3cqw)); }
 
-/* ---- La formule, écrite à la plume de gauche à droite (masque linéaire, 900 ms, 350 ms après l'arrivée) ---- */
+/* ---- The spell, written in pen from left to right (linear mask, 900 ms, 350 ms after arrival) ---- */
 .map-formula { position: absolute; left: 4.8cqw; right: 4.8cqw; top: 1.9cqw; text-align: center; font-family: var(--fell); font-style: italic; font-size: 1.875cqw;
   line-height: 1.2; color: var(--ink); opacity: .92; white-space: nowrap; transition: opacity calc(var(--k) * 250ms);
   -webkit-mask: linear-gradient(90deg, #000 0, #000 calc(100% - 6cqw), transparent 100%) left center / 0% 100% no-repeat;
   mask: linear-gradient(90deg, #000 0, #000 calc(100% - 6cqw), transparent 100%) left center / 0% 100% no-repeat; }
 .screen-map.is-in .map-formula { animation: map-write calc(var(--k) * 900ms) linear calc(var(--k) * 350ms) both; }
 @keyframes map-write { from { -webkit-mask-size: 0% 100%; mask-size: 0% 100%; } to { -webkit-mask-size: 130% 100%; mask-size: 130% 100%; } }
-.screen-map.is-leaving .map-formula { animation: map-write calc(var(--k) * 350ms) linear 0ms both; }   /* « Méfait accompli », plus vite */
+.screen-map.is-leaving .map-formula { animation: map-write calc(var(--k) * 350ms) linear 0ms both; }   /* "Mischief managed", faster */
 .screen-map.is-move .map-formula { opacity: 0; }
 
-/* ---- Grille : 5 colonnes, fenêtre de 3 lignes, les lignes glissent verticalement ----
-   Le padding (1.4 cqw en haut et sur les côtés) donne au cartouche en focus (scale 1.04) ou tenu (élevé de .8 cqw)
-   la place de déborder sans être rogné par overflow: hidden ; la fenêtre de lignes est inchangée. */
+/* ---- Grid: 5 columns, a 3-row window, the rows slide vertically ----
+   The padding (1.4 cqw at the top and on the sides) gives the focused cartouche (scale 1.04) or the held one (raised by .8 cqw)
+   room to overflow without being cropped by overflow: hidden; the row window is unchanged. */
 .map-grid { position: absolute; left: 3.4cqw; top: 5.2cqw; width: 79.2cqw; height: 38.8cqw; padding: 1.4cqw 1.4cqw 0; overflow: hidden; }
 .map-rows { position: relative; transition: transform calc(var(--k) * 400ms) cubic-bezier(.33, 0, .2, 1); }
 .map-row { position: relative; display: flex; gap: 1.6cqw; margin-bottom: 1.2cqw; }
@@ -70,8 +70,8 @@
 .map-more.down { bottom: .9cqw; }
 .map-more.is-on { opacity: .5; }
 
-/* ---- Un cartouche : cadre à la plume (7 cqw de haut), logo en encre, nom en IM Fell SC, trait de plume sous le nom ----
-   Invisible (masque radial à 0) tant que l'écran n'est pas en place ; l'encre apparaît en cascade (40 ms × index) 420 ms après. */
+/* ---- A cartouche: pen-drawn frame (7 cqw tall), logo in ink, name in IM Fell SC, pen stroke under the name ----
+   Invisible (radial mask at 0) until the screen is in place; the ink appears in a cascade (40 ms × index) 420 ms later. */
 .map-cell { position: relative; flex: none; width: 14cqw; height: 10cqw; transform-origin: 50% 40%;
   transition: transform calc(var(--k) * 200ms) cubic-bezier(.2, .8, .2, 1);
   -webkit-mask: radial-gradient(circle, #000 62%, transparent 72%) center / 0% 0% no-repeat;
@@ -83,7 +83,7 @@
 .map-cell.is-focus { transform: scale(1.04); }
 .map-cell.is-moving { transform: translateY(-.8cqw) rotate(-1.5deg) scale(1.04); }
 
-/* Le cadre : les changements de trait en focus sont secs (une image), seule l'opacité transite. */
+/* The frame: stroke changes on focus are abrupt (a single frame), only the opacity transitions. */
 .map-frame { position: absolute; left: 0; top: 0; width: 14cqw; height: 7cqw; overflow: visible; fill: none; stroke: var(--ink); stroke-linecap: round; stroke-linejoin: round; }
 .map-frame path { vector-effect: non-scaling-stroke; transition: opacity calc(var(--k) * 200ms); }
 .map-frame-outer { stroke-width: .08cqw; opacity: .9; }
@@ -93,7 +93,7 @@
 .map-cell.is-focus .map-frame-inner { opacity: .85; }
 .map-cell.is-focus .map-frame-corners { opacity: 1; }
 
-/* Le logo officiel en encre : un seul calque masqué par le SVG du logo, fond encre à 85 %. */
+/* The official logo in ink: a single layer masked by the logo's SVG, ink background at 85%. */
 .map-ink-logo { --m: none; position: absolute; left: 50%; top: 1.6cqw; height: 3.4cqw; width: 3.4cqw; transform: translateX(-50%); background: var(--ink); opacity: .85;
   -webkit-mask: var(--m) center / contain no-repeat; mask: var(--m) center / contain no-repeat; transition: opacity calc(var(--k) * 200ms); }
 .map-ink-logo.luma { -webkit-mask-mode: luminance; mask-mode: luminance; }
@@ -111,28 +111,28 @@
 .screen-map.is-in .map-cell.is-focus .map-underline path { animation: map-draw calc(var(--k) * 300ms) ease-out forwards; }
 @keyframes map-draw { from { stroke-dashoffset: 100; } to { stroke-dashoffset: 0; } }
 
-/* Sur le parapet : un petit sceau de cire de maison, pressé une fois quand on épingle. */
-.map-seal { position: absolute; right: .45cqw; top: .4cqw; width: 1.9cqw; height: 1.9cqw; opacity: 0; transform: scale(.6);   /* dans la boîte : le masque radial rogne au border-box */
+/* On the parapet: a small house wax seal, pressed once when pinning. */
+.map-seal { position: absolute; right: .45cqw; top: .4cqw; width: 1.9cqw; height: 1.9cqw; opacity: 0; transform: scale(.6);   /* inside the box: the radial mask crops at the border-box */
   transition: opacity calc(var(--k) * 200ms), transform calc(var(--k) * 200ms); }
 .map-cell.on-dock .map-seal { opacity: 1; transform: scale(1); }
 .map-cell.on-dock .map-seal.is-pressed { animation: map-press calc(var(--k) * 200ms) ease-out 1; }
 @keyframes map-press { from { transform: scale(1.3); } to { transform: scale(1); } }
 
-/* Caché : encre pâlie à 35 % et la mention. */
+/* Hidden: ink faded to 35% and the mention. */
 .map-tag { position: absolute; left: .9cqw; top: .45cqw; font-family: var(--body); font-style: italic; font-size: 1.5cqw; line-height: 1.1; color: var(--ink); opacity: 0;
   transition: opacity calc(var(--k) * 200ms); }
 .map-cell.is-hidden .map-ink-logo { opacity: .35; }
 .map-cell.is-hidden .map-name { opacity: .45; }
 .map-cell.is-hidden .map-frame-outer, .map-cell.is-hidden .map-frame-corners { opacity: .45; }
 .map-cell.is-hidden .map-tag { opacity: .7; }
-/* Appli ajoutée dont le package a quitté la TV (is-absent, map.js) : même encre pâlie que « caché », sans la mention. */
+/* Hand-added app whose package has left the TV (is-absent, map.js): the same faded ink as "hidden", without the mention. */
 .map-cell.is-absent .map-ink-logo { opacity: .35; }
 .map-cell.is-absent .map-name { opacity: .45; }
 .map-cell.is-absent .map-frame-outer, .map-cell.is-absent .map-frame-corners { opacity: .45; }
 
-/* ---- La chandelle « Réglages » : dessinée à l'encre, sa flamme s'allume à la bougie en focus ----
-   Le halo vit DANS le cartouche (masque + transform = groupe isolé) : pas de mix-blend-mode ici, il ne verrait pas le
-   parchemin. Un dégradé chaud à bords transparents en fusion normale, dont seule l'opacité transite. */
+/* ---- The "Settings" candle: drawn in ink, its flame lights up when the candle is in focus ----
+   The halo lives INSIDE the cartouche (mask + transform = isolated group): no mix-blend-mode here, it would not see the
+   parchment. A warm gradient with transparent edges in normal blending, whose opacity alone transitions. */
 .map-candle { position: absolute; left: 50%; top: .6cqw; width: 4.6cqw; height: 5.9cqw; transform: translateX(-50%); fill: none; stroke: var(--ink); stroke-linecap: round; stroke-linejoin: round; }
 .map-candle path { vector-effect: non-scaling-stroke; stroke-width: .08cqw; transition: opacity calc(var(--k) * 250ms); }
 .map-candle-flame { fill: transparent; opacity: .8; }
@@ -142,7 +142,7 @@
 .map-cell.is-focus .map-candle-flame { fill: var(--candle); opacity: 1; }
 .map-cell.is-focus .map-candle-halo { opacity: .85; }
 
-/* ---- Les empreintes de pas (SVG réutilisé par <use>) : apparition en cascade, puis l'encre sèche et s'efface ---- */
+/* ---- The footprints (SVG reused through <use>): cascading appearance, then the ink dries and fades ---- */
 .map-steps { position: absolute; inset: 0; z-index: 30; pointer-events: none; }
 .map-step { --t: rotate(0deg); --d: 0ms; position: absolute; width: 1.1cqw; height: 1.76cqw; margin: -.88cqw 0 0 -.55cqw; fill: var(--ink); opacity: 0; overflow: visible;
   animation: map-step-in 160ms ease-out both, map-step-out 500ms ease-in forwards;
@@ -151,8 +151,8 @@
 @keyframes map-step-in { from { opacity: 0; transform: var(--t) scale(1.3); } to { opacity: .82; transform: var(--t) scale(1); } }
 @keyframes map-step-out { from { opacity: .82; transform: var(--t) scale(1); } to { opacity: 0; transform: var(--t) scale(1); } }
 
-/* ---- Lumos en version encre : la pièce s'illumine à la bougie sous le cartouche lancé ----
-   Enfant direct de .map-sheet : le multiply voit bien le parchemin (à vérifier au banc sur la TV ; voir rappel ci-dessous). */
+/* ---- Lumos, ink version: the room lights up by candle under the launched cartouche ----
+   A direct child of .map-sheet: the multiply does see the parchment (to be checked on the bench on the TV; see the reminder below). */
 .map-candlelight { position: absolute; left: 50%; top: 50%; width: 34cqw; height: 34cqw; margin: -17cqw 0 0 -17cqw; border-radius: 50%; opacity: 0; pointer-events: none;
   background: radial-gradient(circle, #ffb457 0%, #ffd9a0 32%, #ffffff 68%); mix-blend-mode: multiply; transition: opacity calc(var(--k) * 250ms); }
 .map-candlelight.is-on { opacity: .9; }
@@ -160,20 +160,20 @@
   transition: opacity calc(var(--k) * 300ms), transform calc(var(--k) * 300ms); }
 .map-toast.is-on { opacity: 1; transform: translate(-50%, 0); }
 
-/* ---- Mode Déplacer : le parapet dessiné en miniature à la place de la formule ---- */
+/* ---- Move mode: the parapet drawn in miniature in place of the spell ---- */
 .map-parapet { position: absolute; left: 4.8cqw; right: 4.8cqw; top: .9cqw; height: 5.6cqw; display: flex; align-items: center; gap: 2cqw; opacity: 0; transform: translateY(-1.2cqw);
   pointer-events: none; transition: opacity calc(var(--k) * 300ms), transform calc(var(--k) * 300ms) cubic-bezier(.2, .8, .2, 1); }
 .map-parapet.is-open { opacity: 1; transform: translateY(0); }
 .map-parapet-title { flex: none; font-family: var(--fell); font-style: italic; font-size: 1.6cqw; color: var(--ink); opacity: .75; }
 .map-parapet-row { position: relative; flex: 1; display: flex; align-items: flex-end; justify-content: center; gap: 2.2cqw; height: 100%; padding-bottom: .5cqw; }
-.map-parapet-row::after { content: ""; position: absolute; left: 0; right: 0; bottom: .15cqw; height: .1cqw; background: var(--ink); opacity: .55; }   /* la pierre du parapet, d'un trait */
-.map-parapet-item { display: flex; flex-direction: column; align-items: center; gap: .25cqw; opacity: .5; transition: opacity calc(var(--k) * 200ms); }   /* le glissement est un FLIP en JS */
+.map-parapet-row::after { content: ""; position: absolute; left: 0; right: 0; bottom: .15cqw; height: .1cqw; background: var(--ink); opacity: .55; }   /* the parapet's stone, in one stroke */
+.map-parapet-item { display: flex; flex-direction: column; align-items: center; gap: .25cqw; opacity: .5; transition: opacity calc(var(--k) * 200ms); }   /* the slide is a FLIP in JS */
 .map-parapet-item.is-lift { opacity: 1; transform: translateY(-.7cqw); }
 .map-parapet-name { font-family: "IM Fell English SC", var(--fell); font-size: 1.5cqw; line-height: 1.1; color: var(--ink); white-space: nowrap; }
 
-/* ---- V4 : « Ajouter une appli » : le même cartouche, mais en pointillés, et une plume à la place du logo ----
-   Le cadre pointillé n'utilise pas vector-effect : le tireté est écrit en unités du viewBox (200 × 120) pour que les
-   pointillés restent des pointillés quel que soit le navigateur ; le filet intérieur est retiré (un seul trait, plus sobre). */
+/* ---- V4: "Add an app": the same cartouche, but dashed, with a quill in place of the logo ----
+   The dashed frame does not use vector-effect: the dashes are written in viewBox units (200 × 120) so that they stay
+   dashes whatever the browser; the inner rule is removed (a single stroke, more sober). */
 .map-add-cell .map-frame path { vector-effect: none; stroke-width: 1.3; stroke-dasharray: 7 5; opacity: .55; }
 .map-add-cell .map-frame-inner { display: none; }
 .map-add-cell.is-focus .map-frame path { stroke-width: 2.2; opacity: .95; }
@@ -182,21 +182,21 @@
   stroke-linecap: round; stroke-linejoin: round; opacity: .75; transition: opacity calc(var(--k) * 200ms), transform calc(var(--k) * 200ms); }
 .map-quill path { vector-effect: non-scaling-stroke; stroke-width: .08cqw; }
 .map-quill-feather { fill: transparent; }
-.map-add-cell.is-focus .map-quill { opacity: 1; transform: translateX(-50%) rotate(-8deg); }   /* la plume se lève, prête à écrire */
+.map-add-cell.is-focus .map-quill { opacity: 1; transform: translateX(-50%) rotate(-8deg); }   /* the quill lifts, ready to write */
 .map-add-cell.is-focus .map-quill-feather { fill: #1b15101f; }
-/* Une appli ajoutée à la main : la mention « Perso » sous le logo, en italiques (même opacité que les mentions HDMI : lisible à 3 m). */
+/* A hand-added app: the "Perso" mention under the logo, in italics (same opacity as the HDMI mentions: readable from 3 m). */
 .map-cell.is-custom .map-sub { font-style: italic; opacity: .65; }
 
-/* Reconstruction de la grille après un ajout ou une suppression : les cartouches déjà là ne se révèlent pas de nouveau
-   (is-quiet, encre posée d'emblée) ; seul le nouveau joue map-reveal. L'effacement de sortie reste valable pour tous. */
+/* Grid rebuild after an addition or a removal: the cartouches already there do not reveal themselves again
+   (is-quiet, ink laid down from the start); only the new one plays map-reveal. The exit erase still applies to all. */
 .screen-map.is-in .map-cell.is-quiet { animation: none; -webkit-mask-size: 160% 160%; mask-size: 160% 160%; }
-/* Le cartouche frais (is-fresh) apparaît tout de suite : le délai de 420 ms est celui de l'ouverture, pas d'un ajout. */
+/* The fresh cartouche (is-fresh) appears right away: the 420 ms delay belongs to the opening, not to an addition. */
 .screen-map.is-in .map-cell.is-fresh { animation-delay: 0ms; }
 .screen-map.is-in.is-leaving .map-cell.is-quiet { animation: map-erase calc(var(--k) * 200ms) ease-in both; animation-delay: calc(var(--k) * var(--dr, 0ms)); }
 
-/* ---- V4 : la formule à écrire (clavier D-pad à l'encre, nom écrit à la plume) ----
-   Posée sur le parchemin à la place de la grille, qui pâlit derrière (is-spell sur la section). Transform et opacité
-   seulement ; chaque touche apparaît en cascade (18 ms × index) avec un tremblé fixe (--rot) comme tracée à la main. */
+/* ---- V4: the spell to write (D-pad keyboard in ink, name written in pen) ----
+   Laid on the parchment in place of the grid, which fades behind (is-spell on the section). Transform and opacity
+   only; each key appears in a cascade (18 ms × index) with a fixed wobble (--rot) as if traced by hand. */
 .screen-map.is-spell .map-grid, .screen-map.is-spell .map-more { opacity: .1; transition: opacity calc(var(--k) * 300ms); }
 .screen-map.is-spell .map-formula { opacity: 0; }
 .map-grid { transition: opacity calc(var(--k) * 300ms); }
@@ -205,8 +205,8 @@
 .map-spell.is-open { opacity: 1; transform: translateY(0); }
 .map-spell-title { text-align: center; font-family: var(--fell); font-style: italic; font-size: 1.9cqw; line-height: 1.2; color: var(--ink); opacity: .85; }
 
-/* Le champ : le nom en IM Fell, 3.2 cqw, chaque lettre révélée par un masque gauche→droite (220 ms) ; un trait de plume
-   dessous ; le compteur à droite du trait, en EB Garamond (chiffres tabulaires). */
+/* The field: the name in IM Fell, 3.2 cqw, each letter revealed by a left→right mask (220 ms); a pen stroke
+   underneath; the counter to the right of the stroke, in EB Garamond (tabular figures). */
 .map-spell-field { position: relative; width: 44cqw; height: 6.4cqw; margin: .9cqw auto 0; }
 .map-spell-name { position: absolute; left: 0; right: 0; top: 0; height: 4.4cqw; text-align: center; font-family: var(--fell); font-size: 3.2cqw; line-height: 4.4cqw;
   color: var(--ink); white-space: nowrap; overflow: hidden; letter-spacing: .02em; }
@@ -218,10 +218,10 @@
 .map-spell-line { position: absolute; left: 2cqw; right: 2cqw; top: 4.7cqw; height: .1cqw; background: var(--ink); opacity: .55; border-radius: .05cqw; }
 .map-spell-count { position: absolute; right: 2cqw; top: 5cqw; font-family: var(--body); font-variant-numeric: tabular-nums; font-size: 1.5cqw; line-height: 1.1; color: var(--ink); opacity: .55; }
 
-/* Le clavier : 10 touches de 5.4 × 4.2 cqw par rangée, 0.8 cqw entre elles ; la dernière rangée a trois touches larges. */
+/* The keyboard: 10 keys of 5.4 × 4.2 cqw per row, 0.8 cqw between them; the last row has three wide keys. */
 .map-spell-keys { display: flex; flex-direction: column; align-items: center; gap: .8cqw; margin-top: .9cqw; }
 .map-key-row { display: flex; gap: .8cqw; justify-content: center; }
-/* box-sizing: border-box : la bordure plus épaisse du focus ne change pas la largeur de la touche (la rangée ne tressaute pas). */
+/* box-sizing: border-box: the thicker focus border does not change the key's width (the row does not jump). */
 .map-key { --rot: 0deg; --d: 0ms; position: relative; flex: none; box-sizing: border-box; width: 5.4cqw; height: 4.2cqw; display: flex; align-items: center; justify-content: center;
   font-family: "IM Fell English SC", var(--fell); font-size: 2.1cqw; line-height: 1; color: var(--ink);
   border: .07cqw solid #1b1510a6; border-radius: .45cqw .6cqw .5cqw .55cqw / .55cqw .45cqw .6cqw .5cqw;
@@ -232,20 +232,20 @@
 .map-key.is-focus::before { opacity: .09; }
 .map-key.is-off { opacity: .4; }
 .map-key.is-done.is-focus { border-width: .14cqw; }
-/* La donne : map.js pose is-dealing à l'ouverture et la retire une fois la cascade finie (sinon une touche quittée
-   rejouerait son entrée). La touche en focus et « C'est fait » pâli n'y participent pas : leur état est le leur. */
+/* The deal: map.js sets is-dealing on opening and removes it once the cascade is over (otherwise a key that was left
+   would replay its entrance). The focused key and the faded "C'est fait" (done) key do not take part: their state is their own. */
 .map-spell.is-dealing .map-key { animation: map-key-in calc(var(--k) * 260ms) cubic-bezier(.2, .8, .2, 1) both; animation-delay: calc(var(--k) * var(--d)); }
 @keyframes map-key-in { from { opacity: 0; transform: rotate(var(--rot)) translateY(.6cqw); } to { opacity: 1; transform: rotate(var(--rot)) translateY(0); } }
 .map-spell.is-dealing .map-key.is-focus, .map-spell.is-dealing .map-key.is-off { animation: none; }
 
-/* Message écrit sous le clavier (déjà sur la Carte, vingt caractères au plus) et le sceau qui se presse à la validation. */
+/* Message written under the keyboard (already on the Map, twenty characters at most) and the seal pressed on validation. */
 .map-spell-msg { margin-top: .8cqw; text-align: center; font-family: var(--fell); font-style: italic; font-size: 1.6cqw; line-height: 1.2; color: var(--ink); opacity: .8; min-height: 2cqw; }
 .map-spell-seal { position: absolute; right: 14cqw; top: 2.2cqw; width: 4.2cqw; height: 4.2cqw; opacity: 0; transform: scale(.6); pointer-events: none;
   transition: opacity calc(var(--k) * 200ms), transform calc(var(--k) * 200ms); }
 .map-spell-seal.is-pressed { opacity: 1; animation: map-seal-press calc(var(--k) * 260ms) cubic-bezier(.2, .8, .2, 1) both; }
 @keyframes map-seal-press { from { transform: scale(1.5); } to { transform: scale(1); } }
 
-/* ---- Mouvement réduit : des fondus de 200 ms une fois l'écran en place, rien d'autre ---- */
+/* ---- Reduced motion: 200 ms fades once the screen is in place, nothing else ---- */
 .screen-map.is-reduced .map-sheet { clip-path: none; transform: none; opacity: 0; animation: none; }
 .screen-map.is-reduced.is-in .map-sheet { animation: map-fade calc(var(--k) * 200ms) ease both; }
 .screen-map.is-reduced .map-shadow { transition-delay: 0ms; }
@@ -259,7 +259,7 @@
 .screen-map.is-reduced .map-rows { transition: none; }
 .screen-map.is-reduced .map-step { display: none; }
 .screen-map.is-reduced .map-seal.is-pressed { animation: none; }
-/* V4 en mouvement réduit : la formule apparaît en fondu, les lettres et les touches sans cascade ni masque, le sceau sans ressort. */
+/* V4 in reduced motion: the spell fades in, the letters and keys without cascade or mask, the seal without spring. */
 .screen-map.is-reduced.is-in .map-cell.is-quiet { animation: none; opacity: 1; }
 .screen-map.is-reduced .map-spell { transform: none; transition: opacity calc(var(--k) * 200ms); }
 .screen-map.is-reduced .map-spell-name span { -webkit-mask: none; mask: none; animation: none; }

@@ -30,27 +30,29 @@ import java.util.Set;
 import java.util.regex.Pattern;
 
 /**
- * Tout ce qui touche aux autres applis de la télé : liste des applis installées, lancement, liens de contenu,
- * bannières, entrées HDMI.
+ * Everything that touches the TV's other apps: list of installed apps, launching, content links,
+ * banners, HDMI inputs.
  *
- * Repris de HomeApps.java de Free My TV — Copyright (c) 2026 Free My TV contributors, licence MIT (texte complet
- * dans android/README.md, section « Licence de Free My TV »). Réduit à ce qui ne demande aucune permission.
+ * Taken from Free My TV's HomeApps.java — Copyright (c) 2026 Free My TV contributors, MIT license (full text
+ * in android/README.md, section "Free My TV license"). Reduced to what requires no permission.
  *
- * Règles :
- *  - lancement d'une appli par intent EXPLICITE (package nommé) uniquement ; un lien de film est ouvert dans l'appli
- *    nommée (ACTION_VIEW + setPackage), à défaut sur l'accueil de cette appli, jamais « dans n'importe quelle appli » ;
- *  - les entrées HDMI passent par l'intent standard du système (ACTION_VIEW content://android.media.tv/…), seul cas
- *    d'intent sans package : c'est l'appli TV du système qui y répond ;
- *  - un package absent ou un lancement qui échoue renvoie un message, jamais une exception ;
- *  - aucune URL hors liste blanche ; aucune requête réseau (le manifeste n'a de toute façon pas INTERNET).
+ * Rules:
+ *  - an app is launched by EXPLICIT intent (named package) only; a film link is opened in the named app
+ *    (ACTION_VIEW + setPackage), or failing that on that app's home screen, never "in whatever app";
+ *  - HDMI inputs go through the system's standard intent (ACTION_VIEW content://android.media.tv/…), the only
+ *    case of an intent without a package: the system's TV app answers it;
+ *  - a missing package or a failed launch returns a message, never an exception;
+ *  - no URL outside the allow list; no network request (the manifest has no INTERNET anyway).
+ *
+ * The messages returned as strings are shown on the TV by the Howler (Beuglante), so they stay in French.
  */
 final class Apps {
-    /** Même forme qu'un package Android (PKG_RE de config.js) : on ne lance jamais un nom bizarre. */
+    /** Same shape as an Android package (PKG_RE in config.js): we never launch an odd-looking name. */
     private static final Pattern PKG = Pattern.compile("^[a-zA-Z][\\w]*(\\.[a-zA-Z][\\w]*)+$");
-    /** Hôtes autorisés pour openUrl : copie exacte de URL_HOSTS dans platform.js. Tenir les deux listes identiques. */
+    /** Hosts allowed for openUrl: exact copy of URL_HOSTS in platform.js. Keep both lists identical. */
     static final Set<String> URL_HOSTS = new HashSet<>(Arrays.asList(
             "www.max.com", "play.max.com", "www.netflix.com", "www.primevideo.com", "www.disneyplus.com", "www.youtube.com"));
-    /** Taille de la bannière Leanback (320x180 dp) à la densité xxxhdpi, comme Free My TV : 384x216 suffit à 3 m. */
+    /** Leanback banner size (320x180 dp) at xxxhdpi density, as in Free My TV: 384x216 is enough at 3 m. */
     private static final int BANNER_W = 384, BANNER_H = 216;
 
     private final Context app;
@@ -64,12 +66,12 @@ final class Apps {
         return pkg != null && pkg.length() <= 200 && PKG.matcher(pkg).matches();
     }
 
-    // ---------------------------------------------------------------- applis installées
+    // ---------------------------------------------------------------- installed apps
 
     /**
-     * Packages qui ont une entrée dans le launcher TV, puis ceux qui n'ont qu'une entrée « téléphone » (side-load).
-     * Dédoublonné, Leanback d'abord (launchable() de Free My TV). Les applis système « téléphone » sont écartées :
-     * ce sont des menus d'usine, pas des applis à lancer.
+     * Packages that have an entry in the TV launcher, then those that only have a "phone" entry (side-loaded).
+     * Deduplicated, Leanback first (Free My TV's launchable()). System "phone" apps are left out:
+     * they are factory menus, not apps to launch.
      */
     List<String> installedPackages() {
         PackageManager pm = app.getPackageManager();
@@ -92,7 +94,7 @@ final class Apps {
             List<ResolveInfo> list = pm.queryIntentActivities(new Intent(Intent.ACTION_MAIN).addCategory(category), 0);
             return list == null ? new ArrayList<ResolveInfo>() : list;
         } catch (RuntimeException e) {
-            Log.w("queryIntentActivities " + category + " : " + e.getMessage());
+            Log.w("queryIntentActivities " + category + ": " + e.getMessage());
             return new ArrayList<>();
         }
     }
@@ -101,9 +103,9 @@ final class Apps {
         return validPackage(pkg) && launchIntent(pkg) != null;
     }
 
-    // ---------------------------------------------------------------- lancement
+    // ---------------------------------------------------------------- launching
 
-    /** L'intent Leanback d'abord, l'intent « téléphone » en repli (launchIntent() de Free My TV). */
+    /** The Leanback intent first, the "phone" intent as a fallback (Free My TV's launchIntent()). */
     private Intent launchIntent(String pkg) {
         PackageManager pm = app.getPackageManager();
         try {
@@ -115,8 +117,8 @@ final class Apps {
     }
 
     /**
-     * Lance une appli par son package. Renvoie null si tout va bien, sinon un message d'erreur lisible (pour la Beuglante).
-     * FLAG_ACTIVITY_RESET_TASK_IF_NEEDED : l'appli reprend là où elle en était, comme un vrai accueil.
+     * Launches an app by its package. Returns null if all is well, otherwise a readable error message (for the Howler).
+     * FLAG_ACTIVITY_RESET_TASK_IF_NEEDED: the app resumes where it was, like a real home screen.
      */
     String launch(String pkg) {
         if (!validPackage(pkg)) return "Nom de package invalide.";
@@ -127,9 +129,9 @@ final class Apps {
     }
 
     /**
-     * Ouvre un lien de contenu (https, hôte en liste blanche) dans l'appli qui le possède (ACTION_VIEW + setPackage),
-     * sinon sur l'accueil de cette même appli (repli de open() de Free My TV, sans le cas Netflix). Jamais dans une
-     * autre appli : sans package nommé, on refuse, pour tenir la promesse « intents explicites » du README.
+     * Opens a content link (https, allow-listed host) in the app that owns it (ACTION_VIEW + setPackage),
+     * otherwise on that same app's home screen (fallback of Free My TV's open(), without the Netflix case). Never in
+     * another app: without a named package, we refuse, to keep the README's "explicit intents" promise.
      */
     String openUrl(String url, String pkg) {
         Uri uri = allowedUrl(url);
@@ -139,7 +141,7 @@ final class Apps {
         PackageManager pm = app.getPackageManager();
         Intent inApp = new Intent(Intent.ACTION_VIEW, uri).setPackage(pkg).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
         if (inApp.resolveActivity(pm) != null && start(inApp, pkg) == null) return null;
-        // L'appli ne prend pas le lien : on l'ouvre quand même, sur son accueil.
+        // The app does not take the link: we open it anyway, on its home screen.
         return launch(pkg);
     }
 
@@ -161,21 +163,21 @@ final class Apps {
             app.startActivity(intent);
             return null;
         } catch (ActivityNotFoundException | SecurityException | IllegalStateException e) {
-            Log.w("impossible d'ouvrir " + what + " : " + e.getMessage());
+            Log.w("could not open " + what + ": " + e.getMessage());
             return "La télé n'a pas pu ouvrir " + what + ".";
         }
     }
 
-    // ---------------------------------------------------------------- entrées HDMI
+    // ---------------------------------------------------------------- HDMI inputs
 
     /**
-     * Passe sur une entrée HDMI. `input` : "HDMI 1" (numéro de port, comme dans CATALOG) ou l'identifiant complet
-     * d'une entrée TvInputManager. Intent standard de passage (inputIntent() de Free My TV), sans lecteurs maison.
+     * Switches to an HDMI input. `input`: "HDMI 1" (port number, as in CATALOG) or the full id
+     * of a TvInputManager input. Standard passthrough intent (Free My TV's inputIntent()), without home-made players.
      *
-     * On ne filtre pas par resolveActivity() : sous Android 11+, la visibilité accordée par le bloc <queries> peut ne
-     * pas couvrir l'appli TV du système (elle filtre sur le type MIME résolu par le TvProvider), et resolveActivity()
-     * répondrait null alors que startActivity() marche. On lance donc dans un try, comme Free My TV, et
-     * ActivityNotFoundException devient un message lisible. À TESTER sur la télé cible (les 4 passages du CATALOG).
+     * We do not filter by resolveActivity(): on Android 11+, the visibility granted by the <queries> block may
+     * not cover the system's TV app (it filters on the MIME type resolved by the TvProvider), and resolveActivity()
+     * would answer null while startActivity() works. So we launch inside a try, as Free My TV does, and
+     * ActivityNotFoundException becomes a readable message. TO BE TESTED on the target TV (the 4 CATALOG switches).
      */
     String switchInput(String input) {
         if (input == null || input.length() > 200) return "Entrée invalide.";
@@ -200,7 +202,7 @@ final class Apps {
                 Integer p = hdmiPort(info);
                 if (p != null && p.intValue() == port.intValue()) { match = info; break; }
             }
-            // Pas de numéro lisible dans l'identifiant : on prend le n-ième port HDMI dans l'ordre de la télé.
+            // No readable number in the id: take the n-th HDMI port in the TV's order.
             if (match == null && port >= 1 && port <= hdmi.size()) match = hdmi.get(port - 1);
         }
         if (match == null) return "Entrée « " + wanted + " » introuvable.";
@@ -210,7 +212,7 @@ final class Apps {
         return err == null ? null : "Cette télé n'ouvre pas ses entrées HDMI depuis un launcher.";
     }
 
-    /** "HDMI 2" → 2 ; "hdmi2" → 2 ; sinon null. */
+    /** "HDMI 2" → 2; "hdmi2" → 2; otherwise null. */
     private static Integer portNumber(String s) {
         String digits = s.replaceAll("[^0-9]", "");
         if (digits.isEmpty() || digits.length() > 2) return null;
@@ -219,14 +221,14 @@ final class Apps {
     }
 
     /**
-     * Numéro de port HDMI d'une entrée, lu dans son identifiant (ex. "com.mediatek.tvinput/.hdmi.HDMIInputService/HW2",
-     * "…/HDMI1"). TvInputInfo.getHdmiDeviceInfo() donnerait le port exact mais est une API système, non compilable
-     * avec android.jar ; Free My TV lit aussi le numéro dans l'identifiant.
+     * HDMI port number of an input, read from its id (e.g. "com.mediatek.tvinput/.hdmi.HDMIInputService/HW2",
+     * "…/HDMI1"). TvInputInfo.getHdmiDeviceInfo() would give the exact port but is a system API, not compilable
+     * against android.jar; Free My TV also reads the number from the id.
      *
-     * Limite connue : sur certaines plateformes (Amlogic), les identifiants …/HW5, /HW6, /HW7 désignent HDMI 1/2/3.
-     * Le chiffre lu ne correspond alors à aucun port demandé (1 à 4) et switchInput retombe sur l'ordre de
-     * getTvInputList(), qui est le bon dans ce cas. Si une télé mélange les deux conventions, préférer l'ordre de
-     * la liste (supprimer cette lecture) : à vérifier sur l'appareil.
+     * Known limit: on some platforms (Amlogic), the ids …/HW5, /HW6, /HW7 stand for HDMI 1/2/3.
+     * The number read then matches none of the requested ports (1 to 4) and switchInput falls back on the order of
+     * getTvInputList(), which is the right one in that case. If a TV mixes both conventions, prefer the list
+     * order (remove this parsing): to be verified on the device.
      */
     private static Integer hdmiPort(TvInputInfo info) {
         String id = info.getId();
@@ -239,11 +241,11 @@ final class Apps {
         return Integer.parseInt(digits);
     }
 
-    // ---------------------------------------------------------------- bannières
+    // ---------------------------------------------------------------- banners
 
     /**
-     * Bannière Leanback de l'appli (ou son icône à défaut) en data URI PNG, 384x216 au plus (bannerTile()/iconTile()
-     * de Free My TV). Renvoie null si l'appli n'est pas installée ou n'a aucun visuel. Cache mémoire par package.
+     * The app's Leanback banner (or its icon, failing that) as a PNG data URI, 384x216 at most (Free My TV's
+     * bannerTile()/iconTile()). Returns null if the app is not installed or has no visual. In-memory cache per package.
      */
     String appIcon(String pkg) {
         if (!validPackage(pkg)) return null;
@@ -259,7 +261,7 @@ final class Apps {
                 uri = "data:image/png;base64," + Base64.encodeToString(bytes.toByteArray(), Base64.NO_WRAP);
             }
         } catch (RuntimeException | OutOfMemoryError e) {
-            Log.w("bannière de " + pkg + " : " + e.getMessage());
+            Log.w("banner of " + pkg + ": " + e.getMessage());
         }
         synchronized (iconCache) {
             iconCache.put(pkg, uri);
@@ -276,7 +278,7 @@ final class Apps {
             return null;
         }
         Drawable d = null;
-        // 1. la ressource de bannière à la plus haute densité (plus nette que pm.getApplicationBanner)
+        // 1. the banner resource at the highest density (sharper than pm.getApplicationBanner)
         int res = ai.banner;
         if (res != 0) {
             try {
@@ -285,12 +287,12 @@ final class Apps {
                 d = null;
             }
         }
-        // 2. la bannière telle que le système la voit
+        // 2. the banner as the system sees it
         if (d == null) {
             try { d = pm.getApplicationBanner(ai); } catch (RuntimeException ignored) { d = null; }
         }
         boolean isBanner = d != null;
-        // 3. l'icône (carrée), centrée sur fond nuit
+        // 3. the (square) icon, centred on a night background
         if (d == null) {
             try { d = pm.getApplicationIcon(ai); } catch (RuntimeException ignored) { d = null; }
         }

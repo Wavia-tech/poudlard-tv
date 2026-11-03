@@ -1,49 +1,49 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  Poudlard TV : launcher Android TV qui héberge la maquette web (assets/web/) dans une WebView.
+  Poudlard TV: Android TV launcher that hosts the web mock-up (assets/web/) in a WebView.
 
-  Règles (voir android/README.md) :
-  - AUCUNE permission. Ni INTERNET, ni ACCESS_NETWORK_STATE, ni RECEIVE_BOOT_COMPLETED. Vérifiable avec
-    `aapt dump permissions PoudlardTV.apk` : la liste doit être vide.
-  - Pas de QUERY_ALL_PACKAGES : le bloc <queries> ne déclare que les intents dont on a besoin.
-  - Deux portes d'entrée sur la même activité :
-      .Home  : catégorie HOME (l'accueil). C'est un activity-alias pour pouvoir la DÉSACTIVER seule
-               (HomeMode.giveBackHome) : le système retombe alors sur l'accueil Google, sans rien désactiver chez lui.
-      .Start : catégorie LEANBACK_LAUNCHER (l'icône « Poudlard TV » dans la liste des applis), toujours active,
-               pour revenir en arrière même quand .Home est désactivée.
-  Inspiré du manifeste de Free My TV (io.freemytv), réduit au strict nécessaire.
+  Rules (see android/README.md):
+  - NO permission. No INTERNET, no ACCESS_NETWORK_STATE, no RECEIVE_BOOT_COMPLETED. Verifiable with
+    `aapt dump permissions PoudlardTV.apk`: the list must be empty.
+  - No QUERY_ALL_PACKAGES: the <queries> block only declares the intents we need.
+  - Two entry points on the same activity:
+      .Home  : HOME category (the home screen). It is an activity-alias so it can be DISABLED on its own
+               (HomeMode.giveBackHome): the system then falls back to the Google home, without disabling anything on its side.
+      .Start : LEANBACK_LAUNCHER category (the "Poudlard TV" icon in the app list), always enabled,
+               so you can go back even when .Home is disabled.
+  Inspired by the Free My TV manifest (io.freemytv), reduced to the strict minimum.
 -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="fr.wavia.poudlardtv"
     android:versionCode="1"
     android:versionName="0.1">
 
-    <!-- Une TV n'a pas forcément d'écran tactile ni de Leanback déclaré (projecteurs, box) : rien d'obligatoire. -->
+    <!-- A TV does not necessarily have a touchscreen or declare Leanback (projectors, boxes): nothing is required. -->
     <uses-feature android:name="android.software.leanback" android:required="false" />
     <uses-feature android:name="android.hardware.touchscreen" android:required="false" />
 
-    <!-- Ce que le launcher a le droit de VOIR (Android 11+ filtre la visibilité des packages).
-         Même esprit que Free My TV, sans sa liste de packages nommés : nos applis sont toutes Leanback. -->
+    <!-- What the launcher is allowed to SEE (Android 11+ filters package visibility).
+         Same spirit as Free My TV, without its list of named packages: our apps are all Leanback. -->
     <queries>
-        <!-- Applis TV (liste des installées, bannières, lancement) -->
+        <!-- TV apps (list of installed apps, banners, launching) -->
         <intent>
             <action android:name="android.intent.action.MAIN" />
             <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
         </intent>
-        <!-- Applis « téléphone » installées en side-load (repli de getLaunchIntentForPackage) -->
+        <!-- Side-loaded "phone" apps (fallback of getLaunchIntentForPackage) -->
         <intent>
             <action android:name="android.intent.action.MAIN" />
             <category android:name="android.intent.category.LAUNCHER" />
         </intent>
-        <!-- Les autres accueils : pour retrouver l'accueil d'origine (HomeMode.originalHome) -->
+        <!-- The other home screens: to find the original home (HomeMode.originalHome) -->
         <intent>
             <action android:name="android.intent.action.MAIN" />
             <category android:name="android.intent.category.HOME" />
         </intent>
-        <!-- Entrées HDMI : l'intent standard de passage d'entrée (TvContract passthrough). L'appli TV du système
-             filtre souvent sur le type MIME résolu par le TvProvider plutôt que sur le schéma : on déclare les deux
-             formes pour être vus d'elle sous Android 11+. Apps.switchInput ne dépend pas de resolveActivity() :
-             l'intent est lancé dans un try (à vérifier sur la télé cible). -->
+        <!-- HDMI inputs: the standard input passthrough intent (TvContract passthrough). The system's TV app
+             often filters on the MIME type resolved by the TvProvider rather than on the scheme: we declare both
+             forms so it can see us on Android 11+. Apps.switchInput does not depend on resolveActivity():
+             the intent is launched inside a try (to be verified on the target TV). -->
         <intent>
             <action android:name="android.intent.action.VIEW" />
             <data android:scheme="content" android:host="android.media.tv" />
@@ -56,7 +56,7 @@
             <action android:name="android.intent.action.VIEW" />
             <data android:mimeType="vnd.android.cursor.item/passthrough" />
         </intent>
-        <!-- Liens de contenu https (liste blanche dans Apps.openUrl), ouverts dans l'appli qui les possède -->
+        <!-- https content links (allow list in Apps.openUrl), opened in the app that owns them -->
         <intent>
             <action android:name="android.intent.action.VIEW" />
             <data android:scheme="https" />
@@ -72,11 +72,11 @@
         android:supportsRtl="false"
         android:theme="@style/PoudlardTV">
 
-        <!-- L'activité unique. Attributs repris de HomeActivity de Free My TV :
-             singleTask + taskAffinity vide : une seule instance, jamais empilée derrière une appli ;
-             stateNotNeeded : le système peut la tuer et la recréer sans état (c'est un accueil) ;
-             clearTaskOnLaunch + excludeFromRecents : jamais dans les récents ;
-             configChanges large : pas de recréation à chaque changement d'affichage. -->
+        <!-- The single activity. Attributes taken from Free My TV's HomeActivity:
+             singleTask + empty taskAffinity: a single instance, never stacked behind an app;
+             stateNotNeeded: the system may kill and recreate it without state (it is a home screen);
+             clearTaskOnLaunch + excludeFromRecents: never in the recents;
+             broad configChanges: no recreation on every display change. -->
         <activity
             android:name=".HomeActivity"
             android:exported="false"
@@ -89,9 +89,9 @@
             android:screenOrientation="landscape"
             android:configChanges="keyboard|keyboardHidden|navigation|orientation|screenSize|screenLayout|smallestScreenSize|uiMode|density|fontScale|locale|layoutDirection" />
 
-        <!-- Porte HOME : celle que la télé propose à côté de Google TV quand on appuie sur Home. Désactivable seule.
-             Pas d'android:priority : le système plafonne à 0 la priorité d'une appli non privilégiée, et c'est de
-             toute façon la personne qui choisit, jamais le launcher qui se place devant. -->
+        <!-- HOME entry point: the one the TV offers next to Google TV when Home is pressed. Can be disabled on its own.
+             No android:priority: the system caps a non-privileged app's priority at 0, and in any case
+             the person chooses, the launcher never pushes itself to the front. -->
         <activity-alias
             android:name=".Home"
             android:targetActivity=".HomeActivity"
@@ -105,7 +105,7 @@
             </intent-filter>
         </activity-alias>
 
-        <!-- Porte « liste des applis » : toujours disponible, c'est le chemin de retour. -->
+        <!-- "App list" entry point: always available, it is the way back. -->
         <activity-alias
             android:name=".Start"
             android:targetActivity=".HomeActivity"

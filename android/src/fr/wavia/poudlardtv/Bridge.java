@@ -10,24 +10,26 @@ import org.json.JSONObject;
 import java.util.List;
 
 /**
- * Le pont JavaScript `window.Android`, tel que platform.js l'attend. C'est la SEULE porte entre la maquette web et
- * la télé. Chaque méthode est explicite, prend des chaînes, renvoie du JSON (jamais une exception : un échec est un
- * `{ok:false, error:"…"}` que la Beuglante affiche).
+ * The `window.Android` JavaScript bridge, as platform.js expects it. It is the ONLY door between the web mock-up and
+ * the TV. Every method is explicit, takes strings, returns JSON (never an exception: a failure is a
+ * `{ok:false, error:"…"}` that the Howler (Beuglante) displays).
  *
- * Les méthodes @JavascriptInterface tournent sur un thread de la WebView, pas sur le thread principal :
- * startActivity et PackageManager s'en accommodent ; rien ici ne touche à une vue.
+ * The @JavascriptInterface methods run on a WebView thread, not on the main thread:
+ * startActivity and PackageManager cope with that; nothing here touches a view.
  *
- * Contrat (platform.js) :
- *   launch(pkg)            → lance l'appli
- *   switchInput(input)     → "HDMI 1" ou identifiant d'entrée
- *   openUrl(url, pkg)      → lien https en liste blanche, dans l'appli `pkg` (sinon sur son accueil)
- *   installedPackages()    → tableau JSON de packages
- *   appIcon(pkg)           → data URI PNG ou null
- *   setHome(mode)          → "poudlard" | "original" ; pour "poudlard", la réponse porte `hint` :
- *                            "press-home" (appuyer sur Home, la télé proposera les deux accueils, choisir « Toujours »)
- *                            ou "settings" (l'écran de choix du système s'est ouvert)
- *   homeMode()             → "poudlard" | "original" (état courant, pour les réglages)
- *   version()              → version de l'APK (pour l'écran des réglages)
+ * Contract (platform.js):
+ *   launch(pkg)            → launches the app
+ *   switchInput(input)     → "HDMI 1" or an input id
+ *   openUrl(url, pkg)      → allow-listed https link, in the app `pkg` (otherwise on its home screen)
+ *   installedPackages()    → JSON array of packages
+ *   appIcon(pkg)           → PNG data URI or null
+ *   setHome(mode)          → "poudlard" | "original"; for "poudlard", the response carries `hint`:
+ *                            "press-home" (press Home, the TV will offer both home screens, choose "Always")
+ *                            or "settings" (the system's chooser screen has opened)
+ *   homeMode()             → "poudlard" | "original" (current state, for the settings)
+ *   version()              → APK version (for the settings screen)
+ *
+ * The error messages returned to JavaScript are shown on the TV by the Howler, so they stay in French.
  */
 final class Bridge {
     private final Context app;
@@ -50,7 +52,7 @@ final class Bridge {
         }
     }
 
-    /** Transforme « null = succès, sinon message » (convention de Apps) en JSON. */
+    /** Turns "null = success, otherwise a message" (the Apps convention) into JSON. */
     private static String result(String error) {
         return error == null ? ok() : fail(error);
     }

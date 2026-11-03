@@ -1,22 +1,22 @@
-// Logos des applications : fichier d'exemple, volontairement vide.
+// App logos: example file, deliberately empty.
 //
-// Le dépôt public ne distribue aucun logo officiel (ce sont des marques, voir AVERTISSEMENT.md).
-// Le vrai fichier, `assets/logos.js`, est ignoré par Git. Pour l'obtenir :
+// The public repo distributes no official logo (they are trademarks, see DISCLAIMER.md).
+// The real file, `assets/logos.js`, is ignored by Git. To get one:
 //
-//   1. Copiez ce fichier :   cp app/assets/logos.example.js app/assets/logos.js
-//      (la maquette démarre alors avec des monogrammes à la place des logos)
-//   2. Pour un usage strictement privé, assemblez vos propres logos avec `node tools/logos-build.mjs <dossier> [ids-luma]`
-//      (SVG monochromes blancs, un par id du CATALOG de js/config.js), qui écrit `assets/logos.js` au format ci-dessous.
-//      Procédure détaillée : tools/README.md.
+//   1. Copy this file:   cp app/assets/logos.example.js app/assets/logos.js
+//      (the mock-up then starts with monograms instead of logos)
+//   2. For strictly private use, bundle your own logos with `node tools/logos-build.mjs <folder> [luma-ids]`
+//      (white monochrome SVGs, one per CATALOG id from js/config.js), which writes `assets/logos.js` in the format below.
+//      Detailed procedure: tools/README.md.
 //
-// Format attendu par les écrans :
-//   LOGOS[id] = { src: 'data:image/svg+xml;base64,…', ratio: largeur / hauteur, luma: true | false }
-//   - `src`   : SVG blanc sur fond transparent, encodé en data URI ; il sert de masque CSS (ivoire gravé, or en relief).
-//   - `ratio` : proportion de la boîte du logo (1 = carré). Les écrans fixent la hauteur et déduisent la largeur.
-//   - `luma`  : true si le SVG est un aplat plein (logo sur fond coloré) et doit être masqué par luminance.
+// Format expected by the screens:
+//   LOGOS[id] = { src: 'data:image/svg+xml;base64,…', ratio: width / height, luma: true | false }
+//   - `src`   : white SVG on a transparent background, encoded as a data URI; it serves as a CSS mask (engraved ivory, embossed gold).
+//   - `ratio` : proportion of the logo box (1 = square). The screens fix the height and derive the width.
+//   - `luma`  : true if the SVG is a solid fill (a logo on a colored background) and must be masked by luminance.
 //
-// Repli : quand LOGOS[id] n'existe pas, chaque écran appelle monogram(name) (js/monogram.js), qui dessine l'initiale de
-// l'application dans un cercle, au même format. L'interface fonctionne donc entièrement sans ce fichier rempli.
-// Sur Android TV, le pont window.Android expose aussi l'icône que chaque application fournit au système
-// (appIcon(pkg), pas encore appelée par les écrans dans cette version ; voir tools/README.md).
+// Fallback: when LOGOS[id] does not exist, each screen calls monogram(name) (js/monogram.js), which draws the app's
+// initial in a circle, in the same format. The interface therefore works fully without this file being filled in.
+// On Android TV, the window.Android bridge also exposes the icon each app provides to the system
+// (appIcon(pkg), not yet called by the screens in this version; see tools/README.md).
 export const LOGOS = {};

@@ -1,7 +1,7 @@
-/* Polices embarquées pour la télévision (aucun accès réseau). Déposez les fichiers OFL dans assets/fonts/ :
+/* Bundled fonts for the TV (no network access). Drop the OFL files into assets/fonts/:
    Cinzel-VariableFont_wght.ttf, CinzelDecorative-Bold.ttf, EBGaramond-VariableFont_wght.ttf, EBGaramond-Italic-VariableFont_wght.ttf,
-   IMFellEnglish-Regular.ttf, IMFellEnglish-Italic.ttf, IMFellEnglishSC-Regular.ttf (Google Fonts → Download family), avec leur OFL.txt.
-   Sans ces fichiers, le navigateur retombe sur les polices système : rien ne casse. */
+   IMFellEnglish-Regular.ttf, IMFellEnglish-Italic.ttf, IMFellEnglishSC-Regular.ttf (Google Fonts → Download family), with their OFL.txt.
+   Without these files, the browser falls back to system fonts: nothing breaks. */
 @font-face { font-family: "Cinzel"; src: url("../assets/fonts/Cinzel-VariableFont_wght.ttf") format("truetype"); font-weight: 400 900; font-display: swap; }
 @font-face { font-family: "Cinzel Decorative"; src: url("../assets/fonts/CinzelDecorative-Bold.ttf") format("truetype"); font-weight: 700; font-display: swap; }
 @font-face { font-family: "EB Garamond"; src: url("../assets/fonts/EBGaramond-VariableFont_wght.ttf") format("truetype"); font-weight: 400 800; font-style: normal; font-display: swap; }

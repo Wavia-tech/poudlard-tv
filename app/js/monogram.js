@@ -1,5 +1,5 @@
-// Logo de secours pour une appli ajoutée à la main : un monogramme (l'initiale) dessiné en SVG,
-// utilisable comme masque exactement comme les logos officiels de assets/logos.js.
+// Fallback logo for an app added by hand: a monogram (the initial) drawn in SVG,
+// usable as a mask exactly like the official logos in assets/logos.js.
 const cache = new Map();
 
 export function monogram(name) {

@@ -12,33 +12,33 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Quel accueil la télé utilise : Poudlard ou l'original. Version RÉVERSIBLE et SANS adb de HomeMode de Free My TV
- * (seule la méthode originalHome(), ci-dessous, est reprise de son stockHome() ; licence MIT dans android/README.md).
+ * Which home the TV uses: Poudlard or the original. REVERSIBLE, adb-FREE version of Free My TV's HomeMode
+ * (only the originalHome() method below is taken from its stockHome(); MIT license in android/README.md).
  *
- * Free My TV passe par un client adb interne pour `cmd package set-home-activity` et désactive l'accueil Google
- * (`pm disable-user`). On ne fait ni l'un ni l'autre : une socket exige la permission INTERNET et désactiver l'accueil
- * Google est interdit par le cahier des charges. À la place :
+ * Free My TV goes through an internal adb client for `cmd package set-home-activity` and disables the Google home
+ * (`pm disable-user`). We do neither: a socket requires the INTERNET permission, and disabling the Google home
+ * is forbidden by the project rules. Instead:
  *
- *  - setHome("poudlard") = takeHome() : réactive notre porte HOME (l'alias `.Home`) et efface le compteur du garde-fou.
- *    C'est tout ce qu'une appli sans permission peut faire ; le choix final appartient au SYSTÈME et à la personne :
- *    au prochain appui sur la touche Home, la télé a deux accueils candidats et affiche sa boîte de choix
- *    (« Google TV » ou « Poudlard TV », avec « Toujours » pour mémoriser). Sur un téléphone, il existe un écran
- *    « Application d'accueil » (Settings.ACTION_HOME_SETTINGS) ; les Paramètres d'Android TV / Google TV n'en ont
- *    PAS, en général. On tente donc cet écran, mais son absence n'est pas un échec : le JSON renvoyé dit à la maquette
- *    quelle consigne afficher (`hint` : "settings" si l'écran s'est ouvert, "press-home" sinon).
- *  - setHome("original") = giveBackHome() : désactive notre alias `.Home` (autorisé sans permission sur ses propres
- *    composants). Le système n'a plus qu'un candidat pour la touche Home : l'accueil d'origine. Puis on le lance.
- *    L'alias `.Start` (liste des applis) reste actif : Poudlard TV est toujours là pour revenir en arrière.
+ *  - setHome("poudlard") = takeHome(): re-enables our HOME entry point (the `.Home` alias) and clears the safeguard counter.
+ *    That is all an app without permissions can do; the final choice belongs to the SYSTEM and to the person:
+ *    on the next Home key press, the TV has two candidate home screens and shows its chooser
+ *    ("Google TV" or "Poudlard TV", with "Always" to remember). On a phone there is a
+ *    "Home app" screen (Settings.ACTION_HOME_SETTINGS); the Android TV / Google TV Settings generally do
+ *    NOT have one. So we try that screen, but its absence is not a failure: the JSON returned tells the mock-up
+ *    which instruction to show (`hint`: "settings" if the screen opened, "press-home" otherwise).
+ *  - setHome("original") = giveBackHome(): disables our `.Home` alias (allowed without permission on one's own
+ *    components). The system then has only one candidate for the Home key: the original home. Then we launch it.
+ *    The `.Start` alias (app list) stays enabled: Poudlard TV is still there to go back.
  *
- * Aucune autre appli n'est touchée, jamais. Désinstaller l'APK remet tout en place.
- * État : écrit d'après la documentation Android, NON TESTÉ sur appareil (voir android/README.md, « État des tests »).
+ * No other app is ever touched. Uninstalling the APK puts everything back.
+ * Status: written from the Android documentation, NOT TESTED on a device (see android/README.md, "Test status").
  */
 final class HomeMode {
     static final String POUDLARD = "poudlard";
     static final String ORIGINAL = "original";
-    /** Consigne renvoyée par takeHome : l'écran de choix du système s'est ouvert. */
+    /** Hint returned by takeHome: the system's chooser screen has opened. */
     static final String HINT_SETTINGS = "settings";
-    /** Consigne renvoyée par takeHome : appuyer sur Home, la télé proposera les deux accueils. */
+    /** Hint returned by takeHome: press Home, the TV will offer both home screens. */
     static final String HINT_PRESS_HOME = "press-home";
 
     private HomeMode() {}
@@ -47,10 +47,10 @@ final class HomeMode {
         return new ComponentName(c.getPackageName(), c.getPackageName() + ".Home");
     }
 
-    /** Notre porte HOME est-elle active ? (État du composant, pas le choix de la personne dans les réglages.) */
+    /** Is our HOME entry point enabled? (Component state, not the person's choice in the settings.) */
     static boolean homeAliasEnabled(Context c) {
         int state = c.getPackageManager().getComponentEnabledSetting(homeAlias(c));
-        // ENABLED par défaut dans le manifeste : DEFAULT vaut donc « activé ».
+        // ENABLED by default in the manifest: DEFAULT therefore means "enabled".
         return state == PackageManager.COMPONENT_ENABLED_STATE_ENABLED
                 || state == PackageManager.COMPONENT_ENABLED_STATE_DEFAULT;
     }
@@ -61,7 +61,7 @@ final class HomeMode {
                 PackageManager.DONT_KILL_APP);
     }
 
-    /** Le package qui répond à la touche Home en ce moment (résolution système de MAIN + HOME). */
+    /** The package currently answering the Home key (system resolution of MAIN + HOME). */
     static String currentHomePackage(Context c) {
         try {
             Intent home = new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME);
@@ -72,70 +72,70 @@ final class HomeMode {
         }
     }
 
-    /** Ce que le JavaScript affiche dans les réglages : "poudlard" si on est l'accueil courant, "original" sinon. */
+    /** What the JavaScript shows in the settings: "poudlard" if we are the current home, "original" otherwise. */
     static String mode(Context c) {
         return homeAliasEnabled(c) && c.getPackageName().equals(currentHomePackage(c)) ? POUDLARD : ORIGINAL;
     }
 
     /**
-     * Rend l'accueil d'origine. Appelé par le garde-fou (3 plantages) et par setHome("original").
-     * Ne lève jamais : en dernier recours, le système choisira lui-même au prochain appui sur Home.
+     * Gives the home back to the original. Called by the safeguard (3 crashes) and by setHome("original").
+     * Never throws: as a last resort, the system will choose by itself on the next Home key press.
      */
     static void giveBackHome(Context c) {
         try {
             setHomeAlias(c, false);
-            Log.i("porte HOME désactivée : l'accueil d'origine reprend la touche Home");
+            Log.i("HOME entry point disabled: the original home takes over the Home key");
         } catch (RuntimeException e) {
-            Log.w("impossible de désactiver la porte HOME", e);
+            Log.w("could not disable the HOME entry point", e);
         }
         Intent original = originalHome(c);
         if (original == null) {
-            Log.w("accueil d'origine introuvable ou ambigu : le système choisira au prochain appui sur Home");
+            Log.w("original home not found or ambiguous: the system will choose on the next Home key press");
             return;
         }
         try {
             c.startActivity(original.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK));
         } catch (ActivityNotFoundException | SecurityException e) {
-            Log.w("impossible de lancer l'accueil d'origine", e);
+            Log.w("could not launch the original home", e);
         }
     }
 
     /**
-     * Remet notre porte HOME et efface les plantages. Renvoie la consigne pour la personne (HINT_SETTINGS si l'écran
-     * de choix du système a pu s'ouvrir, HINT_PRESS_HOME sinon), ou null si la porte HOME n'a pas pu être réactivée
-     * (le seul vrai échec).
+     * Restores our HOME entry point and clears the crashes. Returns the hint for the person (HINT_SETTINGS if the
+     * system's chooser screen could be opened, HINT_PRESS_HOME otherwise), or null if the HOME entry point could not
+     * be re-enabled (the only real failure).
      */
     static String takeHome(Context c) {
         try {
             setHomeAlias(c, true);
         } catch (RuntimeException e) {
-            Log.w("impossible de réactiver la porte HOME", e);
+            Log.w("could not re-enable the HOME entry point", e);
             return null;
         }
         Watchdog.clear(c);
-        Log.i("porte HOME réactivée : la télé proposera Poudlard TV au prochain appui sur Home");
+        Log.i("HOME entry point re-enabled: the TV will offer Poudlard TV on the next Home key press");
         return openHomeSettings(c) ? HINT_SETTINGS : HINT_PRESS_HOME;
     }
 
     /**
-     * L'écran « Application d'accueil » du système, s'il existe (téléphones, quelques box). Sur Android TV / Google TV
-     * il n'y a en général aucun destinataire : on renvoie false sans rien ouvrir d'autre (les réglages généraux ne
-     * mèneraient nulle part).
+     * The system's "Home app" screen, if it exists (phones, a few boxes). On Android TV / Google TV
+     * there is generally no recipient: we return false without opening anything else (the general settings
+     * would lead nowhere).
      */
     static boolean openHomeSettings(Context c) {
         try {
             c.startActivity(new Intent(Settings.ACTION_HOME_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
             return true;
         } catch (ActivityNotFoundException | SecurityException e) {
-            Log.i("pas d'écran « Application d'accueil » sur cette télé : consigne « appuyer sur Home »");
+            Log.i("no \"Home app\" screen on this TV: hint \"press Home\"");
             return false;
         }
     }
 
     /**
-     * L'accueil d'origine, à la manière de stockHome() dans Free My TV : les activités HOME des applis SYSTÈME,
-     * sans nous, sans FallbackHome (l'écran « Android démarre »), et on ne devine pas s'il reste plusieurs candidats
-     * (on prend alors celui que le système préfère, s'il n'est pas nous).
+     * The original home, in the manner of stockHome() in Free My TV: the HOME activities of SYSTEM apps,
+     * without us, without FallbackHome (the "Android is starting" screen), and we do not guess if several candidates
+     * remain (we then take the one the system prefers, if it is not us).
      */
     static Intent originalHome(Context c) {
         PackageManager pm = c.getPackageManager();
@@ -163,7 +163,7 @@ final class HomeMode {
         } else if (candidates.size() > 1) {
             String preferred = currentHomePackage(c);
             for (ComponentName cn : candidates) if (cn.getPackageName().equals(preferred)) target = cn;
-            if (target == null) Log.w(candidates.size() + " accueils système : on ne devine pas");
+            if (target == null) Log.w(candidates.size() + " system home screens: not guessing");
         }
         if (target == null) return null;
         return new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME).setComponent(target);

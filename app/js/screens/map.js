@@ -1,26 +1,26 @@
-// La Carte du Maraudeur : toutes les applis sur un parchemin qui se déplie, les Passages (consoles, entrées HDMI),
-// la chandelle « Réglages ». C'est ici qu'on épingle, retire, masque, affiche et déplace ce qui est sur le parapet,
-// et qu'on ajoute l'appli de son choix (V4) : une dernière pièce « Ajouter une appli » ouvre une formule à écrire.
+// The Marauder's Map (Carte du Maraudeur): every app on a parchment that unfolds, the Passages (consoles, HDMI inputs),
+// and the "Réglages" (Settings) candle. This is where you pin, unpin, hide, show and move what sits on the parapet,
+// and where you add an app of your own (V4): a last "Ajouter une appli" piece opens a spell to write.
 //
-// Grammaire : flèches dans la grille (mémoire de colonne par ligne) · OK lance (Lumos en version encre) ·
-// OK long ou Menu : Rappeltout de l'appli · Retour, bas depuis la dernière ligne, haut depuis la première : « Méfait accompli »
-// puis retour au Parapet. Toute modification passe par updateConfig / addCustomApp / removeCustomApp (config.js) : rien d'autre n'écrit.
+// Grammar: arrows in the grid (column memory per row) · OK launches (ink version of Lumos) ·
+// long OK or Menu: the app's Remembrall (Rappeltout) · Back, down from the last row, up from the first: "Méfait accompli" (Mischief managed)
+// then back to the Parapet. Every change goes through updateConfig / addCustomApp / removeCustomApp (config.js): nothing else writes.
 //
-// Chorégraphie d'ouverture : l'écran glisse d'abord en place (transition `down` du routeur, 700 ms) ; SEULEMENT ENSUITE
-// la classe `is-in` est posée sur la section et le parchemin se déplie, la formule s'écrit, l'encre apparaît, puis les
-// empreintes marchent (650 ms plus tard). Sans `is-in`, map.css garde tout replié et invisible.
+// Opening choreography: the screen first slides into place (router `down` transition, 700 ms); ONLY THEN is the `is-in`
+// class set on the section, the parchment unfolds, the formula writes itself, the ink appears, then the footprints
+// walk (650 ms later). Without `is-in`, map.css keeps everything folded and invisible.
 //
-// Applis ajoutées (config.custom) : catégorie 'perso', logo = monogram(app.name) quand LOGOS[app.id] manque. Elles
-// viennent dans la grille après le catalogue, avant les Passages, suivies du cartouche en pointillés « Ajouter une appli ».
-// Leur Rappeltout propose en plus « Supprimer cette appli ».
+// Added apps (config.custom): category 'perso', logo = monogram(app.name) when LOGOS[app.id] is missing. They come
+// in the grid after the catalog, before the Passages, followed by the dotted "Ajouter une appli" frame.
+// Their Remembrall also offers "Supprimer cette appli" (delete this app).
 //
-// La formule à écrire (.map-spell) : un clavier D-pad dessiné à l'encre (lettres, chiffres, espace, Effacer, « C'est fait »),
-// le nom s'écrit à la plume en IM Fell au-dessus, lettre par lettre (masque gauche→droite), 20 caractères au plus.
-// Retour efface la dernière lettre ; Retour sur un champ vide annule. Sur la vraie TV, si Platform.installed() renvoie
-// une liste, on propose d'abord ces applis (sphère Rappeltout) ; en maquette la liste est nulle : on écrit le nom.
+// The spell to write (.map-spell): a D-pad keyboard drawn in ink (letters, digits, space, Erase, "C'est fait" / Done),
+// the name is written with a quill in IM Fell above it, letter by letter (left-to-right mask), 20 characters at most.
+// Back erases the last letter; Back on an empty field cancels. On the real TV, if Platform.installed() returns a list,
+// those apps are offered first (Remembrall sphere); in the mockup the list is null, so the name is typed.
 //
-// Paramètres acceptés (facultatifs) : ctx.params.app  = id de l'appli en focus sur le parapet (focus initial) ;
-//                                     ctx.params.from = { x, y } fractions (0..1) de l'écran d'où partent les empreintes.
+// Accepted parameters (optional): ctx.params.app  = id of the app in focus on the parapet (initial focus);
+//                                 ctx.params.from = { x, y } screen fractions (0..1) the footprints start from.
 
 import { allApps, appById, getConfig, updateConfig, addCustomApp, removeCustomApp, isReduced, DOCK_MAX } from '../config.js';
 import { Platform } from '../platform.js';
@@ -30,21 +30,21 @@ import { monogram } from '../monogram.js';
 import { rappeltout, dismissRappeltout } from '../rappeltout.js';
 import { beuglante } from '../beuglante.js';
 
-const COLS = 5;              // colonnes de la grille
-const ROWS_VISIBLE = 3;      // lignes visibles par page (pages suivantes vers le bas)
-const STEPS = 6;             // empreintes par trajet
-const STEP_GAP = 40;         // ms entre deux empreintes
-const REVEAL_GAP = 40;       // ms entre deux cartouches à l'ouverture
-const ENTER_MS = 700;        // durée de la transition d'écran du routeur (TRANSITION_MS, non exporté) : on attend l'arrivée
-const WALK_AFTER_MS = 650;   // la marche part quand le parchemin est déplié et l'encre posée
-const INTENT_MS = 350;       // l'intent part à 350 ms (blueprint Lumos) ; jusque-là, Retour annule
-const FRAME_W = 14, FRAME_H = 7;   // cadre du cartouche en cqw (map.css : 14 × 7, en haut du cartouche de 14 × 10)
-const CUSTOM_MAX = 12;       // applis ajoutées à la main, au plus (sanitize() tranche au même nombre)
-const NAME_MAX = 20;         // caractères d'un nom écrit à la plume (NAME_RE de config.js)
-const SEAL_MS = 520;         // le sceau se presse, puis la formule se referme et l'appli apparaît
-const TOAST_MS = 2200;       // durée d'une plaque de laiton informative
-// Même forme qu'un package Android accepté par sanitize() (PKG_RE de config.js) : on ne propose jamais un package
-// que la config retirerait en silence (l'appli serait alors créée sans chemin).
+const COLS = 5;              // grid columns
+const ROWS_VISIBLE = 3;      // visible rows per page (further pages downwards)
+const STEPS = 6;             // footprints per walk
+const STEP_GAP = 40;         // ms between two footprints
+const REVEAL_GAP = 40;       // ms between two frames at opening
+const ENTER_MS = 700;        // duration of the router's screen transition (TRANSITION_MS, not exported): we wait for arrival
+const WALK_AFTER_MS = 650;   // the walk starts once the parchment is unfolded and the ink laid down
+const INTENT_MS = 350;       // the intent fires at 350 ms (Lumos blueprint); until then, Back cancels
+const FRAME_W = 14, FRAME_H = 7;   // frame of the piece in cqw (map.css: 14 × 7, at the top of the 14 × 10 piece)
+const CUSTOM_MAX = 12;       // hand-added apps, at most (sanitize() trims to the same number)
+const NAME_MAX = 20;         // characters of a quill-written name (NAME_RE in config.js)
+const SEAL_MS = 520;         // the seal presses, then the spell closes and the app appears
+const TOAST_MS = 2200;       // duration of an informative brass plate
+// Same shape as an Android package accepted by sanitize() (PKG_RE in config.js): never offer a package
+// the config would silently drop (the app would then be created without a path).
 const PKG_RE = /^[a-zA-Z][\w]*(\.[a-zA-Z][\w]*)+$/;
 const FORMULA = 'Je jure solennellement que mes intentions sont mauvaises';
 const MISCHIEF = 'Méfait accompli';
@@ -52,8 +52,8 @@ const KEYHINT_BROWSE = '<span><b>◀ ▶ ▲ ▼</b>Parcourir</span><span><b>OK<
 const KEYHINT_MOVE = '<span><b>◀ ▶</b>Déplacer</span><span><b>OK</b>Poser</span><span><b>Retour</b>Annuler</span>';
 const KEYHINT_SPELL = '<span><b>◀ ▶ ▲ ▼</b>Lettre</span><span><b>OK</b>Écrire</span><span><b>Retour</b>Effacer · Annuler</span>';
 
-// Le clavier de la formule : quatre rangées de dix touches, puis trois touches larges. Les libellés sont des constantes.
-// Une touche = un caractère (`ch`) ou une action (`id` : space, erase, done). `w` : largeur en cqw des touches larges.
+// The spell keyboard: four rows of ten keys, then three wide keys. Labels are constants.
+// A key = a character (`ch`) or an action (`id`: space, erase, done). `w`: width in cqw of the wide keys.
 const KEY_ROWS = [
   ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0'],
   ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J'],
@@ -62,30 +62,30 @@ const KEY_ROWS = [
   [{ id: 'space', label: 'Espace', w: 17 }, { id: 'erase', label: 'Effacer', w: 17 }, { id: 'done', label: 'C’est fait', w: 25.6 }],
 ];
 
-// Cartouche dessiné à la plume : un rectangle qui tremble un peu, un double filet, quatre traits de coin.
+// Quill-drawn frame: a slightly wobbly rectangle, a double rule, four corner strokes.
 const FRAME_SVG = `<svg class="map-frame" viewBox="0 0 200 120" preserveAspectRatio="none" aria-hidden="true">
   <path class="map-frame-outer" d="M8 6 C60 3.5 140 8.5 192 6 C194.5 40 193 80 192 114 C140 116.5 60 111.5 8 114 C5.5 80 7 40 8 6 Z"/>
   <path class="map-frame-inner" d="M13 11 C60 9 140 13 187 11 C189 40 188 80 187 109 C140 111 60 107 13 109 C11 80 12 40 13 11 Z"/>
   <path class="map-frame-corners" d="M3 2 l6 6 M197 2 l-6 6 M3 118 l6 -6 M197 118 l-6 -6"/>
 </svg>`;
-// Trait de plume qui souligne le nom (pathLength normalisé : dasharray 100).
+// Quill stroke underlining the name (normalised pathLength: dasharray 100).
 const UNDERLINE_SVG = `<svg class="map-underline" viewBox="0 0 100 6" preserveAspectRatio="none" aria-hidden="true">
   <path pathLength="100" d="M2 3.4 C 22 1.2, 48 5.2, 70 2.6 S 92 3.8, 98 2.8"/></svg>`;
-// La chandelle « Réglages » : bougie, coulures, bobèche, flamme (allumée en focus).
+// The "Réglages" (Settings) candle: candle, drips, drip pan, flame (lit when focused).
 const CANDLE_SVG = `<svg class="map-candle" viewBox="0 0 60 80" aria-hidden="true">
   <path class="map-candle-flame" d="M30 12 C23.5 21 23 29 30 34 C37 29 36.5 21 30 12 Z"/>
   <path class="map-candle-wick" d="M30 34 v4"/>
   <path class="map-candle-body" d="M22 38 h16 v30 h-16 Z M22 44 c-2.5 3 -1 8 1.5 10 M38 50 c2.2 2 2.2 6 .5 8"/>
   <path class="map-candle-dish" d="M12 68 h36 l-5 7 h-26 Z"/>
 </svg>`;
-// La plume du cartouche « Ajouter une appli » : une penne, ses barbes, le bec et une goutte d'encre.
+// The quill of the "Ajouter une appli" (add an app) frame: a feather, its barbs, the nib and a drop of ink.
 const QUILL_SVG = `<svg class="map-quill" viewBox="0 0 60 80" aria-hidden="true">
   <path class="map-quill-feather" d="M49 5 C35 9 23 23 18 43 C16 51 15 57 14 63 C23 59 33 49 39 37 C44 27 48 15 49 5 Z"/>
   <path class="map-quill-barbs" d="M45 13 C37 19 31 29 25 43 M41 23 L31 27 M37 33 L27 37 M33 43 L24 48"/>
   <path class="map-quill-nib" d="M14 63 L10 73 M12 68 L16 67"/>
   <path class="map-quill-ink" d="M5 76 c3 -1.2 6 -.2 9 1.2"/>
 </svg>`;
-// Une empreinte de pied à l'encre (symbole réutilisé par <use>) : orteils en haut, pointe vers le haut.
+// An inked footprint (symbol reused through <use>): toes at the top, pointing upwards.
 const DEFS_SVG = `<svg class="map-defs" width="0" height="0" aria-hidden="true"><defs>
   <symbol id="map-foot" viewBox="0 0 20 32">
     <path d="M3.5 14 C3.5 11 6 8.5 10 8.5 S16.5 11 16.5 14 C16.5 17 14.5 18.5 14.5 21 C14.5 23 15 24 15 26 C15 29 13 31 10 31 S5 29 5 26 C5 24 5.5 23 5.5 21 C5.5 18.5 3.5 17 3.5 14 Z"/>
@@ -93,21 +93,21 @@ const DEFS_SVG = `<svg class="map-defs" width="0" height="0" aria-hidden="true">
   </symbol>
 </defs></svg>`;
 
-// Nom lisible tiré d'un package Android (vrai launcher) : dernier segment, sans ponctuation, initiale en capitale,
-// 20 caractères au plus. Ne produit que des caractères acceptés par sanitize() (NAME_RE), sinon « Appli ».
+// Readable name derived from an Android package (real launcher): last segment, no punctuation, capitalised initial,
+// 20 characters at most. Only produces characters accepted by sanitize() (NAME_RE), otherwise "Appli".
 function pkgLabel(pkg) {
   const seg = String(pkg || '').split('.').pop() || '';
   const clean = seg.replace(/_/g, ' ').replace(/[^\p{L}\p{N} ]/gu, '').trim().slice(0, NAME_MAX).trim();
   return clean ? clean.charAt(0).toUpperCase() + clean.slice(1) : 'Appli';
 }
 
-// Un nom est « pris » s'il est déjà sur la Carte, à la casse près (catalogue et applis ajoutées).
+// A name is "taken" if it is already on the Map, case-insensitively (catalog and added apps).
 function nameTaken(name) {
   const n = String(name).trim().toLowerCase();
   return allApps().some((a) => String(a.name).toLowerCase() === n);
 }
 
-// Nom libre à partir d'un libellé proposé : « App », puis « App 2 », « App 3 »… (toujours ≤ 20 caractères).
+// Free name from a suggested label: "App", then "App 2", "App 3"... (always ≤ 20 characters).
 function freeName(label) {
   if (!nameTaken(label)) return label;
   for (let n = 2; n < 100; n++) {
@@ -121,13 +121,13 @@ function freeName(label) {
 export default {
   root: null, ctx: null, rows: [], r: 0, c: 0, mem: [], top: 0,
   timers: [], busy: false, leaving: false, reduced: false, menuOpen: false, arrived: false,
-  move: null,            // mode Déplacer : { id, order:[ids], items:{ id: élément } } ou null
-  spell: null,           // formule à écrire : { name, r, c, cm, rows:[[{ id?, ch?, el }]], busy } ou null
-  stepsBatch: null,      // empreintes du dernier trajet (retirées au suivant)
-  launching: null,       // lancement en cours : { app, sent, intentTimer, endTimer, held } ou null
-  toastTimer: 0,         // plaque de laiton informative (hors lancement)
+  move: null,            // Move mode: { id, order:[ids], items:{ id: element } } or null
+  spell: null,           // spell to write: { name, r, c, cm, rows:[[{ id?, ch?, el }]], busy } or null
+  stepsBatch: null,      // footprints of the last walk (removed on the next one)
+  launching: null,       // launch in progress: { app, sent, intentTimer, endTimer, held } or null
+  toastTimer: 0,         // informative brass plate (outside launches)
 
-  // ---------------------------------------------------------------- montage
+  // ---------------------------------------------------------------- mount
   async mount(root, ctx) {
     this.root = root; this.ctx = ctx; this.timers = [];
     this.busy = false; this.leaving = false; this.menuOpen = false; this.arrived = false;
@@ -165,22 +165,22 @@ export default {
     root.querySelector('.map-formula').textContent = FORMULA;
     root.querySelector('.map-spell-title').textContent = 'Quelle appli ajouter ?';
 
-    // Grille.
+    // Grid.
     this.rows = this.buildRows();
     this.renderRows();
 
-    // Focus initial : l'appli du parapet d'où l'on vient, sinon la dernière lancée, sinon la première.
+    // Initial focus: the parapet app we came from, else the last launched one, else the first.
     const wanted = (ctx.params && typeof ctx.params.app === 'string') ? ctx.params.app : getConfig().lastApp;
     const pos = this.findCell((cell) => cell.kind === 'app' && cell.app.id === wanted) || { r: 0, c: 0 };
     this.setFocus(pos.r, pos.c, { walkFrom: null, instant: true });
 
-    // Les empreintes partent de l'endroit où l'on était sur le parapet (fractions de l'écran), par défaut le dock.
+    // The footprints start from where we were on the parapet (screen fractions), the dock by default.
     const from = (ctx.params && ctx.params.from && Number.isFinite(ctx.params.from.x) && Number.isFinite(ctx.params.from.y))
       ? ctx.params.from : { x: 0.5, y: 0.78 };
     const W = root.clientWidth || 1;
     const start = { x: from.x * 100, y: from.y * (root.clientHeight || W * 9 / 16) / W * 100 };
 
-    // La mise en scène attend que l'écran soit en place : fin de la transition du routeur (transform), ou minuterie de secours.
+    // The staging waits for the screen to be in place: end of the router transition (transform), or a fallback timer.
     const arrive = () => {
       if (this.arrived || this.root !== root) return;
       this.arrived = true;
@@ -197,7 +197,7 @@ export default {
   unmount() {
     this.timers.forEach(clearTimeout);
     this.timers = [];
-    if (this.launching && this.launching.held) Input.release();   // jamais une file d'attente orpheline
+    if (this.launching && this.launching.held) Input.release();   // never leave an orphaned input queue
     this.launching = null;
     dismissRappeltout();
     this.rows = [];
@@ -207,11 +207,11 @@ export default {
     this.root = null;
   },
 
-  // Minuterie qui respecte le ralenti du banc d'essai (--k) et s'annule au démontage.
+  // Timer that honours the test bench slow-motion (--k) and is cancelled on unmount.
   k() { return Number(getComputedStyle(this.root).getPropertyValue('--k')) || 1; },
   after(ms, fn) { const t = setTimeout(() => { if (this.root) fn(); }, ms * this.k()); this.timers.push(t); return t; },
 
-  // Ciel de secours derrière le parchemin : la Nuit et quelques étoiles, dessinées une fois (aucune boucle).
+  // Fallback sky behind the parchment: the Night and a few stars, drawn once (no loop).
   drawSky() {
     const cv = this.root.querySelector('.map-sky');
     const g = cv.getContext('2d'); if (!g) return;
@@ -225,12 +225,12 @@ export default {
     g.globalAlpha = 1;
   },
 
-  // ---------------------------------------------------------------- données
-  // Lignes de la grille : les applis du catalogue (cachées comprises, en encre pâle), puis les applis ajoutées à la main,
-  // puis le cartouche « Ajouter une appli », puis « Les Passages », puis la chandelle Réglages en dernière pièce.
-  // Les applis du catalogue non installées (vrai launcher) ne sont pas dessinées ; les applis ajoutées à la main
-  // restent toujours visibles (leur package peut avoir été désinstallé : on doit pouvoir les supprimer d'ici),
-  // en encre pâlie comme « caché » (classe is-absent, map.css) ; leur lancement finit en Beuglante douce.
+  // ---------------------------------------------------------------- data
+  // Grid rows: the catalog apps (hidden ones included, in pale ink), then the hand-added apps,
+  // then the "Ajouter une appli" frame, then "Les Passages", then the Settings candle as the last piece.
+  // Catalog apps that are not installed (real launcher) are not drawn; hand-added apps always stay visible
+  // (their package may have been uninstalled: they must remain deletable from here), in faded ink like
+  // "hidden" (is-absent class, map.css); launching one ends in a gentle Howler (Beuglante).
   buildRows() {
     const inst = Platform.installed();
     const all = allApps().filter((a) => a.custom || !inst || !a.pkg || inst.has(a.pkg));
@@ -262,9 +262,9 @@ export default {
   cellAt(r, c) { const row = this.rows[r]; return row ? row.cells[c] || null : null; },
   focusedCell() { return this.cellAt(this.r, this.c); },
 
-  // ---------------------------------------------------------------- rendu
-  // `quiet` : reconstruction après un ajout ou une suppression, l'écran étant déjà en place : les cartouches existants
-  // n'ont pas à se révéler de nouveau (classe is-quiet), seul le cartouche `fresh` (id d'appli) apparaît à l'encre.
+  // ---------------------------------------------------------------- rendering
+  // `quiet`: rebuild after an add or a delete, the screen already being in place: existing frames need not
+  // reveal themselves again (is-quiet class), only the `fresh` frame (app id) appears in ink.
   renderRows({ quiet = false, fresh = null } = {}) {
     const host = this.root.querySelector('.map-rows');
     host.textContent = '';
@@ -284,9 +284,9 @@ export default {
         el.dataset.r = r; el.dataset.c = c;
         const isFresh = Boolean(fresh && cell.kind === 'app' && cell.app.id === fresh);
         if (quiet && !isFresh) el.classList.add('is-quiet');
-        if (isFresh) el.classList.add('is-fresh');                                       // apparaît sans le délai d'ouverture
-        el.style.setProperty('--d', isFresh ? '0ms' : `${index * REVEAL_GAP}ms`);            // révélation en cascade
-        el.style.setProperty('--dr', `${(total - 1 - index) * (150 / Math.max(1, total - 1))}ms`);   // effacement inverse, 350 ms en tout
+        if (isFresh) el.classList.add('is-fresh');                                       // appears without the opening delay
+        el.style.setProperty('--d', isFresh ? '0ms' : `${index * REVEAL_GAP}ms`);            // cascading reveal
+        el.style.setProperty('--dr', `${(total - 1 - index) * (150 / Math.max(1, total - 1))}ms`);   // reverse fade-out, 350 ms in all
         cell.el = el;
         rowEl.appendChild(el);
         index++;
@@ -302,21 +302,21 @@ export default {
   renderApp(app) {
     const el = document.createElement('div');
     el.className = 'map-cell map-app' + (app.custom ? ' is-custom' : '');
-    const L = LOGOS[app.id] || monogram(app.name);                     // appli ajoutée : son monogramme
+    const L = LOGOS[app.id] || monogram(app.name);                     // added app: its monogram
     el.innerHTML = `${FRAME_SVG}<div class="map-ink-logo"></div><div class="map-name"></div><div class="map-sub"></div>${UNDERLINE_SVG}<div class="wax-seal map-seal"></div><div class="map-tag"></div>`;
     const logo = el.querySelector('.map-ink-logo');
     if (L && L.src) {
       logo.style.setProperty('--m', `url("${L.src}")`);
       if (L.luma) logo.classList.add('luma');
       logo.style.width = Math.min(10, Math.max(1, 3.4 * (L.ratio || 1))).toFixed(2) + 'cqw';
-    } else {                                                             // pas de logo : l'initiale à la plume
+    } else {                                                             // no logo: the initial in quill
       logo.classList.add('no-mask');
       logo.textContent = (app.name || '?').charAt(0);
     }
     el.querySelector('.map-name').textContent = app.name;
     el.querySelector('.map-sub').textContent = app.input ? app.input : app.custom ? 'Perso' : '';
     el.querySelector('.map-tag').textContent = 'caché';
-    // Appli ajoutée dont le package n'est plus sur la TV : dessinée quand même (pour pouvoir la supprimer), en encre pâlie.
+    // Added app whose package is no longer on the TV: drawn anyway (so it can be deleted), in faded ink.
     const inst = Platform.installed();
     if (app.custom && inst && app.pkg && !inst.has(app.pkg)) el.classList.add('is-absent');
     return el;
@@ -330,7 +330,7 @@ export default {
     return el;
   },
 
-  // « Ajouter une appli » : le même cartouche, mais en pointillés (map.css), et une plume à la place du logo.
+  // "Ajouter une appli": the same frame, but dotted (map.css), with a quill in place of the logo.
   renderAdd() {
     const el = document.createElement('div');
     el.className = 'map-cell map-add-cell';
@@ -339,7 +339,7 @@ export default {
     return el;
   },
 
-  // Sceau de cire (sur le parapet) et encre pâlie (caché), relus depuis la config après chaque changement.
+  // Wax seal (on the parapet) and faded ink (hidden), re-read from the config after every change.
   refreshStates(pressedId) {
     const state = Object.fromEntries(allApps().map((a) => [a.id, a]));
     this.rows.forEach((row) => row.cells.forEach((cell) => {
@@ -347,15 +347,15 @@ export default {
       const s = state[cell.app.id] || {};
       cell.el.classList.toggle('on-dock', Boolean(s.onDock));
       cell.el.classList.toggle('is-hidden', Boolean(s.hidden));
-      if (pressedId === cell.app.id) {                                    // le sceau se presse une fois
+      if (pressedId === cell.app.id) {                                    // the seal presses once
         const seal = cell.el.querySelector('.map-seal');
         seal.classList.remove('is-pressed'); void seal.offsetWidth; seal.classList.add('is-pressed');
       }
     }));
   },
 
-  // Reconstruit la grille (ajout ou suppression d'une appli) sans rejouer l'ouverture, et repose le focus :
-  // sur l'appli `fresh` si elle est donnée, sinon au plus près de l'ancienne position.
+  // Rebuilds the grid (app added or deleted) without replaying the opening, and restores the focus:
+  // on the `fresh` app if given, otherwise as close as possible to the previous position.
   rebuildRows(fresh) {
     const { r, c } = this;
     this.rows = this.buildRows();
@@ -368,7 +368,7 @@ export default {
     this.setFocus(pos.r, pos.c, { walkFrom: null, instant: true });
   },
 
-  // Plaque de laiton informative (hors lancement : pendant Lumos, c'est launch() qui tient la plaque).
+  // Informative brass plate (outside launches: during Lumos, launch() owns the plate).
   say(text, ms = TOAST_MS) {
     const toast = this.root.querySelector('.map-toast');
     if (this.busy || !toast) return;
@@ -378,7 +378,7 @@ export default {
     this.toastTimer = this.after(ms, () => { if (!this.busy) toast.classList.remove('is-on'); });
   },
 
-  // ---------------------------------------------------------------- focus et pages
+  // ---------------------------------------------------------------- focus and pages
   setFocus(r, c, { walkFrom = undefined, instant = false } = {}) {
     const from = walkFrom === undefined ? this.focusCenter() : walkFrom;
     this.rows.forEach((row) => row.cells.forEach((cell) => cell.el && cell.el.classList.remove('is-focus')));
@@ -389,7 +389,7 @@ export default {
     if (!instant && from) this.walk(from, this.focusCenter());
   },
 
-  // Fenêtre de 3 lignes : la ligne en focus reste visible, les lignes glissent verticalement (translate en cqw).
+  // 3-row window: the focused row stays visible, rows slide vertically (translate in cqw).
   scrollTo(r, instant) {
     if (r < this.top) this.top = r;
     if (r > this.top + ROWS_VISIBLE - 1) this.top = r - ROWS_VISIBLE + 1;
@@ -404,9 +404,9 @@ export default {
     this.root.querySelector('.map-more.down').classList.toggle('is-on', this.top + ROWS_VISIBLE < this.rows.length);
   },
 
-  // Centre du CADRE du cartouche en focus, en cqw (coordonnées de l'écran), une fois le glissement de page accompli.
-  // Le cadre est un <svg> (pas d'offsetLeft/offsetTop sur un SVGElement) : il occupe le haut du cartouche, 14 × 7 cqw,
-  // soit la largeur du cartouche et la moitié de sa hauteur ; on le déduit des offsets HTML du cartouche.
+  // Centre of the FRAME of the focused piece, in cqw (screen coordinates), once the page slide is complete.
+  // The frame is an <svg> (no offsetLeft/offsetTop on an SVGElement): it occupies the top of the piece, 14 × 7 cqw,
+  // i.e. the piece's width and half its height; it is derived from the piece's HTML offsets.
   focusCenter() {
     const cell = this.focusedCell();
     if (!cell || !cell.el || !this.root) return null;
@@ -414,7 +414,7 @@ export default {
     const rowsEl = this.root.querySelector('.map-rows');
     const grid = this.root.querySelector('.map-grid');
     const sheet = this.root.querySelector('.map-sheet');
-    // Position calculée depuis les offsets (indépendante de la transition en cours sur .map-rows).
+    // Position computed from offsets (independent of the transition in progress on .map-rows).
     const topRow = this.rows[this.top];
     const shift = topRow && topRow.el ? topRow.el.offsetTop : 0;
     const fw = cell.el.offsetWidth, fh = fw * (FRAME_H / FRAME_W);
@@ -423,16 +423,16 @@ export default {
     return { x: x / W * 100, y: y / W * 100 };
   },
 
-  // Même point en pixels (pour Fx.lumos et l'ancre du Rappeltout).
+  // Same point in pixels (for Fx.lumos and the Remembrall anchor).
   focusCenterPx() {
     const p = this.focusCenter(); if (!p) return { x: 0, y: 0 };
     const W = this.root.clientWidth || 1;
     return { x: p.x * W / 100, y: p.y * W / 100 };
   },
 
-  // ---------------------------------------------------------------- les empreintes
-  // Six empreintes encrées, alternées pied gauche / pied droit, qui marchent de `from` jusqu'au BORD du cadre visé (cqw),
-  // 40 ms entre deux pas, puis s'effacent. Un trajet nouveau efface le précédent. Rien en mouvement réduit.
+  // ---------------------------------------------------------------- the footprints
+  // Six inked footprints, alternating left foot / right foot, walking from `from` to the EDGE of the target frame (cqw),
+  // 40 ms between two steps, then fading out. A new walk erases the previous one. Nothing in reduced motion.
   walk(from, to) {
     if (!this.root || this.reduced || !from || !to) return;
     if (!Number.isFinite(from.x) || !Number.isFinite(from.y) || !Number.isFinite(to.x) || !Number.isFinite(to.y)) return;
@@ -440,14 +440,14 @@ export default {
     if (this.stepsBatch) { this.stepsBatch.forEach((s) => s.remove()); this.stepsBatch = null; }
     const dx = to.x - from.x, dy = to.y - from.y;
     const dist = Math.hypot(dx, dy);
-    if (dist < 2) return;                                   // un pas sur place ne se dessine pas
-    const ux = dx / dist, uy = dy / dist;                   // direction de marche
-    const px = -uy, py = ux;                                // perpendiculaire (écart entre les deux pieds)
-    const angle = Math.atan2(dy, dx) * 180 / Math.PI + 90;  // le pied pointe vers le haut dans son dessin
-    // Distance du centre du cadre à son bord dans la direction d'arrivée : les pas s'arrêtent juste avant le filet.
+    if (dist < 2) return;                                   // a step in place is not drawn
+    const ux = dx / dist, uy = dy / dist;                   // walking direction
+    const px = -uy, py = ux;                                // perpendicular (gap between the two feet)
+    const angle = Math.atan2(dy, dx) * 180 / Math.PI + 90;  // the foot points upwards in its drawing
+    // Distance from the frame centre to its edge in the arrival direction: steps stop just before the rule.
     const edge = Math.min(FRAME_W / 2 / Math.max(1e-3, Math.abs(ux)), FRAME_H / 2 / Math.max(1e-3, Math.abs(uy)));
     const end = Math.max(0, dist - edge - 0.6);
-    if (end < 1) return;                                    // déjà au pied du cartouche
+    if (end < 1) return;                                    // already at the foot of the piece
     const batch = [];
     for (let i = 0; i < STEPS; i++) {
       const t = end * (i + 1) / STEPS;
@@ -470,8 +470,8 @@ export default {
     this.after(2000 + STEPS * STEP_GAP, () => { batch.forEach((s) => s.remove()); if (this.stepsBatch === batch) this.stepsBatch = null; });
   },
 
-  // Butée : le cartouche se cale contre le bord (petit recul), la carte ne boucle pas.
-  // L'animation WAAPI remplace la valeur CSS du transform : on garde donc le scale(1.04) du focus dans chaque image clé.
+  // Stop: the piece bumps against the edge (small recoil), the map does not wrap around.
+  // The WAAPI animation replaces the CSS transform value, so the focus scale(1.04) is kept in every keyframe.
   nudge(dir, el) {
     const cell = this.focusedCell();
     const target = el || (cell && cell.el);
@@ -483,9 +483,9 @@ export default {
   },
 
   // ---------------------------------------------------------------- actions
-  // OK sur une appli : Lumos en version encre (la pièce s'illumine à la bougie), un seul accord de clochettes,
-  // la plaque de laiton à 300 ms, l'intent à 350 ms. Jusqu'à l'intent, Retour annule (la lumière se résorbe) ;
-  // après, les touches sont mises en file (Input.hold) et rejouées à la fin, jamais perdues.
+  // OK on an app: ink version of Lumos (the piece lights up by candle), a single chime chord,
+  // the brass plate at 300 ms, the intent at 350 ms. Until the intent, Back cancels (the light recedes);
+  // afterwards, keys are queued (Input.hold) and replayed at the end, never lost.
   launch() {
     const cell = this.focusedCell();
     if (!cell || this.busy) return;
@@ -505,12 +505,12 @@ export default {
     light.style.top = ((p.y - sheet.offsetTop) / W * 100).toFixed(2) + 'cqw';
     light.classList.add('is-on');
     fx.lumos(this.root, p.x, p.y, 900);
-    fx.chime(1046, 0.04); fx.chime(1318, 0.03); fx.chime(1568, 0.025);     // un accord, pas un arpège
+    fx.chime(1046, 0.04); fx.chime(1318, 0.03); fx.chime(1568, 0.025);     // a chord, not an arpeggio
     toast.textContent = app.input ? `Passage vers ${app.input}` : `Ouverture de ${app.name}`;
 
     const L = { app, sent: false, held: false, intentTimer: 0, endTimer: 0 };
     this.launching = L;
-    const settle = () => {                                   // la lumière se résorbe, l'écran reprend la main
+    const settle = () => {                                   // the light recedes, the screen takes back control
       toast.classList.remove('is-on'); light.classList.remove('is-on');
       if (L.held) { L.held = false; Input.release(); }
       if (this.launching === L) this.launching = null;
@@ -525,7 +525,7 @@ export default {
       const inst = Platform.installed();
       const gone = Boolean(inst && app.pkg && !inst.has(app.pkg));
       const result = gone ? 'simulated' : Platform.launch(app);
-      if (Platform.isTV() && result === 'simulated') {       // la TV n'a pas pris la main : Beuglante douce, pas de plaque
+      if (Platform.isTV() && result === 'simulated') {       // the TV did not take over: gentle Howler, no plate
         settle();
         const message = app.cat === 'passage' || app.input ? "Cette source n'est pas raccordée."
           : app.custom && !app.pkg ? 'La Carte ne connaît pas le chemin de cette appli.'
@@ -533,12 +533,12 @@ export default {
         beuglante(this.root, { message });
         return;
       }
-      L.held = true; Input.hold();                           // dès l'intent parti, les touches attendent et seront rejouées
+      L.held = true; Input.hold();                           // once the intent is sent, keys wait and will be replayed
       L.endTimer = this.after((result === 'bridge' ? 4000 : 2200) - INTENT_MS, settle);
     });
   },
 
-  // Retour pendant la fenêtre de 350 ms : l'intent n'est pas parti, on éteint tout.
+  // Back during the 350 ms window: the intent has not fired, everything is switched off.
   cancelLaunch() {
     const L = this.launching;
     if (!L || L.sent) return false;
@@ -548,7 +548,7 @@ export default {
     return true;
   },
 
-  // OK long ou Menu : la sphère Rappeltout de l'appli en focus, posée sous le cartouche.
+  // Long OK or Menu: the Remembrall sphere of the focused app, placed under the piece.
   async contextMenu() {
     const cell = this.focusedCell();
     if (!cell || cell.kind !== 'app' || this.busy || this.menuOpen) return;
@@ -564,19 +564,19 @@ export default {
       options.push(full ? { id: 'pin', label: 'Le parapet est plein, la Carte garde le reste', disabled: true } : { id: 'pin', label: 'Épingler au parapet' });
       options.push(hidden ? { id: 'show', label: 'Afficher' } : { id: 'hide', label: 'Masquer' });
     }
-    if (cell.app.custom) options.push({ id: 'remove', label: 'Supprimer cette appli' });   // une appli ajoutée peut repartir
+    if (cell.app.custom) options.push({ id: 'remove', label: 'Supprimer cette appli' });   // an added app can leave again
     const p = this.focusCenterPx();
     const W = this.root.clientWidth || 1;
     this.menuOpen = true;
     this.ctx.fx.chime(1319, 0.03);
-    // Ancre : le bord bas du cadre (3,5 cqw sous son centre) plus un souffle ; `edge: 'below'` pose le HAUT de la sphère là.
+    // Anchor: the bottom edge of the frame (3.5 cqw below its centre) plus a breath; `edge: 'below'` places the TOP of the sphere there.
     const choice = await rappeltout(this.root, { title: cell.app.name, options, anchor: { x: p.x, y: p.y + W * (FRAME_H / 2 + 0.4) / 100, edge: 'below' } });
     this.menuOpen = false;
     if (!this.root || !choice) return;
     this.apply(choice, id);
   },
 
-  // Applique un choix du Rappeltout. Tout passe par updateConfig : sanitize() garantit dock ≤ DOCK_MAX et dock ∩ hidden = ∅.
+  // Applies a Remembrall choice. Everything goes through updateConfig: sanitize() guarantees dock ≤ DOCK_MAX and dock ∩ hidden = ∅.
   apply(choice, id) {
     const cfg = getConfig();
     const without = (list) => list.filter((x) => x !== id);
@@ -599,7 +599,7 @@ export default {
     } else if (choice === 'move') {
       this.enterMove(id);
     } else if (choice === 'remove') {
-      // L'appli ajoutée quitte la Carte, le parapet et les cachées (removeCustomApp) ; la grille se resserre.
+      // The added app leaves the Map, the parapet and the hidden list (removeCustomApp); the grid tightens up.
       const app = appById(id);
       if (!app || !app.custom) return;
       removeCustomApp(id);
@@ -609,12 +609,12 @@ export default {
     }
   },
 
-  // ---------------------------------------------------------------- la formule à écrire (ajouter une appli)
-  // OK sur « Ajouter une appli ». Sur la vraie TV, si la liste des applis installées est connue, on la propose d'abord
-  // (sphère Rappeltout : jusqu'à huit packages encore inconnus, puis « Écrire le nom à la plume ») ; sinon, le clavier.
+  // ---------------------------------------------------------------- the spell to write (add an app)
+  // OK on "Ajouter une appli". On the real TV, if the list of installed apps is known, it is offered first
+  // (Remembrall sphere: up to eight still-unknown packages, then "Écrire le nom à la plume" / write the name); otherwise, the keyboard.
   openSpell() {
     if (this.spell || this.busy || this.menuOpen || this.move) return;
-    if (!this.arrived) return;                           // le parchemin n'est pas encore déplié : la plume attend
+    if (!this.arrived) return;                           // the parchment is not unfolded yet: the quill waits
     if (getConfig().custom.length >= CUSTOM_MAX) { this.say('La Carte garde douze formules au plus.'); this.ctx.fx.chime(440, 0.03); return; }
     const inst = Platform.installed();
     if (inst && inst.size) { this.chooseInstalled(inst); return; }
@@ -623,7 +623,7 @@ export default {
 
   async chooseInstalled(inst) {
     const known = new Set(allApps().map((a) => a.pkg).filter(Boolean));
-    // Seuls les packages bien formés (ceux que sanitize() gardera) et encore inconnus de la Carte sont proposés.
+    // Only well-formed packages (those sanitize() will keep) still unknown to the Map are offered.
     const candidates = [...inst].filter((p) => typeof p === 'string' && PKG_RE.test(p) && !known.has(p)).slice(0, 8);
     const options = candidates.map((p) => ({ id: `pkg:${p}`, label: pkgLabel(p) }));
     options.push({ id: 'write', label: 'Écrire le nom à la plume' });
@@ -636,13 +636,13 @@ export default {
     if (!this.root || !choice) return;
     if (choice === 'write') { this.openKeyboard(); return; }
     const pkg = choice.slice(4);
-    // Même garde que « C'est fait » : jamais deux cartouches au même nom ; on suffixe (« App 2 ») plutôt que refuser.
+    // Same guard as "C'est fait": never two frames with the same name; suffix ("App 2") rather than refuse.
     const name = freeName(pkgLabel(pkg));
     if (!name) { this.say('La Carte a déjà ce nom trop de fois.'); this.ctx.fx.chime(440, 0.03); return; }
     this.commitApp(name, pkg);
   },
 
-  // Le clavier se dessine une fois par ouverture ; la grille pâlit derrière (classe is-spell sur la section).
+  // The keyboard is drawn once per opening; the grid fades behind it (is-spell class on the section).
   openKeyboard() {
     const panel = this.root.querySelector('.map-spell');
     const keys = this.root.querySelector('.map-spell-keys');
@@ -661,8 +661,8 @@ export default {
         el.className = 'map-key' + (typeof k === 'string' ? '' : ' is-wide is-' + k.id);
         el.textContent = typeof k === 'string' ? k : k.label;
         if (typeof k !== 'string') el.style.width = k.w + 'cqw';
-        el.style.setProperty('--d', `${index * 18}ms`);                             // apparition en cascade
-        el.style.setProperty('--rot', `${(((index * 7) % 5) - 2) * 0.35}deg`);      // tremblé de la main, fixe par touche
+        el.style.setProperty('--d', `${index * 18}ms`);                             // cascading appearance
+        el.style.setProperty('--rot', `${(((index * 7) % 5) - 2) * 0.35}deg`);      // hand wobble, fixed per key
         rowEl.appendChild(el);
         row.push(key);
         index++;
@@ -671,11 +671,11 @@ export default {
       rows.push(row);
     });
     this.spell = { name: '', r: 1, c: 0, cm: 0, rows, busy: false };
-    // Un seul focus à la fois (contrat) : le cartouche « Ajouter » rend sa classe au clavier ; closeSpell() la lui rend.
+    // One focus at a time (contract): the "Ajouter" frame hands its class over to the keyboard; closeSpell() gives it back.
     const cell = this.focusedCell();
     if (cell && cell.el) cell.el.classList.remove('is-focus');
     this.root.classList.add('is-spell');
-    panel.classList.add('is-open', 'is-dealing');                                   // la donne des touches, une seule fois
+    panel.classList.add('is-open', 'is-dealing');                                   // the keys are dealt, once only
     this.after(index * 18 + 300, () => panel.classList.remove('is-dealing'));
     this.root.querySelector('.keyhint').innerHTML = KEYHINT_SPELL;
     this.paintSpell();
@@ -689,7 +689,7 @@ export default {
     this.root.classList.remove('is-spell');
     panel.classList.remove('is-open', 'is-dealing');
     this.root.querySelector('.keyhint').innerHTML = KEYHINT_BROWSE;
-    // Le focus revient au cartouche de la grille (sans marche ni glissement : rien n'a bougé).
+    // Focus returns to the grid frame (no walk, no slide: nothing has moved).
     const cell = this.focusedCell();
     if (cell && cell.el) cell.el.classList.add('is-focus');
   },
@@ -706,7 +706,7 @@ export default {
     s.rows.forEach((row, i) => row.forEach((k, j) => k.el.classList.toggle('is-focus', i === s.r && j === s.c)));
   },
 
-  // Compteur et état de « C'est fait » (pâle tant que rien n'est écrit).
+  // Counter and state of "C'est fait" (pale as long as nothing is written).
   paintSpell() {
     const s = this.spell; if (!s) return;
     this.root.querySelector('.map-spell-count').textContent = `${s.name.length} / ${NAME_MAX}`;
@@ -714,7 +714,7 @@ export default {
     if (done) done.el.classList.toggle('is-off', !s.name.trim());
   },
 
-  // Une lettre de plus : un <span> par caractère, révélé par un masque gauche→droite (map.css).
+  // One more letter: a <span> per character, revealed by a left-to-right mask (map.css).
   typeChar(ch) {
     const s = this.spell;
     const key = s.rows[s.r][s.c];
@@ -745,7 +745,7 @@ export default {
     return true;
   },
 
-  // « C'est fait » : le nom est vérifié (non vide, pas déjà sur la Carte), le sceau se presse, puis l'appli est ajoutée.
+  // "C'est fait": the name is checked (not empty, not already on the Map), the seal presses, then the app is added.
   confirmSpell() {
     const s = this.spell;
     const name = s.name.trim();
@@ -768,11 +768,11 @@ export default {
     });
   },
 
-  // addCustomApp (config.js) pose l'appli sur le parapet s'il reste une place ; la grille se reconstruit, le nouveau
-  // cartouche apparaît à l'encre avec son monogramme, son sceau se presse, et la plaque dit où elle est.
+  // addCustomApp (config.js) places the app on the parapet if there is room left; the grid rebuilds, the new
+  // frame appears in ink with its monogram, its seal presses, and the plate says where it went.
   commitApp(name, pkg) {
     const id = addCustomApp(name, pkg);
-    const app = appById(id);                            // sans champ onDock (seul allApps() le pose) : on lit la config
+    const app = appById(id);                            // no onDock field (only allApps() sets it): read the config
     if (!app) { this.say('La plume a tremblé : rien n’a été ajouté.'); this.ctx.fx.chime(440, 0.03); return; }
     this.rebuildRows(id);
     this.refreshStates(id);
@@ -782,8 +782,8 @@ export default {
     this.ctx.fx.chime(1568, 0.04);
   },
 
-  // Touches pendant la formule : flèches sur le clavier (mémoire de colonne, rangées de longueurs différentes mises à
-  // l'échelle), OK écrit, Retour efface puis annule, Menu / Retour long annulent, Home annule ET ramène au Parapet.
+  // Keys during the spell: arrows on the keyboard (column memory, rows of different lengths scaled),
+  // OK writes, Back erases then cancels, Menu / long Back cancel, Home cancels AND returns to the Parapet.
   spellKey(action) {
     const s = this.spell;
     if (s.busy) return true;
@@ -814,14 +814,14 @@ export default {
       return true;
     }
     if (action === 'back') { if (!this.eraseChar()) this.cancelSpell(); return true; }
-    if (action === 'home') { this.cancelSpell(); this.leave(); return true; }   // Home ramène toujours à l'accueil
+    if (action === 'home') { this.cancelSpell(); this.leave(); return true; }   // Home always goes back to the home screen
     if (action === 'longback' || action === 'menu') { this.cancelSpell(); return true; }
     return true;
   },
 
-  // ---------------------------------------------------------------- mode Déplacer
-  // Le parapet se dessine en miniature au bas de la carte ; gauche/droite échange l'appli avec sa voisine (les deux
-  // glissent, FLIP 300 ms), OK pose (updateConfig({ dock })), Retour annule sans rien écrire.
+  // ---------------------------------------------------------------- Move mode
+  // The parapet is drawn in miniature at the bottom of the map; left/right swaps the app with its neighbour (both
+  // slide, FLIP 300 ms), OK sets it down (updateConfig({ dock })), Back cancels without writing anything.
   enterMove(id) {
     const order = [...getConfig().dock];
     if (!order.includes(id)) return;
@@ -834,7 +834,7 @@ export default {
     this.root.querySelector('.keyhint').innerHTML = KEYHINT_MOVE;
   },
 
-  // Dessine la rangée une fois ; les éléments sont ensuite réordonnés (jamais reconstruits) pour que le glissement se voie.
+  // Draws the row once; elements are then reordered (never rebuilt) so the slide can be seen.
   renderParapet() {
     const row = this.root.querySelector('.map-parapet-row');
     row.textContent = '';
@@ -857,21 +857,21 @@ export default {
     });
   },
 
-  // FLIP : on note la place de chaque miniature, on réordonne le DOM selon `order`, puis chaque miniature déplacée
-  // part de son ancienne place (translateX) et glisse vers la nouvelle en 300 ms.
+  // FLIP: record each miniature's position, reorder the DOM to match `order`, then each moved miniature
+  // starts from its old position (translateX) and slides to the new one in 300 ms.
   reflowParapet() {
     const m = this.move;
     const row = this.root.querySelector('.map-parapet-row');
     const before = {};
     m.order.forEach((id) => { const it = m.items[id]; if (it) before[id] = it.offsetLeft; });
-    m.order.forEach((id) => { const it = m.items[id]; if (it) row.appendChild(it); });   // appendChild déplace : l'ordre du DOM suit `order`
+    m.order.forEach((id) => { const it = m.items[id]; if (it) row.appendChild(it); });   // appendChild moves: the DOM order follows `order`
     if (this.reduced) return;
     const k = this.k();
     m.order.forEach((id) => {
       const it = m.items[id]; if (!it || before[id] === undefined) return;
       const dx = before[id] - it.offsetLeft;
       if (Math.abs(dx) < 1) return;
-      const lift = id === m.id ? ' translateY(-.7cqw)' : '';          // la tenue garde son élévation pendant le glissement
+      const lift = id === m.id ? ' translateY(-.7cqw)' : '';          // the held app keeps its lift during the slide
       it.animate([{ transform: `translateX(${dx}px)${lift}` }, { transform: `translateX(0)${lift}` }],
         { duration: 300 * k, easing: 'cubic-bezier(.2,.8,.2,1)' });
     });
@@ -890,7 +890,7 @@ export default {
     }
     if (action === 'ok' || action === 'longok') { updateConfig({ dock: [...m.order] }); this.refreshStates(m.id); this.ctx.fx.chime(1568, 0.04); this.exitMove(); return true; }
     if (action === 'back' || action === 'menu' || action === 'longback' || action === 'home') { this.ctx.fx.chime(659, 0.02); this.exitMove(); return true; }
-    return true;                                            // haut/bas : rien pendant qu'on tient une appli
+    return true;                                            // up/down: nothing while holding an app
   },
 
   exitMove() {
@@ -901,9 +901,9 @@ export default {
     this.root.querySelector('.keyhint').innerHTML = KEYHINT_BROWSE;
   },
 
-  // ---------------------------------------------------------------- sortie
-  // « Méfait accompli » : la formule se réécrit, l'encre s'efface dans l'ordre inverse (350 ms), le parchemin se replie,
-  // et le Parapet remonte (transition `up`).
+  // ---------------------------------------------------------------- leaving
+  // "Méfait accompli" (Mischief managed): the formula rewrites itself, the ink fades in reverse order (350 ms),
+  // the parchment folds up, and the Parapet comes back up (`up` transition).
   leave() {
     if (this.leaving) return;
     this.leaving = true;
@@ -911,20 +911,20 @@ export default {
     if (this.spell) this.closeSpell();
     if (this.stepsBatch) { this.stepsBatch.forEach((s) => s.remove()); this.stepsBatch = null; }
     this.ctx.fx.whoosh();
-    // Mouvement réduit, ou Retour avant même que l'écran soit en place (rien n'est encore déplié) : on repart sans mise en scène.
+    // Reduced motion, or Back before the screen is even in place (nothing unfolded yet): leave without staging.
     if (this.reduced || !this.arrived) { this.ctx.router.go('home', {}, 'up'); return; }
     const root = this.root;
     const formula = root.querySelector('.map-formula');
-    root.classList.add('is-leaving');                       // la classe d'abord : la réécriture prend la cadence de sortie
+    root.classList.add('is-leaving');                       // class first: the rewrite picks up the exit pace
     formula.textContent = MISCHIEF;
     formula.style.animation = 'none'; void formula.offsetWidth; formula.style.animation = '';
     this.after(420, () => this.ctx.router.go('home', {}, 'up'));
   },
 
-  // ---------------------------------------------------------------- touches
+  // ---------------------------------------------------------------- keys
   onKey(action, ctx) {
     if (this.leaving || this.menuOpen) return true;
-    if (this.busy) {                                         // pendant Lumos : Retour annule tant que l'intent n'est pas parti
+    if (this.busy) {                                         // during Lumos: Back cancels as long as the intent has not fired
       if (action === 'back' || action === 'longback') this.cancelLaunch();
       return true;
     }
@@ -943,9 +943,9 @@ export default {
     }
     if (action === 'up' || action === 'down') {
       const nr = this.r + (action === 'up' ? -1 : 1);
-      if (nr < 0 || nr >= this.rows.length) { this.leave(); return true; }    // haut depuis la première, bas depuis la dernière : le Parapet
+      if (nr < 0 || nr >= this.rows.length) { this.leave(); return true; }    // up from the first, down from the last: the Parapet
       const target = this.rows[nr];
-      const nc = Math.min(this.mem[nr] !== undefined ? this.mem[nr] : this.c, target.cells.length - 1);   // mémoire par ligne, jamais de diagonale
+      const nc = Math.min(this.mem[nr] !== undefined ? this.mem[nr] : this.c, target.cells.length - 1);   // memory per row, never diagonal
       this.setFocus(nr, nc);
       ctx.fx.chime(action === 'up' ? 1319 : 988, 0.03);
       return true;

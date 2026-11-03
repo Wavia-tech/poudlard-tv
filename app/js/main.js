@@ -1,4 +1,4 @@
-// Point d'entrée : charge la config, installe les entrées, enregistre les écrans, démarre.
+// Entry point: load the config, install input handling, register the screens, start.
 import { loadConfig, getConfig, onConfigChange, HOUSES } from './config.js';
 import { Input } from './input.js';
 import { Router } from './router.js';
@@ -19,7 +19,7 @@ function applyTheme(c) {
   Fx.configure({ dust: c.motion === 'auto', sound: c.sounds, calm: c.motion !== 'auto' });
 }
 
-// Grain de pellicule : une tuile de bruit dessinée une fois, déplacée par pas (voir shared.css).
+// Film grain: a noise tile drawn once, then shifted in steps (see shared.css).
 function mountGrain() {
   const c = document.createElement('canvas'); c.width = c.height = 128;
   const x = c.getContext('2d'); const img = x.createImageData(128, 128);
@@ -37,7 +37,7 @@ Fx.mount(stage);
 Router.init(stage, { config: getConfig, fx: Fx });
 for (const [name, screen] of Object.entries(SCREENS)) Router.register(name, screen);
 
-// Veille (Nox) : après idleSeconds sans touche, l'accueil s'endort ; une touche le réveille.
+// Sleep (Nox): after idleSeconds without a key press, the home screen falls asleep; any key wakes it.
 let idleTimer = 0;
 function armIdle() {
   clearTimeout(idleTimer);
@@ -53,7 +53,7 @@ Input.onActivity(armIdle);
 document.addEventListener('visibilitychange', () => { if (document.hidden) clearTimeout(idleTimer); else armIdle(); });
 armIdle();
 
-// Musique de fond : démarre au premier geste (le navigateur l'exige), suit le réglage et le bouton Son.
+// Background music: starts on the first user gesture (the browser requires it), follows the setting and the Sound button.
 let ambientStarted = false;
 function startAmbient() {
   const c = getConfig();
@@ -65,11 +65,11 @@ function startAmbient() {
 Input.onActivity(() => { if (!ambientStarted) startAmbient(); });
 onConfigChange((c) => { if (!Fx.ambient) return; if (!c.sounds) { Fx.ambient('aucune'); ambientStarted = false; } else if (ambientStarted) Fx.ambient(c.music || 'auto'); });
 
-// Premier lancement : la Lettre d'admission ; ensuite, l'allumage Lumos puis l'accueil du mode choisi.
+// First launch: the Admission Letter (Lettre d'admission); afterwards, the Lumos boot then the home screen of the chosen mode.
 if (!config.firstRunDone) Router.replace('sorting', {}, 'fade');
 else Router.replace(config.mode === 'classique' ? 'classic' : 'home', { boot: true }, 'fade');
 
-// Outils du banc d'essai (hors TV) : plein écran, ralenti, accès au routeur pour les tests automatisés.
+// Test-bench tools (outside the TV): fullscreen, slow motion, router access for automated tests.
 const dev = document.getElementById('dev');
 if (dev) {
   window.__poudlard = { Router, SCREENS, getConfig };

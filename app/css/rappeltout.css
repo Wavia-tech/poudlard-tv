@@ -1,7 +1,7 @@
-/* Rappeltout : sphère de verre (menu contextuel partagé). Préfixe .rpt-.
-   Verre en dégradés radiaux (corps sombre, reflet de lune en haut à gauche, retour de lumière en bas à droite),
-   ombres statiques seulement ; en mouvement : transform et opacity, rien d'autre.
-   La ligne choisie porte .is-on (l'écran appelant garde son unique .is-focus sous le voile). */
+/* Rappeltout (Remembrall): glass sphere (shared context menu). Prefix .rpt-.
+   Glass made of radial gradients (dark body, moon reflection at the top left, bounced light at the bottom right),
+   static shadows only; in motion: transform and opacity, nothing else.
+   The chosen line carries .is-on (the calling screen keeps its single .is-focus under the veil). */
 
 .rpt-veil { position: absolute; inset: 0; z-index: 70; background: var(--night); opacity: 0; pointer-events: none;
   transition: opacity calc(var(--k) * 200ms) ease; }
@@ -10,9 +10,9 @@
 .rpt-orb { position: absolute; z-index: 71; min-width: 17cqw; aspect-ratio: 1; border-radius: 50%; display: flex; align-items: center; justify-content: center;
   padding: 2cqw 2.6cqw; color: var(--moon); text-align: center; pointer-events: none; transform-origin: 50% 50%;
   background:
-    radial-gradient(circle at 32% 24%, #ffffff66 0%, #ffffff1a 14%, #ffffff00 34%),     /* reflet de lune */
-    radial-gradient(circle at 70% 84%, #c9d9ea33 0%, #c9d9ea00 38%),                    /* retour de lumière */
-    radial-gradient(circle at 50% 56%, #1c2230f2 0%, #121a28f4 58%, #070b14fa 100%);     /* corps du verre */
+    radial-gradient(circle at 32% 24%, #ffffff66 0%, #ffffff1a 14%, #ffffff00 34%),     /* moon reflection */
+    radial-gradient(circle at 70% 84%, #c9d9ea33 0%, #c9d9ea00 38%),                    /* bounced light */
+    radial-gradient(circle at 50% 56%, #1c2230f2 0%, #121a28f4 58%, #070b14fa 100%);     /* body of the glass */
   box-shadow: inset 0 0 0 .1cqw #c9d9ea4d, inset -.4cqw -.6cqw 1.8cqw #00000099, inset .3cqw .4cqw 1.2cqw #ffffff14, 0 1.4cqw 2.6cqw #000c;
   opacity: 0; transform: scale(.6);
   transition: transform calc(var(--k) * 250ms) cubic-bezier(.2, .9, .3, 1.18), opacity calc(var(--k) * 200ms) ease; }
@@ -21,7 +21,7 @@
 .rpt-orb.is-reduced { transform: none; transition: opacity calc(var(--k) * 200ms) ease; }
 .rpt-orb.is-reduced.is-off { transform: none; }
 
-/* Filet de verre en bas de la sphère : une courbe claire, statique. */
+/* Glass rim at the bottom of the sphere: a light curve, static. */
 .rpt-orb::after { content: ""; position: absolute; left: 18%; right: 18%; bottom: 7%; height: 10%; border-radius: 50%; pointer-events: none;
   border-bottom: .12cqw solid #c9d9ea2e; }
 
@@ -29,12 +29,12 @@
 .rpt-body.is-refuse { animation: rpt-refuse calc(var(--k) * 240ms) ease-in-out 1; }
 @keyframes rpt-refuse { 0%, 100% { transform: rotate(0); } 25% { transform: rotate(-1.5deg); } 75% { transform: rotate(1.5deg); } }
 
-/* Titre : le nom de l'appli, Cinzel gravé, 1.5 cqw minimum (lisible à 3 m). */
+/* Title: the app name, engraved Cinzel, 1.5 cqw minimum (readable from 3 m). */
 .rpt-title { font-family: var(--display); font-weight: 600; font-size: 1.5cqw; letter-spacing: .2em; text-transform: uppercase; color: var(--gold);
   margin-bottom: .6cqw; white-space: nowrap; }
 .rpt-title:empty { display: none; }
 
-/* Lignes : la couleur change d'un coup (pas de transition de couleur), opacité et transform seulement. */
+/* Lines: the color changes at once (no color transition), opacity and transform only. */
 .rpt-line { position: relative; font-family: var(--body); font-weight: 500; font-size: 1.9cqw; line-height: 1.28; white-space: nowrap; opacity: .72;
   padding: 0 1.6cqw; transition: opacity calc(var(--k) * 150ms), transform calc(var(--k) * 150ms); }
 .rpt-line.is-on { opacity: 1; color: var(--gold-light); transform: translateX(.2cqw); }

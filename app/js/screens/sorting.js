@@ -1,23 +1,23 @@
-// La Lettre d'admission : premier lancement, trois pages de parchemin écrites en IM Fell.
-// 1) Choisissez votre maison  2) Vos sortilèges (les applis du parapet)  3) Hedwige vous accompagne ?
-// Rien n'est enregistré avant « Lumos » (ou « Rester en mode classique ») : le brouillon vit ici.
-// Retour = page précédente, jamais de sortie forcée. Si aucune appli n'est cochée, le parapet reçoit YouTube.
-// Les Passages (consoles, HDMI) et les applis ajoutées à la main (V4) déjà sur le parapet ne sont pas dans la Lettre :
-// ils sont conservés tels quels (la grille des sortilèges reste celle du catalogue, et tient dans la feuille).
+// The Admission Letter (Lettre d'admission): first run, three parchment pages written in IM Fell.
+// 1) Choose your house  2) Your spells (the parapet apps)  3) Does Hedwig come along?
+// Nothing is saved before "Lumos" (or "Rester en mode classique" / stay in classic mode): the draft lives here.
+// Back = previous page, never a forced exit. If no app is ticked, the parapet gets YouTube.
+// Passages (consoles, HDMI) and hand-added apps (V4) already on the parapet are not in the Letter:
+// they are kept as they are (the spell grid remains the catalog's, and fits on the sheet).
 import { CATALOG, HOUSES, DOCK_MAX, getConfig, updateConfig, allApps, appById, isReduced } from '../config.js';
 import { LOGOS } from '../../assets/logos.js';
 import { monogram } from '../monogram.js';
 
-const PRESET = ['netflix', 'prime', 'disney', 'youtube', 'canal', 'max'];   // six pré-cochées, dans cet ordre
+const PRESET = ['netflix', 'prime', 'disney', 'youtube', 'canal', 'max'];   // six pre-ticked, in this order
 const FALLBACK_DOCK = ['youtube'];
 const OWL = [['vive', 'Vive'], ['calme', 'Calme'], ['absente', 'Absente']];
 const YESNO = [[true, 'Oui'], [false, 'Non']];
 const STEPS = ['I · La maison', 'II · Les sortilèges', 'III · Hedwige'];
 const isPassage = (id) => { const a = CATALOG.find((x) => x.id === id); return Boolean(a && a.cat === 'passage'); };
-// Conservé hors de la Lettre : un Passage, ou une appli ajoutée à la main (id c_<n>, voir config.js).
+// Kept outside the Letter: a Passage, or a hand-added app (id c_<n>, see config.js).
 const isKept = (id) => isPassage(id) || /^c_\d{1,6}$/.test(String(id));
 
-// Écussons : traits simples à la plume, sans blason officiel. Même contour de bouclier pour les quatre.
+// Crests: simple quill strokes, no official coat of arms. Same shield outline for all four.
 const SHIELD = 'M10 6h44v30c0 15-11 25-22 31C21 61 10 51 10 36z';
 const BEASTS = {
   gryffondor: '<circle cx="32" cy="35" r="9"/><path d="M32 20l2 5M32 20l-2 5M43 26l-4 3M21 26l4 3M47 35h-5M17 35h5M43 44l-4-3M21 44l4-3M32 50l2-5M32 50l-2-5"/><circle class="dot" cx="28.5" cy="33" r="1.1"/><circle class="dot" cx="35.5" cy="33" r="1.1"/><path d="M32 36l-1.5 2.2h3zM30 41c1.3 1 2.7 1 4 0"/>',
@@ -38,8 +38,8 @@ export default {
     this.root = root; this.ctx = ctx; this.timers = []; this.done = false; this.turning = false; this.armed = false;
     this.reduced = isReduced();
     root.classList.toggle('is-reduced', this.reduced);
-    // Brouillon : repris des réglages si la Lettre est relancée, sinon les valeurs d'une télé neuve.
-    // Les Passages et les applis ajoutées du parapet n'ont pas de case dans la Lettre : mis de côté, remis à la fin.
+    // Draft: taken from the settings if the Letter is relaunched, otherwise the values of a brand-new TV.
+    // Passages and added apps on the parapet have no tick box in the Letter: set aside, put back at the end.
     const c = getConfig();
     this.kept = c.firstRunDone ? c.dock.filter(isKept) : [];
     this.room = Math.max(1, DOCK_MAX - this.kept.length);
@@ -69,10 +69,10 @@ export default {
   unmount() { this.timers.forEach(clearTimeout); this.timers = []; this.grid = []; this.root = null; },
 
   k() { return Number(getComputedStyle(this.root).getPropertyValue('--k')) || 1; },
-  // `hold` : délai de lecture (un message qui doit rester lisible), jamais raccourci en mouvement réduit.
+  // `hold`: reading delay (a message that must stay legible), never shortened in reduced motion.
   later(fn, ms, hold) { const t = setTimeout(fn, ((this.reduced && !hold) ? Math.min(ms, 200) : ms) * this.k()); this.timers.push(t); return t; },
 
-  // Le sceau de la lettre prend la couleur de la maison du brouillon (constantes HOUSES, jamais une valeur libre).
+  // The letter's seal takes the colour of the draft's house (HOUSES constants, never a free value).
   paintSeal(press) {
     const seal = this.root.querySelector('.sort-seal');
     const h = this.d.house ? HOUSES[this.d.house] : null;
@@ -81,8 +81,8 @@ export default {
     if (press) { seal.classList.remove('is-press'); void seal.offsetWidth; seal.classList.add('is-press'); }
   },
 
-  // ---- Rendu d'une page --------------------------------------------------------------------------------------
-  // Chaque page remplit `this.grid` : lignes d'items { el, ok(), lr?(dir) → bool, onFocus?() }.
+  // ---- Rendering a page -------------------------------------------------------------------------------------
+  // Each page fills `this.grid`: rows of items { el, ok(), lr?(dir) → bool, onFocus?() }.
   render() {
     const sheet = this.root.querySelector('.sort-sheet');
     sheet.textContent = '';
@@ -91,7 +91,7 @@ export default {
     let lines = 0;
     const line = (node) => { node.classList.add('sort-line'); node.style.setProperty('--i', String(lines++)); sheet.appendChild(node); return node; };
     this['page' + this.page](sheet, line);
-    // Le lien « Rester en mode classique » est la dernière ligne navigable de chaque page.
+    // The "Rester en mode classique" link is the last navigable row of every page.
     const link = this.root.querySelector('.sort-link');
     this.grid.push([{ el: link, ok: () => this.stayClassic() }]);
     this.setFocus(this.r, this.c);
@@ -99,7 +99,7 @@ export default {
     this.updateHint();
   },
 
-  // Page I : la maison.
+  // Page I: the house.
   page0(sheet, line) {
     line(el('h2', 'sort-title', 'Choisissez votre maison'));
     line(el('p', 'sort-text', 'Cher sorcier, chère sorcière, nous avons le plaisir de vous informer que votre téléviseur est admis à Poudlard.'));
@@ -118,7 +118,7 @@ export default {
         el: card,
         onFocus: () => { this.previewWax(id); },
         ok: () => {
-          if (this.armed) return;                       // un seul tour de page, même si on presse OK deux fois
+          if (this.armed) return;                       // a single page turn, even if OK is pressed twice
           this.armed = true;
           this.d.house = id;
           row.querySelectorAll('.sort-shield').forEach((x) => x.classList.toggle('is-on', x === card));
@@ -132,10 +132,10 @@ export default {
     const wax = line(el('div', 'sort-wax'));
     wax.appendChild(el('div', 'sort-wax-seal wax-seal'));
     wax.appendChild(el('div', 'sort-wax-text', ''));
-    this.c = Math.max(0, Object.keys(HOUSES).indexOf(this.d.house));   // setFocus() appellera onFocus → aperçu de la cire
-    this.cm = this.c;                                                    // la colonne mémorisée suit la maison courante
+    this.c = Math.max(0, Object.keys(HOUSES).indexOf(this.d.house));   // setFocus() will call onFocus → wax preview
+    this.cm = this.c;                                                    // the remembered column follows the current house
   },
-  // Aperçu de la cire : le sceau sous les écussons prend la couleur survolée et se presse.
+  // Wax preview: the seal under the crests takes the hovered colour and presses.
   previewWax(id) {
     const h = HOUSES[id]; const w = this.root.querySelector('.sort-wax'); if (!h || !w) return;
     const seal = w.querySelector('.sort-wax-seal');
@@ -146,7 +146,7 @@ export default {
     this.writeIn(t);
   },
 
-  // Page II : les sortilèges (applis du parapet).
+  // Page II: the spells (parapet apps).
   page1(sheet, line) {
     line(el('h2', 'sort-title', 'Vos sortilèges'));
     line(el('p', 'sort-text', `Les applis cochées prendront place sur le parapet, dans l’ordre où vous les cochez. ${DOCK_MAX} au plus ; les autres restent dans la Carte du Maraudeur.`));
@@ -157,9 +157,9 @@ export default {
     }
     const count = line(el('div', 'sort-count'));
     const grid = line(el('div', 'sort-grid'));
-    // Le catalogue seul : les applis ajoutées à la main (V4) gardent leur place via `kept`, et la grille tient dans la feuille.
+    // The catalog only: hand-added apps (V4) keep their place through `kept`, and the grid fits on the sheet.
     const apps = allApps().filter((a) => a.cat !== 'passage' && !a.custom);
-    const COLS = 5;      // même nombre de colonnes que .sort-grid (sorting.css) : « bas » tombe sur la case juste en dessous
+    const COLS = 5;      // same column count as .sort-grid (sorting.css): "down" lands on the cell right below
     let row = [];
     apps.forEach((a, n) => {
       const cell = el('div', 'sort-cell' + (this.d.dock.includes(a.id) ? ' is-on' : ''));
@@ -188,13 +188,13 @@ export default {
   },
   paintCount() {
     const c = this.root.querySelector('.sort-count'); if (!c) return;
-    const n = this.d.dock.length + this.kept.length;      // les Passages conservés comptent
+    const n = this.d.dock.length + this.kept.length;      // kept Passages count
     const full = this.d.dock.length >= this.room;
     c.textContent = this.d.dock.length === 0 ? 'Aucun sortilège : le parapet recevra YouTube, jamais le vide.' : `${n} sortilège${n > 1 ? 's' : ''} sur ${DOCK_MAX}${full ? ' — le parapet est plein' : ''}`;
     this.writeIn(c);
   },
 
-  // Page III : Hedwige et les sons, puis Lumos.
+  // Page III: Hedwig and the sounds, then Lumos.
   page2(sheet, line) {
     line(el('h2', 'sort-title', 'Hedwige vous accompagne ?'));
     line(el('p', 'sort-text', 'Elle se pose sur l’appli choisie et s’envole à chaque pas. Calme, elle ne vole que pour les longs trajets. Absente, le médaillon s’allume seul.'));
@@ -204,9 +204,9 @@ export default {
     const foot = line(el('div', 'sort-btns'));
     const lumos = el('div', 'sort-btn sort-lumos'); lumos.appendChild(el('span', null, 'Lumos')); foot.appendChild(lumos);
     this.grid.push([{ el: lumos, ok: () => this.finish() }]);
-    this.r = 2;   // le focus part sur Lumos : deux pressions OK suffisent pour une télé neuve
+    this.r = 2;   // focus starts on Lumos: two OK presses are enough for a brand-new TV
   },
-  // Ligne « libellé : option · option · option », l'option courante cerclée d'encre.
+  // "label: option · option · option" row, the current option circled in ink.
   enumLine(line, label, options, get, set) {
     const row = line(el('div', 'sort-enum'));
     row.appendChild(el('span', 'sort-enum-label', label));
@@ -223,7 +223,7 @@ export default {
     };
   },
 
-  // Logo à l'encre : officiel, ou le monogramme d'une appli ajoutée à la main (repli : initiales).
+  // Ink logo: official, or the monogram of a hand-added app (fallback: initials).
   inkLogo(id, h) {
     const app = appById(id);
     const L = LOGOS[id] || (app ? monogram(app.name) : null);
@@ -236,7 +236,7 @@ export default {
     return box;
   },
 
-  // ---- Focus et navigation en grille -------------------------------------------------------------------------
+  // ---- Focus and grid navigation ----------------------------------------------------------------------------
   setFocus(r, c) {
     this.r = clamp(r, 0, this.grid.length - 1);
     this.c = clamp(c, 0, this.grid[this.r].length - 1);
@@ -248,7 +248,7 @@ export default {
   moveV(d) {
     const n = this.r + d;
     if (n < 0 || n >= this.grid.length) { this.nudge(this.grid[this.r][this.c].el); return; }
-    // Colonne mémorisée : on garde la colonne d'origine en traversant une ligne plus courte.
+    // Remembered column: the original column is kept while crossing a shorter row.
     const from = this.grid[this.r].length, to = this.grid[n].length;
     let c = this.cm;
     if (to < from) c = Math.round(this.cm / Math.max(1, from - 1) * (to - 1));
@@ -260,12 +260,12 @@ export default {
     if (it.lr && it.lr(d)) return;
     const n = this.c + d;
     if (n < 0 || n >= this.grid[this.r].length) { this.nudge(it.el); return; }
-    this.cm = n;                                         // seul un pas latéral explicite déplace la mémoire de colonne
+    this.cm = n;                                         // only an explicit sideways step moves the column memory
     this.setFocus(this.r, n);
     this.ctx.fx.chime(1175, 0.015);
   },
 
-  // ---- Tourner la page ---------------------------------------------------------------------------------------
+  // ---- Turning the page -------------------------------------------------------------------------------------
   turn(p) {
     if (this.turning || this.done) return;
     this.turning = true;
@@ -276,8 +276,8 @@ export default {
     this.later(() => { if (!this.root) return; sheet.classList.remove('is-leave'); this.render(); this.turning = false; }, 260);
   },
 
-  // ---- Fin : Lumos, ou le mode classique ---------------------------------------------------------------------
-  // Le parapet final = les sortilèges cochés (ou YouTube si aucun), puis les Passages conservés, 8 au plus.
+  // ---- End: Lumos, or classic mode --------------------------------------------------------------------------
+  // The final parapet = the ticked spells (or YouTube if none), then the kept Passages, 8 at most.
   finalDock() {
     const chosen = this.d.dock.length ? this.d.dock.slice() : FALLBACK_DOCK.slice();
     return [...chosen, ...this.kept].slice(0, DOCK_MAX);
@@ -290,7 +290,7 @@ export default {
     this.ctx.fx.arpeggio();
     btn.classList.add('is-lit');
     this.later(() => {
-      // « Lumos » choisit Poudlard : la Lettre peut être relancée depuis le mode classique.
+      // "Lumos" picks Hogwarts: the Letter can be relaunched from classic mode.
       updateConfig({ firstRunDone: true, mode: 'poudlard', house: this.d.house, dock, owl: this.d.owl, sounds: this.d.sounds });
       this.ctx.router.replace('home', { boot: true }, 'fade');
     }, 450);
@@ -304,9 +304,9 @@ export default {
     this.ctx.router.replace('classic', {}, 'fade');
   },
 
-  // ---- Signatures ----------------------------------------------------------------------------------------------
+  // ---- Signatures -------------------------------------------------------------------------------------------
   writeIn(node) { if (!node) return; node.classList.remove('sort-write'); void node.offsetWidth; node.classList.add('sort-write'); },
-  // Butée : petit refus latéral, composé avec le transform du focus (la lettre ne se redresse pas, l'écusson ne redescend pas).
+  // Stop: small sideways refusal, composited with the focus transform (the letter does not straighten, the crest does not drop).
   nudge(node) {
     if (this.reduced || !node) return;
     node.animate([{ transform: 'translateX(0)' }, { transform: 'translateX(-.35cqw)' }, { transform: 'translateX(.3cqw)' }, { transform: 'translateX(0)' }], { duration: 220 * this.k(), composite: 'add' });
@@ -325,19 +325,19 @@ export default {
     h.querySelectorAll('span')[2].style.opacity = this.page > 0 ? '' : '0';
   },
 
-  // ---- Touches ---------------------------------------------------------------------------------------------------
+  // ---- Keys -------------------------------------------------------------------------------------------------
   onKey(action, ctx) {
     void ctx;
     if (this.done) return true;
     if (this.turning || this.armed) return true;
     if (action === 'back') { if (this.page > 0) this.turn(this.page - 1); else this.nudge(this.root.querySelector('.sort-letter')); return true; }
-    // Retour maintenu : le chemin de secours mène au lien « Rester en mode classique » (jamais de sortie forcée).
+    // Long Back: the escape route leads to the "Rester en mode classique" link (never a forced exit).
     if (action === 'longback') { this.cm = 0; this.setFocus(this.grid.length - 1, 0); return true; }
     if (action === 'up') { this.moveV(-1); return true; }
     if (action === 'down') { this.moveV(1); return true; }
     if (action === 'left') { this.moveH(-1); return true; }
     if (action === 'right') { this.moveH(1); return true; }
     if (action === 'ok') { const it = this.grid[this.r][this.c]; if (it) it.ok(); return true; }
-    return true;   // menu, OK long, Home : rien ne sort de la Lettre
+    return true;   // menu, long OK, Home: nothing leaves the Letter
   },
 };

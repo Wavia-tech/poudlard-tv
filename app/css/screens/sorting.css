@@ -1,5 +1,5 @@
-/* La Lettre d'admission (premier lancement) : une lettre de parchemin posée de biais sur la nuit, écrite en IM Fell.
-   Préfixe .sort- ; tout en cqw ; transform et opacity seulement (plus un clip-path pour l'écriture à la plume). */
+/* The Admission Letter (first launch): a parchment letter laid at a slight angle on the night, written in IM Fell.
+   Prefix .sort-; everything in cqw; transform and opacity only (plus a clip-path for the pen writing). */
 .screen-sorting { background: var(--night); }
 .sort-room { position: absolute; inset: 0; overflow: hidden; perspective: 160cqw; }
 .sort-stars { position: absolute; inset: 0; background:
@@ -11,7 +11,7 @@
 .sort-candle { position: absolute; left: -12cqw; bottom: -16cqw; width: 64cqw; height: 44cqw; pointer-events: none;
   background: radial-gradient(ellipse at 45% 70%, var(--house-glow) 0%, transparent 60%); opacity: .13; }
 
-/* ---- La lettre ---- */
+/* ---- The letter ---- */
 .sort-letter { position: absolute; left: 14cqw; right: 14cqw; top: 2.4cqw; bottom: 5.4cqw; border-radius: .4cqw; padding: 3cqw 4.2cqw 3cqw 4.6cqw;
   transform: rotate(-.6deg) translateY(2cqw); opacity: 0; transition: transform calc(var(--k) * 700ms) cubic-bezier(.33, 0, .2, 1), opacity calc(var(--k) * 400ms) ease; }
 .is-open .sort-letter { transform: rotate(-.6deg) translateY(0); opacity: 1; }
@@ -19,23 +19,23 @@
   background: linear-gradient(to bottom, #3a260e14, transparent 7%, transparent 93%, #3a260e1a), linear-gradient(to right, #3a260e10, transparent 6%, transparent 94%, #3a260e10); }
 .sort-kicker { font-family: var(--display); font-weight: 600; font-size: 1.3cqw; letter-spacing: .3em; text-transform: uppercase; color: var(--gold-dark); }
 .sort-step { position: absolute; top: 3.2cqw; right: 9.6cqw; font-family: var(--fell); font-variant: small-caps; font-size: 1.6cqw; letter-spacing: .1em; color: var(--ink); opacity: .65; }
-/* Le sceau de la lettre, en haut à droite, à la couleur de la maison du brouillon. */
+/* The letter's seal, at the top right, in the color of the draft's house. */
 .sort-seal { position: absolute; top: 2cqw; right: 3.2cqw; width: 4.6cqw; height: 4.6cqw; display: grid; place-items: center; z-index: 2; transform: rotate(8deg); }
 .sort-seal span { font-family: var(--display); font-weight: 700; font-size: 2cqw; color: #f1ebddcc; text-shadow: 0 .05cqw .1cqw #00000080; }
 .sort-seal.is-press { animation: sort-press calc(var(--k) * 200ms) cubic-bezier(.2, .9, .3, 1.2) both; }
 @keyframes sort-press { from { transform: rotate(8deg) scale(1.3); } to { transform: rotate(8deg) scale(1); } }
 
-/* La feuille : le contenu de la page courante ; elle tourne (glisse et se rabat légèrement) à chaque page. */
+/* The sheet: the content of the current page; it turns (slides and folds slightly) on every page. */
 .sort-sheet { position: absolute; left: 4.6cqw; right: 4.2cqw; top: 6.4cqw; bottom: 5.6cqw; transform-origin: 0 50%; }
 .sort-sheet.is-turn { animation: sort-turn calc(var(--k) * 420ms) cubic-bezier(.33, 0, .2, 1) both; }
 @keyframes sort-turn { from { transform: translateX(1.6cqw) rotateY(-6deg); opacity: 0; } to { transform: translateX(0) rotateY(0); opacity: 1; } }
 .sort-sheet.is-leave { transition: transform calc(var(--k) * 260ms) ease-in, opacity calc(var(--k) * 220ms) ease-in; transform: translateX(-1.6cqw) rotateY(6deg); opacity: 0; }
-/* Chaque ligne s'écrit à la plume, l'une après l'autre (--i = rang de la ligne).
-   `backwards` : l'état de départ tient pendant le délai, puis le clip-path retombe à `none` : rien ne rogne l'écusson
-   ou le bouton en focus (scale) une fois la ligne écrite. */
+/* Each line is written in pen, one after another (--i = the line's rank).
+   `backwards`: the start state holds during the delay, then the clip-path falls back to `none`: nothing crops the crest
+   or the focused button (scale) once the line is written. */
 .sort-line { animation: sort-write calc(var(--k) * 320ms) ease-out backwards; animation-delay: calc(var(--k) * (var(--i, 0) * 110ms + 120ms)); }
 @keyframes sort-write { from { clip-path: inset(0 100% 0 0); opacity: .6; } to { clip-path: inset(0 0 0 0); opacity: 1; } }
-/* Réécriture d'une valeur déjà posée : mêmes images, autre nom, pour que la classe relance bien l'animation. */
+/* Rewriting a value already laid down: same keyframes, different name, so that the class does restart the animation. */
 .sort-write { animation: sort-rewrite calc(var(--k) * 250ms) ease-out backwards; animation-delay: 0ms; }
 @keyframes sort-rewrite { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0 0 0 0); } }
 
@@ -43,13 +43,13 @@
 .sort-text { margin: 0 0 .55cqw; max-width: 62cqw; font-family: var(--fell); font-size: 1.7cqw; line-height: 1.32; color: var(--ink); }
 .sort-text-dim { opacity: .62; font-style: italic; }
 
-/* Pied : le lien discret, présent sur chaque page. */
+/* Footer: the discreet link, present on every page. */
 .sort-foot { position: absolute; left: 4.6cqw; right: 4.2cqw; bottom: 2cqw; display: flex; justify-content: flex-end; z-index: 2; }
 .sort-link { font-family: var(--fell); font-style: italic; font-size: 1.55cqw; color: var(--ink); opacity: .55; padding: .3cqw .8cqw; border-radius: .25cqw; transition: opacity calc(var(--k) * 200ms), transform calc(var(--k) * 200ms), background-color calc(var(--k) * 200ms); }
 .sort-link.is-focus { opacity: 1; background: #1b151014; transform: translateX(-.2cqw); }
 .sort-link span { border-bottom: .07cqw solid #1b151066; }
 
-/* ---- Page I : les écussons ---- */
+/* ---- Page I: the crests ---- */
 .sort-shields { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1.6cqw; margin: 1cqw 0 .8cqw; max-width: 62cqw; }
 .sort-shield { position: relative; display: grid; justify-items: center; gap: .3cqw; padding: .8cqw .4cqw .6cqw; border-radius: .5cqw; border: .1cqw solid transparent; opacity: .72;
   transition: transform calc(var(--k) * 250ms) cubic-bezier(.3, .7, .2, 1), opacity calc(var(--k) * 200ms), border-color calc(var(--k) * 200ms), background-color calc(var(--k) * 200ms); }
@@ -69,7 +69,7 @@
 @keyframes sort-press-seal { from { transform: scale(1.3); } to { transform: scale(1); } }
 .sort-wax-text { font-family: var(--fell); font-style: italic; font-size: 1.65cqw; color: var(--ink); opacity: .75; }
 
-/* ---- Page II : la grille des sortilèges ---- */
+/* ---- Page II: the grid of spells ---- */
 .sort-count { margin: .2cqw 0 .7cqw; font-family: var(--fell); font-variant: small-caps; font-size: 1.7cqw; letter-spacing: .06em; color: var(--ink); opacity: .8; font-variant-numeric: tabular-nums; }
 .sort-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: .45cqw .9cqw; max-width: 64cqw; }
 .sort-cell { position: relative; display: flex; align-items: center; gap: .6cqw; height: 3.3cqw; padding: 0 .6cqw; border-radius: .3cqw; color: var(--ink); opacity: .72;
@@ -77,7 +77,7 @@
 .sort-cell.is-on { opacity: 1; }
 .sort-cell.is-focus { opacity: 1; background: #1b151014; transform: scale(1.05); }
 .sort-cell-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--fell); font-variant: small-caps; font-size: 1.55cqw; letter-spacing: .03em; }
-/* La case : un carré d'encre, la coche à la plume apparaît (scale + opacity). */
+/* The box: an ink square, the pen tick appears (scale + opacity). */
 .sort-box { flex: none; width: 1.5cqw; height: 1.5cqw; border: .12cqw solid #1b1510aa; border-radius: .15cqw; display: grid; place-items: center; }
 .sort-box svg { width: 1.3cqw; height: 1.3cqw; fill: none; stroke: var(--ink); stroke-width: 3.2; stroke-linecap: round; stroke-linejoin: round;
   opacity: 0; transform: scale(.4) rotate(-10deg); transition: transform calc(var(--k) * 220ms) cubic-bezier(.2, .9, .3, 1.3), opacity calc(var(--k) * 150ms); }
@@ -87,14 +87,14 @@
 .sort-inklogo i { position: absolute; inset: 0; background: var(--ink); opacity: .85; -webkit-mask: var(--m) center / contain no-repeat; mask: var(--m) center / contain no-repeat; }
 .sort-inklogo i.luma { mask-mode: luminance; }
 .sort-inklogo.is-text { font-family: var(--display); font-weight: 600; font-size: 1cqw; letter-spacing: .1em; text-align: center; line-height: 1.5cqw; border: .08cqw solid #1b151066; border-radius: .2cqw; }
-/* Le refus, à l'encre de la maison (le rouge vif est réservé à la Beuglante). */
+/* The refusal, in the house's ink (bright red is reserved for the Beuglante / Howler). */
 .sort-msg { min-height: 1.9cqw; margin: .5cqw 0 0; font-family: var(--fell); font-style: italic; font-size: 1.55cqw; color: var(--wax); }
 
-/* ---- Page III : Hedwige, sons, Lumos ---- */
+/* ---- Page III: Hedwig, sounds, Lumos ---- */
 .sort-enum { display: flex; align-items: center; gap: 1.6cqw; margin: .5cqw 0 .3cqw; padding: .5cqw .9cqw; border-radius: .3cqw; max-width: 60cqw;
   transition: background-color calc(var(--k) * 200ms), transform calc(var(--k) * 200ms); }
 .sort-enum.is-focus { background: #1b151012; transform: translateX(.2cqw); }
-/* Libellé et valeurs : une liste de réglages, donc EB Garamond (IM Fell reste à la phrase d'intro). */
+/* Label and values: a list of settings, hence EB Garamond (IM Fell stays on the intro sentence). */
 .sort-enum-label { min-width: 10cqw; font-family: var(--body); font-weight: 500; font-size: 2.05cqw; letter-spacing: .02em; color: var(--ink); }
 .sort-opts { display: flex; gap: .8cqw; }
 .sort-opt { padding: .25cqw 1.1cqw; border-radius: 2cqw; border: .1cqw solid transparent; font-family: var(--body); font-weight: 500; font-size: 1.8cqw; color: var(--ink); opacity: .5;
@@ -102,7 +102,7 @@
 .sort-opt.is-on { opacity: 1; border-color: #1b1510aa; font-weight: 600; }
 .sort-enum.is-focus .sort-opt.is-on { transform: scale(1.06); }
 
-/* Boutons à la plume ; Lumos est le seul en or. */
+/* Pen-drawn buttons; Lumos is the only one in gold. */
 .sort-btns { display: flex; gap: 1.4cqw; margin-top: 1.2cqw; }
 .sort-btn { position: relative; display: inline-flex; align-items: center; padding: .7cqw 2.2cqw; font-family: var(--fell); font-size: 2cqw; color: var(--ink);
   border: .14cqw solid #1b151088; border-radius: .35cqw; transition: transform calc(var(--k) * 200ms), background-color calc(var(--k) * 200ms), color calc(var(--k) * 200ms); }
@@ -113,7 +113,7 @@
 .sort-lumos.is-focus { background: linear-gradient(165deg, #FFF6CF 0%, #F3D27A 22%, #C08F35 46%, #F6DD8F 62%, #A26F24 82%, #F1CF7C 100%); color: var(--ink); border-color: #6E4C14; }
 .sort-lumos.is-lit { transform: scale(1.12); }
 
-/* ---- Mouvement réduit : fondus de 200 ms et rien de plus ---- */
+/* ---- Reduced motion: 200 ms fades and nothing more ---- */
 .screen-sorting.is-reduced .sort-letter { transform: rotate(-.6deg); transition: opacity 200ms ease; }
 .screen-sorting.is-reduced .sort-line, .screen-sorting.is-reduced .sort-write { animation: sort-fade 200ms ease backwards; animation-delay: 0ms; }
 .screen-sorting.is-reduced .sort-sheet.is-turn { animation: sort-fade 200ms ease both; }
@@ -121,6 +121,6 @@
 .screen-sorting.is-reduced .sort-seal.is-press, .screen-sorting.is-reduced .sort-wax-seal.is-press { animation: sort-fade 200ms ease both; }
 .screen-sorting.is-reduced .sort-shield, .screen-sorting.is-reduced .sort-cell, .screen-sorting.is-reduced .sort-enum, .screen-sorting.is-reduced .sort-btn, .screen-sorting.is-reduced .sort-link,
 .screen-sorting.is-reduced .sort-opt, .screen-sorting.is-reduced .sort-lumos.is-lit, .screen-sorting.is-reduced .sort-wax-seal { transition-duration: 200ms; transform: none !important; }
-/* La coche apparaît en fondu, sans rotation ni échelle. */
+/* The tick fades in, without rotation or scale. */
 .screen-sorting.is-reduced .sort-box svg { transition: opacity 200ms ease; transform: none !important; }
 @keyframes sort-fade { from { opacity: 0; } to { opacity: 1; } }

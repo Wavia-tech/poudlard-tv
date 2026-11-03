@@ -1,36 +1,36 @@
-# Outils
+# Tools
 
-Ce dossier contient ce qui sert à lancer la maquette et à reconstruire chez soi ce que le dépôt ne distribue pas. Aucun de ces outils n'est nécessaire pour utiliser l'interface une fois servie.
+This folder holds what is needed to run the mock-up and to rebuild at home what the repository does not distribute. None of these tools is required to use the interface once it is served.
 
-| Fichier | Rôle |
+| File | Role |
 |---|---|
-| `serve.mjs` | Serveur statique sans dépendance pour la maquette web : `node tools/serve.mjs . 8765`, puis http://localhost:8765/app/index.html. N'écoute que sur `127.0.0.1`, ne sert que les fichiers situés sous la racine donnée, aucun cache. |
-| `logos-build.mjs` | Assemble un `app/assets/logos.js` privé à partir d'un dossier de SVG (ci-dessous). |
-| `test-sound.mjs` | Vérifie que la valse de fond (`MELODY` dans `app/js/sound.js`) ne cite pas le thème des films : `node tools/test-sound.mjs` (voir `docs/MUSIQUE.md`). |
-| `detourer_chouette.py` | Détourage d'une chouette générée sur fond noir (Pillow) : `python -I tools/detourer_chouette.py entree.png sortie.png 640`. |
+| `serve.mjs` | Dependency-free static server for the web mock-up: `node tools/serve.mjs . 8765`, then http://localhost:8765/app/index.html. Listens on `127.0.0.1` only, serves only files under the given root, no caching. |
+| `logos-build.mjs` | Bundles a private `app/assets/logos.js` from a folder of SVGs (below). |
+| `test-sound.mjs` | Checks that the background waltz (`MELODY` in `app/js/sound.js`) does not quote the films' theme: `node tools/test-sound.mjs` (see `docs/MUSIC.md`). |
+| `cutout_owl.py` | Cuts out an owl generated on a black background (Pillow): `python -I tools/cutout_owl.py input.png output.png 640`. |
 
-Les scripts de génération des décors eux-mêmes ne sont pas versionnés (ils dépendent d'un poste et d'un modèle locaux) ; la méthode est décrite à la fin de ce document.
+The generation scripts for the backdrops themselves (tools/*.ps1, not in the repo) are not versioned (they depend on a local machine and model); the method is described at the end of this document.
 
-## Logos des applications (`app/assets/logos.js`)
+## App logos (`app/assets/logos.js`)
 
-Le dépôt public **ne contient pas** `app/assets/logos.js` : les logos des services sont des marques et ne sont pas redistribués (voir `AVERTISSEMENT.md`). À la place :
+The public repository **does not contain** `app/assets/logos.js`: the services' logos are trademarks and are not redistributed (see `DISCLAIMER.md`). Instead:
 
-- `app/assets/logos.example.js` exporte un objet `LOGOS` vide ;
-- chaque écran applique `const L = LOGOS[app.id] || monogram(app.name)` : sans logo, l'application reçoit un monogramme (son initiale dans un cercle, `app/js/monogram.js`), au même format.
+- `app/assets/logos.example.js` exports an empty `LOGOS` object;
+- every screen applies `const L = LOGOS[app.id] || monogram(app.name)`: without a logo, the app gets a monogram (its initial in a circle, `app/js/monogram.js`), in the same format.
 
-### Démarrer sans logos
+### Starting without logos
 
 ```bash
 cp app/assets/logos.example.js app/assets/logos.js
 ```
 
-C'est suffisant : la maquette se lance, toutes les applications ont un monogramme.
+That is enough: the mock-up starts, and every app has a monogram.
 
-### Reconstruire ses propres logos (usage privé)
+### Rebuilding your own logos (private use)
 
-Pour un usage strictement personnel, vous pouvez assembler un `logos.js` à partir de SVG monochromes. La maquette d'origine utilisait les pictogrammes de [Simple Icons](https://simpleicons.org) (licence CC0 pour les fichiers ; les marques elles-mêmes restent celles de leurs titulaires, et Simple Icons rappelle que leur usage est soumis aux conditions de chaque marque). Vérifiez ces conditions avant tout usage autre que privé.
+For strictly personal use, you can bundle a `logos.js` from monochrome SVGs. The original mock-up used the pictograms from [Simple Icons](https://simpleicons.org) (CC0 licence for the files; the trademarks themselves remain the property of their owners, and Simple Icons reminds you that their use is subject to each brand's terms). Check those terms before any use other than private.
 
-Format attendu, un enregistrement par `id` du `CATALOG` de `app/js/config.js` :
+Expected format, one record per `CATALOG` `id` from `app/js/config.js`:
 
 ```js
 export const LOGOS = {
@@ -39,38 +39,38 @@ export const LOGOS = {
 };
 ```
 
-- `src` : SVG **blanc** (`fill="#ffffff"`) sur fond transparent, encodé en base64 dans une data URI. Il sert de masque CSS : c'est `shared.css` qui le rend ivoire gravé au repos et or en relief en focus.
-- `ratio` : largeur divisée par hauteur de la boîte de vue (`viewBox`). Les écrans fixent la hauteur et déduisent la largeur ; 1 pour un pictogramme carré.
-- `luma` : `true` si le SVG est un aplat plein (un logo posé sur un fond coloré, par exemple) et doit être masqué par luminance plutôt que par alpha. Dans la maquette d'origine : `canal`, `max`, `tf1`, `m6`.
+- `src`: a **white** SVG (`fill="#ffffff"`) on a transparent background, base64-encoded in a data URI. It serves as a CSS mask: `shared.css` renders it as engraved ivory at rest and embossed gold in focus.
+- `ratio`: width divided by height of the view box (`viewBox`). The screens fix the height and derive the width; 1 for a square pictogram.
+- `luma`: `true` if the SVG is a solid fill (a logo on a colored background, for example) and must be masked by luminance rather than by alpha. In the original mock-up: `canal`, `max`, `tf1`, `m6`.
 
-Procédure, avec Node seul (aucune dépendance), depuis n'importe quel répertoire, sous bash, PowerShell ou cmd :
+Procedure, with Node alone (no dependencies), from any directory, under bash, PowerShell or cmd:
 
 ```bash
-# 1. Déposer un SVG blanc par id dans un dossier de travail, nommé <id>.svg (netflix.svg, prime.svg, …).
-#    Les ids disponibles sont ceux de CATALOG : netflix prime disney canal max appletv paramount youtube
+# 1. Put one white SVG per id in a working folder, named <id>.svg (netflix.svg, prime.svg, …).
+#    The available ids are those of CATALOG: netflix prime disney canal max appletv paramount youtube
 #    francetv tf1 m6 arte crunchyroll dazn twitch spotify deezer plex ps5 ps4 xbox switch
-# 2. Les assembler (deuxième argument facultatif : les ids à masquer par luminance) :
-node tools/logos-build.mjs ./mes-logos canal,max,tf1,m6
+# 2. Bundle them (optional second argument: the ids to mask by luminance):
+node tools/logos-build.mjs ./my-logos canal,max,tf1,m6
 ```
 
-Le script écrit toujours dans `app/assets/logos.js` (chemin résolu depuis le script, pas depuis le répertoire courant). Le fichier produit est ignoré par `.gitignore` ; ne le commitez pas.
+The script always writes to `app/assets/logos.js` (path resolved from the script, not from the current directory). The output file is ignored by `.gitignore`; do not commit it.
 
-## Sur Android TV : `appIcon(pkg)` à la place des logos
+## On Android TV: `appIcon(pkg)` instead of logos
 
-Le launcher Android n'a pas besoin de ce fichier. Chaque application installée fournit déjà au système une bannière Leanback (320 × 180 dp) et une icône. Le pont `window.Android` (`android/src/fr/wavia/poudlardtv/Bridge.java`) expose une méthode `appIcon(pkg)` qui renvoie cette image en data URI (PNG), ou `null` si l'application ne fournit rien. **Dans cette version, les écrans ne l'appellent pas encore** (`app/js/platform.js` n'expose que `launch`, `openContent`, `installed`) : ils affichent `LOGOS[id]` ou le monogramme. Le branchement prévu : l'écran utilise `appIcon(pkg)` comme il utilise `LOGOS[id].src`, et le monogramme reste le repli.
+The Android launcher does not need this file. Every installed app already provides the system with a Leanback banner (320 × 180 dp) and an icon. The `window.Android` bridge (`android/src/fr/wavia/poudlardtv/Bridge.java`) exposes an `appIcon(pkg)` method that returns this image as a data URI (PNG), or `null` if the app provides nothing. **In this version, the screens do not call it yet** (`app/js/platform.js` only exposes `launch`, `openContent`, `installed`): they display `LOGOS[id]` or the monogram. The planned wiring: the screen uses `appIcon(pkg)` the way it uses `LOGOS[id].src`, and the monogram remains the fallback.
 
-Côté Java (`Apps.java`), l'image est cherchée dans cet ordre : 1) la ressource de bannière de l'application à la densité xxxhdpi (384 × 216, plus nette), 2) `getApplicationBanner`, 3) `getApplicationIcon`, centrée sur fond nuit. Elle est convertie en PNG et mise en cache en mémoire au premier affichage. Rien n'est téléchargé, rien ne sort de l'appareil, et aucun logo n'est embarqué dans l'APK.
+On the Java side (`Apps.java`), the image is looked up in this order: 1) the app's banner resource at xxxhdpi density (384 × 216, sharper), 2) `getApplicationBanner`, 3) `getApplicationIcon`, centered on a night background. It is converted to PNG and cached in memory on first display. Nothing is downloaded, nothing leaves the device, and no logo is bundled in the APK.
 
-## Comment les décors ont été produits
+## How the backdrops were produced
 
-Toutes les images de `app/assets/` (château, parapet, parchemin, brume, chouette dans ses poses, vitrine d'Ollivanders) ont été générées en local, sans aucune image des films, puis retouchées à la main. Les scripts de génération ne sont pas versionnés (chemins propres au poste) ; voici la méthode, reproductible avec n'importe quel outil de génération local.
+All the images in `app/assets/` (castle, parapet, parchment, mist, the owl in her poses, Ollivanders shop window) were generated locally, with no image from the films, then retouched by hand. The generation scripts (tools/*.ps1, not in the repo) are not versioned (machine-specific paths); here is the method, reproducible with any local generation tool.
 
-- **Modèle** : Z-Image Turbo (licence Apache 2.0) en GGUF quantifié Q4_K, exécuté par `sd-cli` (stable-diffusion.cpp), VAE sur CPU, 8 pas, `cfg-scale 1.0`, encodeur de texte Qwen3-4B-Instruct quantifié. Chaque image est produite avec une graine fixe, notée ci-dessous, pour pouvoir la refaire à l'identique.
-- **Château** (`castle.jpg`, 1920 × 1088, graine 777) : « cinematic film still of a vast gothic wizard school castle at night, closer view, towers rising above the camera, perched on dramatic cliffs above a black mirror lake, dozens of slender towers and spires with conical slate roofs, great hall with tall arched stained glass windows glowing warm amber, lit astronomy tower, moonlight through dramatic clouds, thin mist over the water, small lanterns of rowing boats, misty highlands, 35mm anamorphic, volumetric light, deep blue and warm gold palette, no text, no people ». Le mot « Hogwarts » ne sert que de direction visuelle au modèle ; aucune image des films n'entre dans le processus.
-- **Parapet** (1536 × 448, graine 21) : parapet de pierre grise vu de légèrement au-dessus, trois chandeliers de laiton aux bougies allumées, isolé sur fond noir pur.
-- **Parchemin** (`parchment.jpg`, 1536 × 864, graine 33) : parchemin ancien vide, plis et bords brûlés, tache de cire, vue de dessus.
-- **Brume** (`mist.png`, 1536 × 320, graine 44) : volutes de brume blanche horizontales, isolées sur fond noir pur, puis converties en alpha.
-- **Chouette** (1024 × 1024, graine 11 pour toutes les poses, afin de garder le même animal) : chouette harfang, plumage blanc à rares mouchetures sombres, yeux jaunes, photo animalière, isolée sur fond noir pur, corps entier ; une variante par pose (perchée, regard par-dessus l'épaule, endormie, envol, plané, atterrissage). Détourage ensuite avec `detourer_chouette.py`.
-- **Vitrine d'Ollivanders** (`ollivanders.webp`) : intérieur de boutique ancienne, étagères de boîtes longues, lumière de bougie, sans texte.
+- **Model**: Z-Image Turbo (Apache 2.0 licence) as a Q4_K-quantized GGUF, run by `sd-cli` (stable-diffusion.cpp), VAE on CPU, 8 steps, `cfg-scale 1.0`, quantized Qwen3-4B-Instruct text encoder. Each image is produced with a fixed seed, noted below, so that it can be regenerated identically.
+- **Castle** (`castle.jpg`, 1920 × 1088, seed 777): "cinematic film still of a vast gothic wizard school castle at night, closer view, towers rising above the camera, perched on dramatic cliffs above a black mirror lake, dozens of slender towers and spires with conical slate roofs, great hall with tall arched stained glass windows glowing warm amber, lit astronomy tower, moonlight through dramatic clouds, thin mist over the water, small lanterns of rowing boats, misty highlands, 35mm anamorphic, volumetric light, deep blue and warm gold palette, no text, no people". The word "Hogwarts" serves only as visual direction for the model; no image from the films enters the process.
+- **Parapet** (1536 × 448, seed 21): a grey stone parapet seen from slightly above, three brass candlesticks with lit candles, isolated on a pure black background.
+- **Parchment** (`parchment.jpg`, 1536 × 864, seed 33): blank old parchment, folds and burnt edges, a wax stain, seen from above.
+- **Mist** (`mist.png`, 1536 × 320, seed 44): horizontal wisps of white mist, isolated on a pure black background, then converted to alpha.
+- **Owl** (1024 × 1024, seed 11 for every pose, to keep the same animal): a snowy owl, white plumage with a few dark flecks, yellow eyes, wildlife photo, isolated on a pure black background, full body; one variant per pose (perched, looking over the shoulder, asleep, take-off, gliding, landing). Then cut out with `cutout_owl.py`.
+- **Ollivanders shop window** (`ollivanders.webp`): the interior of an old shop, shelves of long boxes, candlelight, no text.
 
-Tout prompt est en anglais, finit par « no text » et exclut personnes et figures volantes. Les sorties brutes et les rendus intermédiaires restent hors du dépôt (`.gitignore`).
+Every prompt is in English, ends with "no text" and excludes people and flying figures. Raw outputs and intermediate renders stay out of the repository (`.gitignore`).

@@ -12,20 +12,20 @@ import java.util.Locale;
 import java.util.Map;
 
 /**
- * Sert la maquette web depuis assets/web/ sous une origine https factice (https://poudlard.invalid/…), sans réseau :
- * c'est ce que fait WebViewAssetLoader (AndroidX), réécrit en 60 lignes pour n'avoir aucune bibliothèque.
+ * Serves the web mock-up from assets/web/ under a fake https origin (https://poudlard.invalid/…), with no network:
+ * this is what WebViewAssetLoader (AndroidX) does, rewritten in 60 lines to have no library at all.
  *
- * Pourquoi pas file:///android_asset/ ? Les modules ES (`<script type="module">`) sont refusés sous file:// par
- * Chromium (origine « null », contrôle CORS), et `setAllowUniversalAccessFromFileURLs` est déconseillé. Une origine
- * https propre règle les modules, le localStorage (persistant par origine) et l'audio Web Audio.
+ * Why not file:///android_asset/? ES modules (`<script type="module">`) are refused under file:// by
+ * Chromium ("null" origin, CORS check), and `setAllowUniversalAccessFromFileURLs` is discouraged. A clean
+ * https origin sorts out modules, localStorage (persistent per origin) and Web Audio.
  *
- * Pourquoi « poudlard.invalid » ? Le domaine de premier niveau .invalid est réservé (RFC 2606) : il ne peut jamais
- * désigner un site réel, donc l'origine factice ne peut coïncider avec personne (même principe que l'hôte réservé
- * appassets.androidplatform.net d'AndroidX). Attention : le localStorage de la WebView (la config de config.js) est
- * lié à cette origine ; changer HOST ferait perdre la configuration enregistrée sur la télé.
+ * Why "poudlard.invalid"? The .invalid top-level domain is reserved (RFC 2606): it can never
+ * name a real site, so the fake origin can never collide with anyone (same principle as AndroidX's reserved
+ * host appassets.androidplatform.net). Caution: the WebView's localStorage (the config.js configuration) is
+ * tied to this origin; changing HOST would lose the configuration saved on the TV.
  *
- * Aucune requête ne part réellement : tout ce qui vise HOST est répondu ici ; tout le reste (ex. fonts.googleapis.com,
- * tant que les polices ne sont pas embarquées) reçoit une réponse vide, et de toute façon l'APK n'a pas INTERNET.
+ * No request actually leaves: everything aimed at HOST is answered here; everything else (e.g. fonts.googleapis.com,
+ * as long as the fonts are not embedded) gets an empty response, and the APK has no INTERNET anyway.
  */
 final class WebAssets {
     static final String HOST = "poudlard.invalid";
@@ -50,7 +50,7 @@ final class WebAssets {
         MIME.put("woff", "font/woff");
         MIME.put("ttf", "font/ttf");
         MIME.put("otf", "font/otf");
-        // Musique de fond personnelle (app/assets/music/, hors dépôt) : il faut le bon type pour que <audio> la lise.
+        // Personal background music (app/assets/music/, outside the repo): <audio> needs the right type to play it.
         MIME.put("mp3", "audio/mpeg");
         MIME.put("ogg", "audio/ogg");
         MIME.put("oga", "audio/ogg");
@@ -68,7 +68,7 @@ final class WebAssets {
         this.assets = assets;
     }
 
-    /** La page d'entrée : tv.html (plein écran, sans banc d'essai) si elle existe, sinon index.html. */
+    /** The entry page: tv.html (full screen, no test bench) if it exists, otherwise index.html. */
     String entryUrl() {
         return ROOT + (exists("tv.html") ? "tv.html" : "index.html");
     }
@@ -81,7 +81,7 @@ final class WebAssets {
         }
     }
 
-    /** Réponse pour une requête de la WebView : le fichier, 404 s'il manque, ou vide pour tout hôte étranger. */
+    /** Response for a WebView request: the file, 404 if missing, or empty for any foreign host. */
     WebResourceResponse intercept(WebResourceRequest request) {
         Uri uri = request.getUrl();
         if (uri == null || !HOST.equals(uri.getHost())) return empty();
@@ -110,7 +110,7 @@ final class WebAssets {
         return r;
     }
 
-    /** Réponse vide pour tout hôte étranger : la page continue sans la ressource (polices → repli système). */
+    /** Empty response for any foreign host: the page carries on without the resource (fonts → system fallback). */
     private static WebResourceResponse empty() {
         WebResourceResponse r = new WebResourceResponse("text/plain", "utf-8", null);
         r.setStatusCodeAndReasonPhrase(204, "No Content");
