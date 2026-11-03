@@ -94,8 +94,7 @@ export default {
     set(beam, `translate(${(b.cx * W - BEAM_W * cqw / 2).toFixed(1)}px, 0) rotate(${lean.toFixed(2)}deg) scale(${(beamW / (BEAM_W * cqw)).toFixed(3)}, ${(beamH / (BEAM_H * cqw)).toFixed(3)})`);
     const warmW = b.w * W * 1.15, warmH = b.h * H * 0.9;
     set(warm, `translate(${(b.cx * W - WARM_W * cqw / 2).toFixed(1)}px, ${(b.cy * H - WARM_H * cqw / 2).toFixed(1)}px) scale(${(warmW / (WARM_W * cqw)).toFixed(3)}, ${(warmH / (WARM_H * cqw)).toFixed(3)})`);
-    // A single rise of the warmth on each move (no infinite breathing).
-    if (!instant && !isReduced()) warm.animate([{ opacity: 0.55 }, { opacity: 1 }], { duration: 600, easing: 'ease-out', fill: 'forwards' });
+    void warm;   // the warmth keeps its CSS opacity (.35): no flare on a move, the veil's window does the work
   },
 
   focus(n, instant) {

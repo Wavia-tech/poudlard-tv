@@ -91,8 +91,8 @@ import { getConfig } from './config.js';
 
 const MASTER_DB = -14;                       // master volume
 const MASTER = Math.pow(10, MASTER_DB / 20); // ≈ 0.2
-const DRY = 0.65, WET = 0.35;                // dry / wet mix
-const REVERB_SECONDS = 2.2;
+const DRY = 0.5, WET = 0.5;                  // dry / wet mix: half hall, the notes bloom instead of striking
+const REVERB_SECONDS = 3.6;
 const REVERB_LOWPASS_HZ = 5000;
 const REVERB_PREDELAY = 0.018;               // small pre-delay: the sound leaves before the hall answers
 const MAX_VOICES = 40;                       // beyond this, new notes are ignored (never any saturation)
@@ -100,10 +100,11 @@ const DEDUPE_MS = 30;                        // the same cue requested again wit
 
 // Celesta partials: frequency ratio, relative level, duration factor (the highs die faster).
 const PARTIALS = [
+  // Glass rather than metal: the inharmonic partials stay but almost whisper, so the fundamental sings alone.
   { ratio: 1,    level: 1.00, decay: 1.00 },
-  { ratio: 2.76, level: 0.34, decay: 0.55 },
-  { ratio: 5.40, level: 0.12, decay: 0.32 },
-  { ratio: 8.90, level: 0.045, decay: 0.22 },
+  { ratio: 2.76, level: 0.16, decay: 0.45 },
+  { ratio: 5.40, level: 0.04, decay: 0.25 },
+  { ratio: 8.90, level: 0.012, decay: 0.18 },
 ];
 
 // Pitches as MIDI numbers (A4 = 69 = 440 Hz). Key: E minor (E, F#, G, A, B, C, D).
@@ -116,39 +117,33 @@ const hz = (midi) => 440 * Math.pow(2, (midi - 69) / 12);
 // toggle 0.5 s · confirm 0.8 s.
 const CUES = {
   // Two light notes, E → G (minor third): moving one step.
-  move: (dir) => {
-    const up = [E5, G5], seq = dir < 0 ? up.slice().reverse() : up;
-    return seq.map((n, i) => ({ n, t: i * 0.07, d: 0.55 + i * 0.1, g: 0.22 + i * 0.04 }));
-  },
-  // Four-note descending phrase: B, G, E, B (going down into the Library or the Map).
-  enter: () => [B5, G5, E5, B4].map((n, i) => ({ n, t: i * 0.11, d: 0.9 + i * 0.12, g: 0.3 - i * 0.03 })),
-  // E minor chord arpeggiated upward from the tonic: E, G, B, E (going back up to the Parapet).
+  // One soft note, a touch higher to the right than to the left: moving one step. A breath, not a bell.
+  move: (dir) => [{ n: dir < 0 ? E5 : G5, t: 0, d: 1.1, g: 0.1 }],
+  // Three slow descending notes: B, G, E (going down into the Library or the Map).
+  enter: () => [B5, G5, E5].map((n, i) => ({ n, t: i * 0.16, d: 1.6 + i * 0.2, g: 0.14 - i * 0.02 })),
+  // E minor chord unfolding upward from the tonic: E, G, B (going back up to the Parapet).
   // No B → E pickup at the head: nothing in common with the incipit of Hedwig's Theme.
-  return: () => [E5, G5, B5, E6].map((n, i) => ({ n, t: i * 0.11, d: 0.9 + i * 0.12, g: 0.26 + i * 0.02 })),
-  // Bright arpeggiated chord (E, G, B, E, G) then a held E–B that slowly fades: the light rises.
+  return: () => [E5, G5, B5].map((n, i) => ({ n, t: i * 0.16, d: 1.6 + i * 0.2, g: 0.12 + i * 0.01 })),
+  // A slow glass chord (E, G, B, E) blooming over a low E that lingers: the light rises.
   lumos: () => [
-    ...[E5, G5, B5, E6, G6].map((n, i) => ({ n, t: i * 0.09, d: 1.1 + i * 0.1, g: 0.26 + i * 0.03 })),
-    { n: E6, t: 0.46, d: 1.9, g: 0.34 },
-    { n: B6, t: 0.50, d: 1.7, g: 0.16 },
-    { n: E4, t: 0.46, d: 1.9, g: 0.24 },
+    ...[E5, G5, B5, E6].map((n, i) => ({ n, t: i * 0.14, d: 2.2 + i * 0.2, g: 0.13 + i * 0.015 })),
+    { n: E4, t: 0.2, d: 3.2, g: 0.12 },
+    { n: B6, t: 0.7, d: 2.4, g: 0.05 },
   ],
   // Three low notes fading out, each softer than the last: E, B, E (the house goes to bed).
   nox: () => [
-    { n: E4, t: 0,    d: 1.4, g: 0.30 },
-    { n: B3, t: 0.26, d: 1.6, g: 0.22 },
-    { n: E3, t: 0.56, d: 1.8, g: 0.16 },
+    { n: E4, t: 0,    d: 2.2, g: 0.14 },
+    { n: B3, t: 0.4,  d: 2.6, g: 0.1 },
+    { n: E3, t: 0.85, d: 3.0, g: 0.07 },
   ],
   // Two clear notes, G → E (rising sixth): the house wakes up. Not the films' B → E pickup.
-  wake: () => [{ n: G5, t: 0, d: 0.9, g: 0.26 }, { n: E6, t: 0.13, d: 1.1, g: 0.3 }],
-  // Very short grating interval: a minor second (E/F) struck twice, for the Howler.
-  error: () => [
-    { n: E5, t: 0,    d: 0.28, g: 0.26 }, { n: F5, t: 0,    d: 0.28, g: 0.22 },
-    { n: D5, t: 0.09, d: 0.32, g: 0.22 }, { n: E5, t: 0.09, d: 0.32, g: 0.2 },
-  ],
-  // A single dry note: checkmark or hourglass.
-  toggle: () => [{ n: B5, t: 0, d: 0.45, g: 0.26 }],
-  // Short third, G then B almost together: "done".
-  confirm: () => [{ n: G5, t: 0, d: 0.7, g: 0.24 }, { n: B5, t: 0.06, d: 0.8, g: 0.26 }],
+  wake: () => [{ n: G5, t: 0, d: 1.6, g: 0.12 }, { n: E6, t: 0.2, d: 2.0, g: 0.13 }],
+  // The Howler: two low notes that sink (B, then E below), gentle; the red envelope does the shouting.
+  error: () => [{ n: B4, t: 0, d: 1.2, g: 0.12 }, { n: E4, t: 0.18, d: 1.6, g: 0.1 }],
+  // A single soft note: checkmark or hourglass.
+  toggle: () => [{ n: B5, t: 0, d: 0.9, g: 0.1 }],
+  // A soft third, G then B almost together: "done".
+  confirm: () => [{ n: G5, t: 0, d: 1.4, g: 0.1 }, { n: B5, t: 0.1, d: 1.6, g: 0.11 }],
 };
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -461,15 +456,16 @@ function playNote(note, at, out = graph.input, bag = voices, max = MAX_VOICES) {
     const peak = note.g * p.level;
     const dur = note.d * p.decay;
     g.gain.setValueAtTime(0.0001, at);
-    g.gain.linearRampToValueAtTime(peak, at + 0.004);              // 4 ms attack
-    g.gain.exponentialRampToValueAtTime(0.0001, at + 0.004 + dur); // exponential decay
+    g.gain.linearRampToValueAtTime(peak, at + 0.028);              // 28 ms attack: a glass that is stroked, not struck
+    g.gain.exponentialRampToValueAtTime(0.0001, at + 0.028 + dur); // exponential decay
     osc.connect(g).connect(out);
-    osc.start(at); osc.stop(at + 0.004 + dur + 0.05);
+    osc.start(at); osc.stop(at + 0.028 + dur + 0.05);
     nodes.push(osc, g);
     if (at + dur > longestEnd) { longestEnd = at + dur; longest = osc; }
   }
-  // Hammer: 30 ms of high-pass noise, 12 ms envelope, very discreet.
-  if (noiseBuf) {
+  // Hammer: 30 ms of high-pass noise, 12 ms envelope. Retired for the cues (a stroked glass has no hammer):
+  // `note.hammer` keeps it available for the test bench.
+  if (noiseBuf && note.hammer) {
     const src = ctx.createBufferSource(); src.buffer = noiseBuf;
     const hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 3200; hp.Q.value = 0.7;
     const g = ctx.createGain();
