@@ -7,6 +7,10 @@
 app/assets/logos.js
 /logos.js
 
+# Official house crests (copyrighted artwork), cut out locally from a reference
+# image: the app falls back to the drawn crests of app/js/crests.js without them.
+app/assets/crest-*.webp
+
 # Background music: personal file, never distributed (docs/MUSIC.md).
 # The whole folder is ignored, including any license note you might put there.
 app/assets/music/*

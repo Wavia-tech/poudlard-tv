@@ -57,7 +57,13 @@ public final class HomeActivity extends Activity {
 
         if (Watchdog.crashedTooOften(this)) {
             // Too many crashes: we do not rebuild the interface, we explain and let the original take over.
-            HomeMode.giveBackHome(this);
+            HomeMode.giveBackHome(this, true);
+            setContentView(crashedView());
+            return;
+        }
+        if (Watchdog.reverted(this) && launchedAsHome()) {
+            // Sticky revert: reached through the HOME intent after the guard fired (an OTA re-enabled the alias, say).
+            // Opening Poudlard TV from the app list (.Start) still shows the interface, as Free My TV does.
             setContentView(crashedView());
             return;
         }
@@ -115,7 +121,7 @@ public final class HomeActivity extends Activity {
                 int n = Watchdog.record(HomeActivity.this);
                 dropWebView();
                 if (n >= Watchdog.LIMIT) {
-                    HomeMode.giveBackHome(HomeActivity.this);
+                    HomeMode.giveBackHome(HomeActivity.this, true);
                     setContentView(crashedView());
                 } else {
                     recreate();
@@ -127,6 +133,11 @@ public final class HomeActivity extends Activity {
     }
 
     /** Detaches and destroys the WebView, then forgets it: no key is replayed to it any more, onDestroy leaves it alone. */
+    private boolean launchedAsHome() {
+        Intent i = getIntent();
+        return i != null && Intent.ACTION_MAIN.equals(i.getAction()) && i.hasCategory(Intent.CATEGORY_HOME);
+    }
+
     private void dropWebView() {
         if (web == null) return;
         WebView v = web;
@@ -235,6 +246,28 @@ public final class HomeActivity extends Activity {
             web.onResume();
             web.resumeTimers();
             web.requestFocus();
+            checkLostHome();
+        }
+    }
+
+    private Boolean lastLost;
+
+    /**
+     * No boot receiver here (rule): instead, each time the home comes back, it checks whether the HOME role was
+     * lost while our alias is still enabled (a TV update resets the role). When that state changes, the page is told
+     * ('poudlard:home' with lost:true) and offers to ask for the key again, once a day at most (home.js).
+     */
+    private void checkLostHome() {
+        boolean lost;
+        try {
+            lost = HomeMode.homeAliasEnabled(this) && !HomeMode.POUDLARD.equals(HomeMode.mode(this)) && !Watchdog.reverted(this);
+        } catch (RuntimeException e) {
+            return;
+        }
+        if (lastLost != null && lastLost == lost) return;
+        lastLost = lost;
+        if (web != null && lost) {
+            web.evaluateJavascript("document.dispatchEvent(new CustomEvent('poudlard:home',{detail:{held:false,lost:true}}))", null);
         }
     }
 

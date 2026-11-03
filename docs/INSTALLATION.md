@@ -144,7 +144,7 @@ Nothing is modified in the system: no root, no partition touched, no app disable
 
 All settings are made in the interface (Menu button → the Room of Requirement), with the D-pad: apps on the Parapet and their order, hidden apps, house, Hedwig, sounds and background music, motion, sleep, classic mode, and the "About" section (network, version, reversibility, reset). There is no configuration file to edit and nothing to recompile to change a setting.
 
-The configuration is a single JSON object, versioned and validated on read (see `app/README.md`). On TV it lives in the WebView's `localStorage` (origin `https://poudlard.tv`, served from the APK's assets), in the app's private data: never synced, never backed up to the cloud, erased on uninstall.
+The configuration is a single JSON object, versioned and validated on read (see `app/README.md`). On TV it lives in the WebView's `localStorage` (origin `https://poudlard.invalid`, served from the APK's assets), in the app's private data: never synced, never backed up to the cloud, erased on uninstall.
 
 ### Troubleshooting
 
@@ -157,3 +157,17 @@ The configuration is a single JSON object, versioned and validated on read (see 
 | Black screen at startup | Missing backdrop image or old WebView | Classic mode is guaranteed to work without images: hold Back for 2 s; update "Android System WebView" |
 | Default fonts (no Cinzel) | Normal state of this version: the mock-up loads fonts from Google Fonts, which the APK (no network) cannot do | Put the OFL files (Cinzel, Cinzel Decorative, EB Garamond, IM Fell English) and their licence in `app/assets/fonts/`, declare them with `@font-face` in `app/css/base.css`, rebuild |
 | Nothing on screen after three crashes | The safety net handed control back | Fix the cause (`adb logcat -s PoudlardTV chromium`), then redo Home → Poudlard |
+
+## Known limits
+
+Inherited from the method, by design (the launcher asks for no permission and runs no service):
+
+- **Fire TV** keeps the Home key for Amazon's home: Poudlard TV opens from the app list there.
+- **Hisense** and **Google TV Streamer**: the branded Home button opens the original home (Free My TV catches it with an accessibility service; we do not).
+- **Assistant results** and some voice actions open the original home.
+- **Hikeen** sets waking from standby may show the previous app for a second.
+- **Samsung 2017-2018** (Android 8/9): the TV's settings menu freezes when opened from an app; use the remote's Settings key.
+
+## After a TV update
+
+A system update can reset the HOME role. The launcher has no boot receiver (rule), so it checks each time it comes back: if the key was lost while its entry is still enabled, the Parapet offers to ask it back ("La télé a repris la touche Home", once a day at most). Accept, or from the computer: `tools/tv.sh home poudlard`.

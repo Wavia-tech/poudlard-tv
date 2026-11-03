@@ -30,7 +30,7 @@
 @keyframes rpt-refuse { 0%, 100% { transform: rotate(0); } 25% { transform: rotate(-1.5deg); } 75% { transform: rotate(1.5deg); } }
 
 /* Title: the app name, engraved Cinzel, 1.5 cqw minimum (readable from 3 m). */
-.rpt-title { font-family: var(--display); font-weight: 600; font-size: 1.5cqw; letter-spacing: .2em; text-transform: uppercase; color: var(--gold);
+.rpt-title { font-family: var(--display); font-weight: 600; font-size: var(--t-hint); letter-spacing: var(--track-wide); text-transform: uppercase; color: var(--gold);
   margin-bottom: .6cqw; white-space: nowrap; }
 .rpt-title:empty { display: none; }
 

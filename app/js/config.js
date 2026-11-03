@@ -45,27 +45,39 @@ export const PASSAGES_MAX = 12;
 // Ids of the passages before config version 4 (named consoles): kept so an old parapet keeps its HDMI entries.
 const OLD_PASSAGES = { ps5: 'in1', ps4: 'in2', xbox: 'in3', switch: 'in4' };
 
-// Library collections. `symbol`: motif engraved on the cover; `app`: the app that owns the title;
-// `content`: identifier for the deep link (never a URL typed on screen).
+// Library collections, each shown as a shop window (ollivanders.js). `scene`: the generated backdrop, its size in
+// pixels and one selection polygon per film (top-left, top-right, bottom-right, bottom-left, image pixels);
+// `app`: the app that owns the title; `url`: the film's page (host allow-list in platform.js), never typed on screen.
 export const LIBRARY = [
   {
-    // `url`: the film's page on Max (links supplied by Corentin). Only the hosts in URL_HOSTS are accepted by platform.js.
-    id: 'hp', title: 'Harry Potter', background: 'library', items: [
-      { n: 1, title: "À l'école des sorciers", year: 2001, symbol: 'stone', color: '#7a2328', app: 'max', content: 'hp1', url: "https://www.max.com/fr/fr/search?q=Harry+Potter+à+l'école+des+sorciers" },
-      { n: 2, title: 'La Chambre des secrets', year: 2002, symbol: 'serpent', color: '#25492c', app: 'max', content: 'hp2', url: 'https://www.max.com/fr/fr/search?q=Harry+Potter+et+la+Chambre+des+secrets' },
-      { n: 3, title: "Le Prisonnier d'Azkaban", year: 2004, symbol: 'timeturner', color: '#4a2f5c', app: 'max', content: 'hp3', url: "https://www.max.com/fr/fr/search?q=Harry+Potter+et+le+Prisonnier+d'Azkaban" },
-      { n: 4, title: 'La Coupe de feu', year: 2005, symbol: 'goblet', color: '#8a4f1c', app: 'max', content: 'hp4', url: 'https://www.max.com/fr/fr/search?q=Harry+Potter+et+la+Coupe+de+feu' },
-      { n: 5, title: "L'Ordre du Phénix", year: 2007, symbol: 'phoenix', color: '#1f3d6b', app: 'max', content: 'hp5', url: "https://www.max.com/fr/fr/search?q=Harry+Potter+et+l'Ordre+du+Phénix" },
-      { n: 6, title: 'Le Prince de sang-mêlé', year: 2009, symbol: 'vial', color: '#3d4a26', app: 'max', content: 'hp6', url: 'https://www.max.com/fr/fr/search?q=Harry+Potter+et+le+Prince+de+sang-mêlé' },
-      { n: 7, title: 'Les Reliques de la Mort, 1re partie', year: 2010, symbol: 'locket', color: '#5c1f3a', app: 'max', content: 'hp7', url: 'https://www.max.com/fr/fr/search?q=Harry+Potter+et+les+Reliques+de+la+Mort+Partie+1' },
-      { n: 8, title: 'Les Reliques de la Mort, 2e partie', year: 2011, symbol: 'wand', color: '#2b2b45', app: 'max', content: 'hp8', url: 'https://www.max.com/fr/fr/search?q=Harry+Potter+et+les+Reliques+de+la+Mort+Partie+2' },
+    // `url`: the film's page on Max (links supplied by the owner). Only the hosts in URL_HOSTS are accepted by platform.js.
+    id: 'hp', title: 'Harry Potter', background: 'library',
+    scene: { image: 'assets/ollivanders.webp', w: 1024, h: 576, boxes: [
+      [[222, 178], [292, 178], [270, 508], [180, 508]], [[300, 178], [373, 178], [350, 508], [272, 508]], [[382, 178], [450, 178], [432, 508], [355, 508]], [[460, 178], [530, 178], [520, 508], [440, 508]],
+      [[540, 178], [608, 178], [615, 508], [540, 508]], [[620, 178], [690, 178], [705, 508], [630, 508]], [[700, 178], [770, 178], [800, 508], [718, 508]], [[780, 178], [850, 178], [895, 508], [810, 508]],
+    ] },
+    items: [
+      { n: 1, title: "À l'école des sorciers", year: 2001, symbol: 'stone', color: '#7a2328', app: 'max', content: 'hp1', url: "https://www.max.com/fr/fr/search?q=Harry+Potter+à+l'école+des+sorciers", urls: { max: "https://www.max.com/fr/fr/search?q=Harry+Potter+à+l'école+des+sorciers", canal: 'https://www.canalplus.com/cinema/harry-potter-a-l-ecole-des-sorciers/h/40438941_50889' } },
+      { n: 2, title: 'La Chambre des secrets', year: 2002, symbol: 'serpent', color: '#25492c', app: 'max', content: 'hp2', url: 'https://www.max.com/fr/fr/search?q=Harry+Potter+et+la+Chambre+des+secrets', urls: { max: 'https://www.max.com/fr/fr/search?q=Harry+Potter+et+la+Chambre+des+secrets', canal: 'https://www.canalplus.com/cinema/harry-potter-et-la-chambre-des-secrets/h/40439261_50889' } },
+      { n: 3, title: "Le Prisonnier d'Azkaban", year: 2004, symbol: 'timeturner', color: '#4a2f5c', app: 'max', content: 'hp3', url: "https://www.max.com/fr/fr/search?q=Harry+Potter+et+le+Prisonnier+d'Azkaban", urls: { max: "https://www.max.com/fr/fr/search?q=Harry+Potter+et+le+Prisonnier+d'Azkaban", canal: 'https://www.canalplus.com/cinema/harry-potter-et-le-prisonnier-d-azkaban/h/40439243_50889' } },
+      { n: 4, title: 'La Coupe de feu', year: 2005, symbol: 'goblet', color: '#8a4f1c', app: 'max', content: 'hp4', url: 'https://www.max.com/fr/fr/search?q=Harry+Potter+et+la+Coupe+de+feu', urls: { max: 'https://www.max.com/fr/fr/search?q=Harry+Potter+et+la+Coupe+de+feu', canal: 'https://www.canalplus.com/cinema/harry-potter-et-la-coupe-de-feu/h/40439245_50889' } },
+      { n: 5, title: "L'Ordre du Phénix", year: 2007, symbol: 'phoenix', color: '#1f3d6b', app: 'max', content: 'hp5', url: "https://www.max.com/fr/fr/search?q=Harry+Potter+et+l'Ordre+du+Phénix", urls: { max: "https://www.max.com/fr/fr/search?q=Harry+Potter+et+l'Ordre+du+Phénix", canal: 'https://www.canalplus.com/cinema/harry-potter-et-l-ordre-du-phenix/h/40442021_50889' } },
+      { n: 6, title: 'Le Prince de sang-mêlé', year: 2009, symbol: 'vial', color: '#3d4a26', app: 'max', content: 'hp6', url: 'https://www.max.com/fr/fr/search?q=Harry+Potter+et+le+Prince+de+sang-mêlé', urls: { max: 'https://www.max.com/fr/fr/search?q=Harry+Potter+et+le+Prince+de+sang-mêlé', canal: 'https://www.canalplus.com/cinema/harry-potter-et-le-prince-de-sang-mele/h/40444270_50889' } },
+      { n: 7, title: 'Les Reliques de la Mort, 1re partie', year: 2010, symbol: 'locket', color: '#5c1f3a', app: 'max', content: 'hp7', url: 'https://www.max.com/fr/fr/search?q=Harry+Potter+et+les+Reliques+de+la+Mort+Partie+1', urls: { max: 'https://www.max.com/fr/fr/search?q=Harry+Potter+et+les+Reliques+de+la+Mort+Partie+1', canal: 'https://www.canalplus.com/cinema/harry-potter-et-les-reliques-de-la-mort-partie-1/h/40439244_50889' } },
+      { n: 8, title: 'Les Reliques de la Mort, 2e partie', year: 2011, symbol: 'wand', color: '#2b2b45', app: 'max', content: 'hp8', url: 'https://www.max.com/fr/fr/search?q=Harry+Potter+et+les+Reliques+de+la+Mort+Partie+2', urls: { max: 'https://www.max.com/fr/fr/search?q=Harry+Potter+et+les+Reliques+de+la+Mort+Partie+2', canal: 'https://www.canalplus.com/cinema/harry-potter-et-les-reliques-de-la-mort-partie-2/h/40439242_50889' } },
     ],
   },
   {
-    id: 'fb', title: 'Les Animaux fantastiques', background: 'newyork', items: [
-      { n: 1, title: 'Les Animaux fantastiques', year: 2016, symbol: 'suitcase', color: '#1d3b4a', app: 'max', content: 'fb1' },
-      { n: 2, title: 'Les Crimes de Grindelwald', year: 2018, symbol: 'skull', color: '#2a2a2a', app: 'max', content: 'fb2' },
-      { n: 3, title: 'Les Secrets de Dumbledore', year: 2022, symbol: 'phoenix', color: '#3d2f1a', app: 'max', content: 'fb3' },
+    id: 'fb', title: 'Les Animaux fantastiques', background: 'newyork',   // `urls`: Max, Netflix (FR catalogue) and Canal+ pages, one link per app
+    scene: { image: 'assets/beasts.webp', w: 1024, h: 576, boxes: [
+      [[45, 262], [345, 262], [345, 500], [45, 500]], [[368, 252], [662, 252], [662, 500], [368, 500]], [[682, 262], [978, 262], [978, 506], [682, 506]],
+    ] },
+    items: [
+      // French catalogue (November 2026): the first two films are on Max, only the third is on Netflix France.
+      // `urls`: one link per app, so the Remembrall can switch ("Ouvrir avec Netflix" / "… Max").
+      { n: 1, title: 'Les Animaux fantastiques', year: 2016, symbol: 'suitcase', color: '#1d3b4a', app: 'max', content: 'fb1', url: 'https://www.max.com/fr/fr/search?q=Les+Animaux+fantastiques', urls: { max: 'https://www.max.com/fr/fr/search?q=Les+Animaux+fantastiques', netflix: 'https://www.netflix.com/title/80111501' , canal: 'https://www.canalplus.com/cinema/les-animaux-fantastiques/h/40442388_50889' } },
+      { n: 2, title: 'Les Crimes de Grindelwald', year: 2018, symbol: 'skull', color: '#2a2a2a', app: 'max', content: 'fb2', url: 'https://www.max.com/fr/fr/search?q=Les+Crimes+de+Grindelwald', urls: { max: 'https://www.max.com/fr/fr/search?q=Les+Crimes+de+Grindelwald', netflix: 'https://www.netflix.com/title/80997275' , canal: 'https://www.canalplus.com/cinema/les-animaux-fantastiques-les-crimes-de-grindelwald/h/40439354_50889' } },
+      { n: 3, title: 'Les Secrets de Dumbledore', year: 2022, symbol: 'phoenix', color: '#3d2f1a', app: 'netflix', content: 'fb3', url: 'https://www.netflix.com/title/81516447', urls: { netflix: 'https://www.netflix.com/title/81516447', max: 'https://www.max.com/fr/fr/search?q=Les+Secrets+de+Dumbledore' , canal: 'https://www.canalplus.com/cinema/les-animaux-fantastiques-les-secrets-de-dumbledore/h/41125749_50889' } },
     ],
   },
 ];
@@ -79,12 +91,14 @@ export const DEFAULT_CONFIG = Object.freeze({
   hidden: [],                   // apps hidden from the Map (never lost: they can be shown again)
   owl: 'vive',                  // 'vive' | 'calme' | 'absente'
   sounds: false,
-  music: 'auto',                // background music: 'auto' (personal file if present, otherwise celesta) | 'celesta' | 'aucune'
+  music: 'auto',                // background music: 'auto' (personal file if present, otherwise celesta) | 'fichier' (the file) | 'celesta' | 'aucune'
+  musicNox: 'pause',            // during Nox (sleep): 'pause' the music | 'continue' it
   motion: 'auto',               // 'auto' | 'reduit' | 'economie'
   sky: 'auto',                  // the Parapet's sky: 'auto' (dusk, night, deep night, dawn by the hour) | 'nuit' (always a clear night)
   motionSystem: 'follow',       // 'follow' the system's reduced-motion flag | 'ignore' it
   text: 'normal',               // 'normal' | 'grand' (every type token × 1.25)
-  idleSeconds: 0,               // sleep (Nox); 0 = never (Corentin's choice: sleep OFF by default)
+  homeNagAt: 0,                 // when the Parapet last offered to ask the Home key back after a TV update (once a day)
+  idleSeconds: 0,               // sleep (Nox); 0 = never (sleep OFF by default, by design)
   lastApp: null,
   firstRunDone: false,
   library: { hidden: [], apps: {} },   // hidden titles ('collection:content') and the app chosen per title
@@ -128,11 +142,13 @@ export function sanitize(raw) {
   if (Array.isArray(raw.hidden)) c.hidden = idList(raw.hidden, { has: knows }).filter((id) => !c.dock.includes(id));
   if (['vive', 'calme', 'absente'].includes(raw.owl)) c.owl = raw.owl;
   if (typeof raw.sounds === 'boolean') c.sounds = raw.sounds;
-  if (['auto', 'celesta', 'aucune'].includes(raw.music)) c.music = raw.music;
+  if (['auto', 'fichier', 'celesta', 'aucune'].includes(raw.music)) c.music = raw.music;
+  if (['pause', 'continue'].includes(raw.musicNox)) c.musicNox = raw.musicNox;
   if (['auto', 'reduit', 'economie'].includes(raw.motion)) c.motion = raw.motion;
   if (['auto', 'nuit'].includes(raw.sky)) c.sky = raw.sky;
   if (['follow', 'ignore'].includes(raw.motionSystem)) c.motionSystem = raw.motionSystem;
   if (['normal', 'grand'].includes(raw.text)) c.text = raw.text;
+  if (Number.isInteger(raw.homeNagAt) && raw.homeNagAt >= 0) c.homeNagAt = raw.homeNagAt;
   if (Number.isInteger(raw.idleSeconds) && raw.idleSeconds >= 0 && raw.idleSeconds <= 3600) c.idleSeconds = raw.idleSeconds;
   if (typeof raw.lastApp === 'string' && knows(raw.lastApp)) c.lastApp = raw.lastApp;
   if (raw.firstRunDone === true) c.firstRunDone = true;
@@ -148,7 +164,7 @@ export function loadConfig() {
   try {
     const raw = localStorage.getItem(KEY);
     const parsed = raw ? JSON.parse(raw) : null;
-    // Migration: before version 3, sleep defaulted to 90 s; Corentin wants it disabled.
+    // Migration: before version 3, sleep defaulted to 90 s; it is now disabled by default.
     if (parsed && typeof parsed === 'object' && !(Number(parsed.version) >= 3)) { parsed.idleSeconds = 0; parsed.version = 3; }
     // Migration: before version 4, the passages were named consoles (ps5…); they become HDMI ports (in1…).
     if (parsed && typeof parsed === 'object' && !(Number(parsed.version) >= 4)) {

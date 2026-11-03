@@ -1,12 +1,15 @@
 // Entry point: load the config, install input handling, register the screens, start.
-import { loadConfig, getConfig, onConfigChange, HOUSES } from './config.js';
+import { loadConfig, getConfig, updateConfig, onConfigChange, HOUSES } from './config.js';
 import { Input } from './input.js';
 import { Router } from './router.js';
 import { Fx } from './fx.js';
+import { Platform } from './platform.js';
 import { SCREENS } from './screens/index.js';
 
 const stage = document.getElementById('stage');
-const config = loadConfig();
+let config = loadConfig();
+// A low-RAM TV starts in economy motion with a calm owl (first run only: the person can change it afterwards).
+if (!config.firstRunDone && Platform.device().lowRam) config = updateConfig({ motion: 'economie', owl: 'calme' });
 
 function applyTheme(c) {
   const html = document.documentElement;
@@ -59,12 +62,20 @@ armIdle();
 // Lumos can never freeze: an error anywhere releases the keys and settles the active screen; the page going hidden
 // (the launched app took the screen) settles too, and keys pressed in that app are dropped when the page comes back.
 let lastFatal = '';
+const fatals = [];        // timestamps of the same error message: three within 60 s count as a crash for the TV's guard
+function countFatal(msg) {
+  const now = Date.now();
+  if (msg !== lastFatal) fatals.length = 0;
+  fatals.push(now);
+  while (fatals.length && now - fatals[0] > 60000) fatals.shift();
+  if (fatals.length >= 3) { fatals.length = 0; Platform.fatal(msg); }
+}
 function releaseAll(message) {
   try { const s = SCREENS[Router.current()]; if (s && s.settle) s.settle(); } catch (e) { /* the screen could not settle: the keys are freed below anyway */ }
   Input.release();
   if (message) import('./beuglante.js').then((m) => m.beuglante(stage, { message })).catch(() => {});
 }
-window.addEventListener('error', (e) => { const msg = String(e && e.message || e); if (msg === lastFatal) return; lastFatal = msg; console.error('fatal', e.error || e); releaseAll('Un sortilège a raté. Tout est relâché.'); });
+window.addEventListener('error', (e) => { const msg = String(e && e.message || e); countFatal(msg); if (msg === lastFatal) return; lastFatal = msg; console.error('fatal', e.error || e); releaseAll('Un sortilège a raté. Tout est relâché.'); });
 window.addEventListener('unhandledrejection', (e) => { console.error('fatal', e.reason); releaseAll('Un sortilège a raté. Tout est relâché.'); });
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) { clearTimeout(idleTimer); releaseAll(null); }

@@ -5,13 +5,13 @@ import { dockApps, updateConfig, getConfig, isReduced, onConfigChange, HOUSES } 
 import { Platform } from '../platform.js';
 import { Input } from '../input.js';
 import { LOGOS } from '../../assets/logos.js';
-import { monogram } from '../monogram.js';
-import { crestSvg } from '../crests.js';
+import { monogram, logoBox } from '../monogram.js';
+import { mountCrest } from '../crests.js';
 import { createOwl } from '../owl.js';
 
 const FOCUS_SCALE = 1.28;
 const LOGO_H = 3.6;            // cqw: logo height at rest (3 m floor)
-const LOGO_W_MAX = 9.5;        // cqw
+const LOGO_W_MAX = 12;         // cqw: a wide wordmark (prime video, Canal+) keeps enough height to weigh like the marks
 const PER_ROW = 8;             // beyond this: a second row
 const NOX_WANDER_MS = 20 * 60 * 1000;   // one lap of the clock's wander during Nox
 const BAR = ['sound', 'map', 'settings'];
@@ -73,7 +73,8 @@ export default {
       <div class="home-candlelight"></div>
       <div class="home-dock"><div class="home-rows"></div></div>
       <div class="home-arena"></div>
-      <div class="keyhint home-hint"><span><b>▼</b>La Bibliothèque</span><span><b>▲</b>Son · Carte · Réglages</span><span><b>OK</b>Ouvrir</span></div>
+      <div class="home-rider" aria-hidden="true"><i class="home-puff"></i><i class="home-puff"></i><i class="home-puff"></i><i class="home-streak"></i><i class="home-streak"></i><i class="home-streak"></i><i class="home-streak"></i><div class="home-rider-bob"><img class="home-rider-img" alt="" src="assets/rider.webp"></div></div>
+      <div class="keyhint home-hint"><span><b>▼</b>vers Ollivanders</span></div>
       <div class="home-dim"></div><div class="home-disc"></div><div class="home-bloom"></div>
       <div class="home-launch"><img class="home-launch-banner" alt=""><div class="home-launch-logo"></div><div class="home-launch-title engraved gold-text"></div><div class="home-launch-sub"></div></div>
       <div class="home-plate"><div class="home-plate-title engraved">Nox ?</div><div class="home-plate-sub">Passer en mode classique, sans décor ni chouette.</div><div class="home-plate-opts"><span class="home-plate-opt" data-v="yes">Oui, Nox</span><span class="home-plate-opt is-focus" data-v="no">Non</span></div></div>`;
@@ -113,6 +114,14 @@ export default {
     if (ctx.params.boot) this.boot(isReduced() ? 300 : ctx.params.short ? 700 : 1800);
     if (ctx.params.nox) this.nox();
     if (ctx.params.askClassic) this.timers.push(setTimeout(() => this.plate(true), 750));
+    // The TV lost the Home key to an update (HomeActivity.checkLostHome): offer to ask it back, once a day at most.
+    this.onHomeEvent = (e) => {
+      if (!this.root || !e.detail || !e.detail.lost || this.mode !== 'normal' || this.busy) return;
+      if (Date.now() - (getConfig().homeNagAt || 0) < 86400e3) return;
+      this.plate(true, { title: 'La télé a repris la touche Home', sub: 'Une mise à jour, sans doute. OK pour la redemander.',
+        onYes: () => Platform.setHome('poudlard'), onNo: () => updateConfig({ homeNagAt: Date.now() }) });
+    };
+    document.addEventListener('poudlard:home', this.onHomeEvent);
   },
 
   // The Home key (router.js): the Parapet goes back to its entry state, whatever it was doing. True = handled.
@@ -138,13 +147,14 @@ export default {
   syncHouse() {
     const c = getConfig(); const h = c.house ? HOUSES[c.house] : null;
     const el = this.root.querySelector('.home-crest'); if (!el) return;
-    el.innerHTML = h ? `${crestSvg(c.house, 'home-crest-svg')}<span class="home-crest-name"></span>` : '';
-    if (h) el.querySelector('.home-crest-name').textContent = h.name;
+    el.innerHTML = '';
+    if (h) { mountCrest(el, c.house, 'home-crest-svg'); const name = document.createElement('span'); name.className = 'home-crest-name'; name.textContent = h.name; el.appendChild(name); }
     el.classList.toggle('show', Boolean(h));
   },
 
   unmount() {
     if (this.unsub) this.unsub();
+    if (this.onHomeEvent) document.removeEventListener('poudlard:home', this.onHomeEvent); this.onHomeEvent = null;
     if (this.untick) this.untick(); this.untick = null;
     this.ctx.fx.setRate(getConfig().motion === 'economie' ? 66 : 33);
     this.timers.forEach(clearTimeout); this.timers.forEach(clearInterval);
@@ -174,10 +184,11 @@ export default {
         const el = document.createElement('div');
         el.className = 'home-app';
         el.dataset.id = app.id;
-        el.style.width = Math.min(LOGO_W_MAX, Math.max(3.4, LOGO_H * (L.ratio || 1))) + 'cqw';
+        const box = logoBox(L, LOGO_H, LOGO_W_MAX);           // equal visual weight across the row
+        el.style.width = box.w.toFixed(2) + 'cqw'; el.style.height = box.h.toFixed(2) + 'cqw';
         el.innerHTML = `<div class="app-logo${L.luma ? ' luma' : ''}"><i class="l-ext"></i><i class="l-rimD"></i><i class="l-rimL"></i><i class="l-base"></i><i class="l-shine"></i></div>`;
         el.querySelector('.app-logo').style.setProperty('--m', `url("${L.src}")`);
-        el.title = app.name;   // no name shown under the icon (Corentin's call)
+        el.title = app.name;   // no name shown under the icon (by design)
         row.appendChild(el);
         this.items.push(el);
       });
@@ -211,7 +222,7 @@ export default {
         const cell = `${xx >> 3}:${y >> 3}`;
         if (seen.has(cell)) continue;
         seen.add(cell);
-        pts.push({ x: xx / iw, y: y / ih, a: 0.18 + Math.random() * 0.22, ph: Math.random() * 6.28, sp: 0.35 + Math.random() * 1.1, r: 0.7 + Math.random() * 0.6, lit: 1 });
+        pts.push({ x: xx / iw, y: y / ih, a: 0.12 + Math.random() * 0.16, ph: Math.random() * 6.28, sp: 0.25 + Math.random() * 0.7, r: 0.7 + Math.random() * 0.5, lit: 1 });
       }
     }
     this.windows = pts.slice(0, 140);
@@ -357,7 +368,7 @@ export default {
     if (this.busy) return;
     const app = this.apps[this.i]; if (!app) return;
     this.busy = true;                                         // keys still reach onKey (Back cancels) until the intent fires
-    let held = false;
+    let held = false, heldMusic = false;
     const root = this.root, fx = this.ctx.fx, k = Number(getComputedStyle(root).getPropertyValue('--k')) || 1;
     const item = this.items[this.i], logoEl = item.querySelector('.app-logo');
     const { cx, cy } = this.center(logoEl);
@@ -374,8 +385,8 @@ export default {
       logoEl.classList.add('molten');
       if (this.owl) this.owl.liftOff(500);
       if (fx.cue) fx.cue('lumos'); else fx.arpeggio();
-      disc.animate([{ opacity: 0.95, transform: `translate(${cx}px, ${cy}px) scale(.15)` }, { opacity: 0.9, transform: `translate(${cx}px, ${cy}px) scale(9)`, offset: 0.55 }, { opacity: 0, transform: `translate(${cx}px, ${cy}px) scale(34)` }], { duration: 700 * k, easing: 'cubic-bezier(.2,.7,.3,1)' });
-      bloom.animate([{ opacity: 0 }, { opacity: 0.6, offset: 0.4 }, { opacity: 0 }], { duration: 900 * k, easing: 'ease-in-out' });
+      disc.animate([{ opacity: 0.7, transform: `translate(${cx}px, ${cy}px) scale(.15)` }, { opacity: 0.55, transform: `translate(${cx}px, ${cy}px) scale(9)`, offset: 0.55 }, { opacity: 0, transform: `translate(${cx}px, ${cy}px) scale(30)` }], { duration: 900 * k, easing: 'cubic-bezier(.3,.6,.2,1)' });
+      bloom.animate([{ opacity: 0 }, { opacity: 0.32, offset: 0.45 }, { opacity: 0 }], { duration: 1100 * k, easing: 'ease-in-out' });
     });
     const L = logoOf(app);
     const lg = box.querySelector('.home-launch-logo'), banner = box.querySelector('.home-launch-banner');
@@ -396,6 +407,7 @@ export default {
       if (this.owl) { const t = this.owlTarget(); this.owl.comeBack(t.x, t.y); }
       this.cancelUntil = 0; this.busy = false;
       if (held) { held = false; Input.release(); }
+      if (heldMusic) { heldMusic = false; if (fx.ambientHold) fx.ambientHold(false, 'launch'); }   // the music comes back with the Parapet
     };
     this.launchDone = done;
     // The intent fires at 350 ms; from then on keys are queued and replayed at the end. The TV's answer decides the
@@ -404,7 +416,7 @@ export default {
     at(CANCEL_MS, async () => {
       this.cancelUntil = 0;
       held = true; Input.hold();
-      if (fx.ambientHold) { fx.ambientHold(true, 'launch'); timers.push(setTimeout(() => fx.ambientHold(false, 'launch'), 6000)); }
+      if (fx.ambientHold) { fx.ambientHold(true, 'launch'); heldMusic = true; }   // lifted by done(): never by a timer that done() could cancel
       const r = Platform.launch(app);
       if (r.status === 'failed') {
         clearTimeout(showCard);
@@ -465,15 +477,93 @@ export default {
     at(1800, () => { root.querySelector('.home-clock').classList.remove('write-in'); Input.release(); });
   },
 
-  // ---- Nox: a slow starfield (three drifting tiles), the clock wanders on a 20 min loop (never the same pixel),
-  // the windows go out one by one, the owl sleeps, the scene clock drops to 15 fps. ----
+  // ---- Nox: the scene clock drops to 15 fps for the whole of it. ----
+  // Entrance (nox): a fly-by. A rider on a broom crosses the Parapet left to right at speed; each app goes out the
+  // moment his nose passes it, the mist is pushed aside behind him, then the Nox state settles (settleNox).
+  // Timeline (× --k): 0 rider starts (1400 ms, momentum ease), hint/bar/crest/candle fade (600) · 120 the mist push
+  // (1400) · 0-1400 the apps go out one by one on the scene clock · 1400 rider gone · 1500 settleNox.
+  // Reduced motion, or the rider image missing: straight to settleNox (the previous fade).
   nox() {
     if (this.mode === 'nox') return;
     this.mode = 'nox';
-    const root = this.root; root.classList.add('nox');
     this.ctx.fx.setRate(66);
-    if (this.ctx.fx.ambientHold) this.ctx.fx.ambientHold(true, 'nox');     // the waltz waits
+    if (this.ctx.fx.ambientHold && getConfig().musicNox !== 'continue') this.ctx.fx.ambientHold(true, 'nox');   // the music waits, unless asked to go on
     if (this.ctx.fx.cue) this.ctx.fx.cue('nox');
+    if (this.owl) this.owl.sleep();                            // she tucks her head in before he passes over her
+    if (!this.flyBy()) this.settleNox();
+  },
+  // True when the fly-by started; false when it cannot (reduced motion, or the rider image missing / not loaded yet).
+  flyBy() {
+    const root = this.root, W = root.clientWidth;
+    const layer = root.querySelector('.home-rider'), img = layer && layer.querySelector('.home-rider-img');
+    if (isReduced() || !layer || !img || !img.complete || !img.naturalWidth || !W) return false;
+    const k = Number(getComputedStyle(root).getPropertyValue('--k')) || 1;
+    const DUR = 1400 * k;
+    root.classList.add('nox-fly');
+    // Above the dock: the layer's foot clears the owl's head (she is 8.2 cqw tall on the focused app), so the broom
+    // skims over her and over the apps rather than through them.
+    const rows = root.querySelector('.home-rows'), rr = rows.getBoundingClientRect(), r0 = root.getBoundingClientRect();
+    layer.style.top = Math.round(rr.top - r0.top - layer.offsetHeight - W * 0.075) + 'px';
+    layer.classList.add('fly');
+    this.riderAnim = layer.animate([{ transform: 'translateX(-25cqw)' }, { transform: 'translateX(125cqw)' }],
+      { duration: DUR, easing: 'cubic-bezier(.55,0,.45,1)', fill: 'forwards' });
+    const endFly = () => { if (this.riderAnim) { this.riderAnim.cancel(); this.riderAnim = null; } layer.classList.remove('fly'); if (this.flyUntick) { this.flyUntick(); this.flyUntick = null; } };
+    this.riderAnim.onfinish = endFly;
+    // The mist, pushed aside in his wake: a scaleX + translate wave on top of its own drift (additive), the sheet
+    // rolling 4 cqw aside and all but going out, then settling back. The local wake (three puffs that bloom and fade
+    // behind the broom) is CSS, on .home-rider.fly (home.css).
+    const mist = root.querySelector('.home-mist');
+    this.noxTimers.push(setTimeout(() => {
+      if (this.mode !== 'nox' || !this.root) return;
+      this.mistAnim = mist.animate([
+        { transform: 'translateX(0) scaleX(1)' },
+        { transform: 'translateX(4cqw) scaleX(1.12)', offset: 0.5 },
+        { transform: 'translateX(-1.6cqw) scaleX(1.05)', offset: 0.78 },
+        { transform: 'translateX(0) scaleX(1)' },
+      ], { duration: DUR, easing: 'ease-in-out', composite: 'add' });
+      this.mistAnim.onfinish = () => { this.mistAnim = null; if (this.mistDip) { this.mistDip.cancel(); this.mistDip = null; } };
+      this.mistDip = mist.animate([{ opacity: 0.13 }, { opacity: 0.02, offset: 0.5 }, { opacity: 0.07, offset: 0.78 }, { opacity: 0.13 }],
+        { duration: DUR, easing: 'ease-in-out' });                     // opacity is not additive: its own animation, replace mode
+    }, 120 * k));
+    // The apps go out as his nose passes them, on the shared scene clock (no second loop): the nose is read from the
+    // animation's own time through the same bezier, so the extinction stays aligned whatever the frame rate.
+    const centres = this.items.map((el) => this.center(el).cx / W * 100);   // in cqw
+    const out = new Set();
+    this.flyUntick = this.ctx.fx.tick(() => {
+      const a = this.riderAnim;
+      if (!a || this.mode !== 'nox') { if (this.flyUntick) { this.flyUntick(); this.flyUntick = null; } return; }
+      const p = this.momentum(Math.min(1, (a.currentTime || 0) / DUR));
+      const nose = -25 + 150 * p + 13;                                        // the layer is 14 cqw wide, he faces right
+      centres.forEach((cx, n) => { if (!out.has(n) && cx <= nose) { out.add(n); this.items[n].classList.add('is-out'); } });
+    });
+    this.noxTimers.push(setTimeout(() => { if (this.mode === 'nox' && this.root) this.settleNox(); }, 1500 * k));
+    return true;
+  },
+  // cubic-bezier(.55, 0, .45, 1) solved for x: the rider's progress at a given fraction of the animation's time.
+  momentum(x) {
+    if (x <= 0) return 0; if (x >= 1) return 1;
+    const X1 = 0.55, Y1 = 0, X2 = 0.45, Y2 = 1;
+    const bx = (t) => 3 * (1 - t) * (1 - t) * t * X1 + 3 * (1 - t) * t * t * X2 + t * t * t;
+    const by = (t) => 3 * (1 - t) * (1 - t) * t * Y1 + 3 * (1 - t) * t * t * Y2 + t * t * t;
+    let lo = 0, hi = 1, t = x;
+    for (let i = 0; i < 18; i++) { t = (lo + hi) / 2; if (bx(t) < x) lo = t; else hi = t; }
+    return by(t);
+  },
+  // The rider, his streaks, the mist push and the per-app extinction all reset: used by wake() and before a new fly-by.
+  clearFly() {
+    const root = this.root;
+    if (this.flyUntick) { this.flyUntick(); this.flyUntick = null; }
+    if (this.riderAnim) { this.riderAnim.onfinish = null; this.riderAnim.cancel(); this.riderAnim = null; }
+    if (this.mistAnim) { this.mistAnim.onfinish = null; this.mistAnim.cancel(); this.mistAnim = null; }
+    if (this.mistDip) { this.mistDip.cancel(); this.mistDip = null; }
+    const layer = root.querySelector('.home-rider'); if (layer) layer.classList.remove('fly');
+    root.classList.remove('nox-fly');
+    this.items.forEach((it) => it.classList.remove('is-out'));
+  },
+  // The Nox state proper: a slow starfield (three drifting tiles), the clock wanders on a 20 min loop (never the same
+  // pixel), the windows go out one by one, the owl sleeps.
+  settleNox() {
+    const root = this.root; root.classList.add('nox');
     if (this.owl) this.owl.sleep();
     const order = [...this.windows].sort(() => Math.random() - 0.5);
     const keep = Math.floor(order.length / 3);
@@ -496,6 +586,7 @@ export default {
     if (this.mode !== 'nox') return;
     this.mode = 'normal';
     this.noxTimers.forEach(clearTimeout); this.noxTimers = [];
+    this.clearFly();                                           // rider off-screen, mist settled, every app back
     if (this.noxAnim) { this.noxAnim.cancel(); this.noxAnim = null; }
     this.ctx.fx.setRate(getConfig().motion === 'economie' ? 66 : 33);
     if (this.ctx.fx.ambientHold) this.ctx.fx.ambientHold(false, 'nox');
@@ -543,10 +634,15 @@ export default {
     ctx.router.go('map', { app: app ? app.id : null, from: { x: b.cx / this.root.clientWidth, y: b.cy / this.root.clientHeight } }, 'down');
   },
 
-  plate(show) {
+  // The plate: "Nox ?" by default (classic mode), or any yes/no question (`q`: title, sub, onYes, onNo); focus on Non.
+  plate(show, q) {
     const p = this.root.querySelector('.home-plate');
     p.classList.toggle('show', show);
     this.mode = show ? 'plate' : 'normal';
+    this.plateQ = show && q ? q : null;
+    p.querySelector('.home-plate-title').textContent = q && q.title ? q.title : 'Nox ?';
+    p.querySelector('.home-plate-sub').textContent = q && q.sub ? q.sub : 'Passer en mode classique, sans décor ni chouette.';
+    p.querySelector('.home-plate-opt[data-v="yes"]').textContent = q && q.title ? 'Oui' : 'Oui, Nox';
     if (show) p.querySelectorAll('.home-plate-opt').forEach((o) => o.classList.toggle('is-focus', o.dataset.v === 'no'));
   },
 
@@ -560,8 +656,13 @@ export default {
       const opts = [...this.root.querySelectorAll('.home-plate-opt')];
       let k = opts.findIndex((o) => o.classList.contains('is-focus'));
       if (action === 'left' || action === 'right') { k = (k + (action === 'left' ? -1 : 1) + opts.length) % opts.length; opts.forEach((o, n) => o.classList.toggle('is-focus', n === k)); return true; }
-      if (action === 'ok') { const v = opts[k].dataset.v; this.plate(false); if (v === 'yes') { updateConfig({ mode: 'classique' }); ctx.fx.whoosh(); ctx.router.replace('classic', {}, 'fade'); } return true; }
-      if (action === 'back') { this.plate(false); return true; }
+      if (action === 'ok') {
+        const v = opts[k].dataset.v, q = this.plateQ; this.plate(false);
+        if (q) { if (v === 'yes' && q.onYes) q.onYes(); else if (v !== 'yes' && q.onNo) q.onNo(); return true; }
+        if (v === 'yes') { updateConfig({ mode: 'classique' }); ctx.fx.whoosh(); ctx.router.replace('classic', {}, 'fade'); }
+        return true;
+      }
+      if (action === 'back') { const q = this.plateQ; this.plate(false); if (q && q.onNo) q.onNo(); return true; }
       return true;
     }
     if (this.mode === 'move') {

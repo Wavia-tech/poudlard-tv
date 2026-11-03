@@ -1,42 +1,79 @@
-/* Ollivanders: the reference image; a warm spotlight on the chosen box, a beam from above, the camera leaning in, no outline.
-   No SVG mask, no blur: the hole is one static radial mask on a box moved by transform; the beam a clipped gradient. */
-.screen-library { background: var(--night); }
-.olv-scene { position: absolute; inset: 0; transform: scale(1); transition: transform calc(var(--k) * 700ms) cubic-bezier(.33, 0, .2, 1); will-change: transform; }
-.olv-scene.lean { transform: scale(1.04); }
-.olv-scene.is-press { transform: scale(1.03); transition-duration: calc(var(--k) * var(--t-press-in)); }
-.olv-bg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: fill; display: block; opacity: 0; transition: opacity calc(var(--k) * 500ms); }
+/* Ollivanders: the reference image under a cinematic treatment made only of layers (gradients at low opacity, moved
+   or faded by transform/opacity): a warm grade from the lamp's side and a cool one from the night's, a vignette, a
+   letterbox frame with a hairline, and the veil that rests on the whole shop except the chosen box. The camera leans
+   in by a hair; the caption is a museum label whose gold rule draws itself from the centre. No outline, no glow, no
+   blur, no blend mode: the window is one static radial mask on a veil moved by transform; the rule one element
+   scaled on X. */
+.screen-library { background: #030508; }
+.olv-scene { position: absolute; inset: 0; transform: scale(1); transition: transform calc(var(--k) * 900ms) cubic-bezier(.33, 0, .2, 1); will-change: transform; }
+.olv-scene.lean { transform: scale(1.02); }
+.olv-scene.is-press { transform: scale(1.012); transition-duration: calc(var(--k) * var(--t-press-in)); }
+.olv-bg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: fill; display: block; opacity: 0; transition: opacity calc(var(--k) * 700ms) var(--ease-fade); }
 .screen-library.is-in .olv-bg { opacity: 1; }
 .screen-library.no-image .olv-bg { display: none; }
 .screen-library.no-image::before { content: ""; position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 30%, #2a1a0c, var(--night) 70%); }
-/* The veil: the whole shop drops half a tone, except the chosen box. The veil is three screens wide with ONE static
-   radial hole at its centre (the soft edge is the gradient); it is translated so the hole lands on the box and
-   scaled to the box's size: a uniform veil moving is invisible, only the hole moves. Transform only, no blur. */
-.olv-shade { position: absolute; left: -100%; top: -100%; width: 300%; height: 300%; background: #050810; opacity: 0; transform-origin: 50% 50%; will-change: transform;
-  transition: opacity calc(var(--k) * 500ms), transform calc(var(--k) * 380ms) cubic-bezier(.33, 0, .2, 1); }
-.screen-library.is-in .olv-shade { opacity: .5; }
-/* The beam: a trapezoid of warm light hanging from the top edge, leaning with the box. */
-.olv-beam { position: absolute; left: 0; top: 0; width: 14cqw; height: 60cqw; pointer-events: none; opacity: 0; transform-origin: 50% 0;
-  clip-path: polygon(39% 0, 61% 0, 100% 100%, 0 100%); background: linear-gradient(to bottom, #ffd38a2e, #ffb45700);
-  transition: transform calc(var(--k) * 380ms) cubic-bezier(.33, 0, .2, 1), opacity calc(var(--k) * 400ms); }
-.screen-library.is-in .olv-beam { opacity: .9; }
-/* The warmth resting on the box (a soft ellipse). One rise per move (ollivanders.js), never an infinite loop. */
-.olv-warmth { position: absolute; left: 0; top: 0; width: 18cqw; height: 36cqw; pointer-events: none; opacity: 0; border-radius: 50%;
-  background: radial-gradient(closest-side, #ffd38a73, #ffb4571f 55%, #ffb45700); transition: transform calc(var(--k) * 380ms) cubic-bezier(.33, 0, .2, 1); }
-.screen-library.is-in .olv-warmth { opacity: 1; }
 
-/* Caption: title and availability, written in pen under the boxes. */
-.olv-caption { position: absolute; left: 50%; bottom: calc(var(--safe-y) + 2.7cqw); transform: translateX(-50%); text-align: center; white-space: nowrap; color: var(--ivory); text-shadow: 0 .1cqw .2cqw #000, 0 0 1cqw #000c; }
-.olv-caption-title { font-family: var(--fell); font-size: var(--t-label); }
-.olv-caption-sub { font-family: var(--body); font-style: italic; font-size: var(--t-hint); color: var(--gold-light); opacity: .9; margin-top: .2cqw; }
-.olv-caption.is-write .olv-caption-title { animation: olv-write calc(var(--k) * 350ms) ease-out; }
-@keyframes olv-write { from { opacity: 0; transform: translateY(.4cqw); } }
+/* Colour grade, two layers at low opacity inside the scene (they lean with it). Warm: the lamp's amber reaching
+   across the counter from the left. Cool: the night's blue settling in the far corners and under the ceiling. The
+   warm layer breathes very slowly, as a flame does, never flickers. */
+.olv-grade { position: absolute; inset: 0; pointer-events: none; opacity: 0; transition: opacity calc(var(--k) * 1200ms) var(--ease-fade); }
+.olv-grade-warm { background: radial-gradient(ellipse 60% 78% at 12% 52%, #ffb457 0%, #ff9a3a00 70%); }
+.olv-grade-cool { background: radial-gradient(ellipse 110% 95% at 88% 50%, #0b1a2e00 35%, #0b1a2e 100%), linear-gradient(180deg, #08142a 0%, #08142a00 28%); }
+.screen-library.is-in .olv-grade-warm { opacity: .16; animation: olv-breath calc(var(--k) * 11s) var(--ease-breath) calc(var(--k) * 1400ms) infinite alternate; }   /* the breath starts once the fade-in is over */
+.screen-library.is-in .olv-grade-cool { opacity: .34; }
+@keyframes olv-breath { from { opacity: .13; } to { opacity: .2; } }
+
+/* The veil: the whole shop drops half a tone, except the chosen box. The veil is three screens wide with ONE static
+   radial window at its centre (the long soft edge is the gradient, 52 -> 92%); it is translated so the window lands
+   on the box and scaled to the box's size: a uniform veil moving is invisible, only the window moves. Transform only. */
+.olv-shade { position: absolute; left: -100%; top: -100%; width: 300%; height: 300%; background: #04060c; opacity: 0; transform-origin: 50% 50%; will-change: transform;
+  transition: opacity calc(var(--k) * 900ms) var(--ease-fade), transform calc(var(--k) * 520ms) cubic-bezier(.3, 0, .15, 1); }
+.screen-library.is-in .olv-shade { opacity: .6; }   /* the chosen box simply keeps its full light; the rest rests */
+
+/* Vignette: one radial layer over the scene (it does not lean, so the frame stays still while the camera moves). */
+.olv-vignette { position: absolute; inset: 0; pointer-events: none; opacity: 0; transition: opacity calc(var(--k) * 1200ms) var(--ease-fade);
+  background: radial-gradient(ellipse 76% 68% at 50% 46%, #03050800 48%, #030508 108%); }
+.screen-library.is-in .olv-vignette { opacity: .78; }
+
+/* Letterbox: two bands slide in from the edges, a hairline of gold on their inner edge (one 1 px line at low
+   opacity, not a glow). The help strip sits inside the lower band, as a film's subtitle would. */
+.olv-band { position: absolute; left: 0; right: 0; height: 3.6cqw; background: #030508; z-index: 5; pointer-events: none;
+  transition: transform calc(var(--k) * 1100ms) var(--ease-scene); }
+.olv-band::after { content: ""; position: absolute; left: 0; right: 0; height: 1px; background: var(--gold); opacity: .18; }
+.olv-band-top { top: 0; transform: translateY(-100%); }
+.olv-band-top::after { bottom: 0; }
+.olv-band-bottom { bottom: 0; transform: translateY(100%); }
+.olv-band-bottom::after { top: 0; }
+.screen-library.is-in .olv-band { transform: translateY(0); }
+/* The key hint, inside the lower band: a rank below the label's sub-line (.75 of its size, the same engraved face and
+   wide tracking, at .42), the arrows in a quieter gold. The caption stays the brightest thing on the lower third. */
+.keyhint.olv-hint { z-index: 6; opacity: .42; font-size: calc(var(--t-hint) * .58); letter-spacing: var(--track-wide); color: var(--moon); gap: 2cqw; }
+.keyhint.olv-hint b { color: var(--gold); opacity: .6; font-weight: 500; }
+
+/* Caption, set like a museum label just above the lower band: the title in the wizard's hand, the label's gold rule,
+   a small-capitals line below in the engraved face. Two lines, so the label never climbs over the boxes' plates. */
+.olv-caption { position: absolute; left: 50%; bottom: 5.3cqw; z-index: 6; transform: translateX(-50%); text-align: center; white-space: nowrap; color: var(--ivory);
+  text-shadow: 0 .08cqw .2cqw #000d; opacity: 0; transition: opacity calc(var(--k) * 900ms) var(--ease-fade) calc(var(--k) * 300ms); }
+.screen-library.is-in .olv-caption { opacity: 1; }
+.olv-caption-title { font-family: var(--fell); font-size: var(--t-label); line-height: 1.15; letter-spacing: .01em; }
+/* The rule: one gold line, 1 px, 60% of the title's width (set in px by ollivanders.js), that draws itself from the
+   centre (scaleX 0 -> 1, 300 ms after a short breath). It retracts at once when the choice moves. */
+.olv-line { display: block; height: 1px; width: 10cqw; margin: .6cqw auto 0; background: var(--gold); transform-origin: 50% 50%; transform: scaleX(0); opacity: .8;
+  transition: transform calc(var(--k) * 300ms) cubic-bezier(.33, 0, .2, 1) calc(var(--k) * 140ms); }
+.olv-line.is-drawn { transform: scaleX(1); }
+.olv-caption-sub { font-family: var(--display); font-size: calc(var(--t-hint) * .78); letter-spacing: var(--track-wide); text-transform: uppercase; color: var(--gold-light); opacity: .62; margin-top: .7cqw; }
+.olv-caption.is-write .olv-caption-title { animation: olv-write calc(var(--k) * 380ms) cubic-bezier(.33, 0, .2, 1) both; }
+.olv-caption.is-write .olv-caption-sub { animation: olv-write calc(var(--k) * 380ms) cubic-bezier(.33, 0, .2, 1) calc(var(--k) * 70ms) both; }
+@keyframes olv-write { from { opacity: 0; transform: translateY(.35cqw); } }
 
 /* Lumos: everything else darkens, then the launch card. */
 .olv-dim { position: absolute; inset: 0; z-index: 50; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1.2cqw;
-  background: radial-gradient(ellipse at 50% 45%, #1a1208, var(--night) 70%); opacity: 0; pointer-events: none; transition: opacity calc(var(--k) * 300ms); }
+  background: radial-gradient(ellipse at 50% 45%, #1a1208, #030508 70%); opacity: 0; pointer-events: none; transition: opacity calc(var(--k) * 300ms); }
 .olv-dim.show { opacity: 1; }
 .olv-launch-logo { width: 20cqw; height: 7cqw; }
 .olv-launch-title { font-family: var(--fell); font-size: var(--t-title); color: var(--ivory); }
 .olv-launch-sub { font-size: var(--t-body); }
 .screen-library.is-launch .olv-scene { transition: opacity calc(var(--k) * 150ms); opacity: .35; }
-html:not([data-motion="auto"]) .olv-shade, html:not([data-motion="auto"]) .olv-beam, html:not([data-motion="auto"]) .olv-warmth { transition-duration: calc(var(--k) * 200ms); }
+.screen-library.is-launch .olv-caption { transition-delay: 0s; transition-duration: calc(var(--k) * 150ms); opacity: 0; }
+html:not([data-motion="auto"]) .olv-shade, html:not([data-motion="auto"]) .olv-line, html:not([data-motion="auto"]) .olv-band { transition-duration: calc(var(--k) * 200ms); transition-delay: 0s; }
+html:not([data-motion="auto"]) .olv-grade-warm { animation: none; }

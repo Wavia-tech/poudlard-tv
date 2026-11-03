@@ -73,11 +73,23 @@ export const Platform = {
 
   // Opens a specific piece of content: `item.url` (host allow-list) in the app that owns it.
   // Must be called from a user gesture (OK), otherwise the browser blocks the opening in the mock-up.
+  // `item.urls[app.id]` (one link per app) wins over `item.url`; an app with no link for this film simply opens.
   openContent(app, item) {
-    const url = item && allowedUrl(item.url);
+    const chosen = item && item.urls && app && item.urls[app.id];
+    const url = allowedUrl(chosen || (item && app && item.app === app.id ? item.url : null));
     const b = bridge();
     if (url && b && typeof b.openUrl === 'function') return call(b.openUrl, url, String(app.pkg || ''));
-    if (url) { try { const w = window.open(url, '_blank', 'noopener'); if (w) return { status: 'opened', error: null, hint: null }; } catch (e) { /* window blocked: simulate */ } }
+    if (url) {
+      // Mock-up: a new tab. window.open first, then a real anchor click (some frames only allow that); if both are
+      // blocked (popup blocker, sandboxed frame), say so instead of pretending the film opened.
+      try { const w = window.open(url, '_blank', 'noopener'); if (w) return { status: 'opened', error: null, hint: null }; } catch (e) { /* blocked: try the anchor */ }
+      try {
+        const a = document.createElement('a'); a.href = url; a.target = '_blank'; a.rel = 'noopener'; a.style.display = 'none';
+        document.body.appendChild(a); a.click(); a.remove();
+        return { status: 'opened', error: null, hint: null };
+      } catch (e) { /* blocked too */ }
+      return failed('Le navigateur a bloqué l’ouverture du lien (fenêtre surgissante). Sur la télé, le film s’ouvre dans l’appli.');
+    }
     return this.launch(app);
   },
 
@@ -128,4 +140,16 @@ export const Platform = {
   // The TV's app store (Play Store, or Amazon's on Fire TV).
   store() { const b = bridge(); return b && typeof b.store === 'function' ? call(b.store) : simulated(); },
   version() { const b = bridge(); try { return b && typeof b.version === 'function' ? String(b.version()) : null; } catch (e) { return null; } },
+  // What the TV is ({ manufacturer, model, sdk, fireTv, lowRam, leanback, tv, phone }), memoised; {} in the mock-up.
+  device() {
+    if (deviceCache) return deviceCache;
+    const b = bridge();
+    let d = {};
+    try { if (b && typeof b.device === 'function') { const v = JSON.parse(b.device()); if (v && typeof v === 'object') d = v; } } catch (e) { d = {}; }
+    deviceCache = { manufacturer: String(d.manufacturer || ''), model: String(d.model || ''), sdk: Number(d.sdk) || 0, fireTv: Boolean(d.fireTv), lowRam: Boolean(d.lowRam), leanback: Boolean(d.leanback), tv: Boolean(d.tv), phone: Boolean(d.phone) };
+    return deviceCache;
+  },
+  // A fatal error on the page, counted by the TV's guard (three in five minutes give the Home key back).
+  fatal(reason) { const b = bridge(); if (b && typeof b.fatal === 'function') { try { b.fatal(String(reason).slice(0, 200)); } catch (e) { /* the guard is not reachable: nothing else to do */ } } },
 };
+let deviceCache = null;

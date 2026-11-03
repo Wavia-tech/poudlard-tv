@@ -1,27 +1,20 @@
 // Ollivanders: the film collection shown as a wandmaker's shop window.
-// The reference image (assets/ollivanders.webp) is displayed as is. Selection draws no outline at all:
-// a warm spotlight lights the chosen box (the rest of the shop dims gently through a soft hole that is one
-// static radial mask moved by transform, no blur), a beam of light falls on it from above, the camera leans
-// slightly towards it, and a few specks of gold dust rise along the beam. Transform and opacity only.
-import { LIBRARY, appById, getConfig, isReduced } from '../config.js';
+// The reference image (assets/ollivanders.webp) is staged, not decorated: a colour grade (two gradient layers at
+// low opacity, warm from the lamp and cool from the night), a vignette, a letterbox frame with a hairline, and a
+// soft veil on the whole shop except the chosen box (one static radial window moved by transform, no blur). The
+// camera leans in by a hair; the caption is typeset like a museum label whose gold rule draws itself from the
+// centre between the title and the sub-line. Transform and opacity only; all the layers live in ollivanders.css.
+import { LIBRARY, appById, getConfig, updateConfig, isReduced } from '../config.js';
 import { Platform } from '../platform.js';
 import { Input } from '../input.js';
 import { LOGOS } from '../../assets/logos.js';
 import { monogram } from '../monogram.js';
 
-const IMG = { w: 1672, h: 941 };
-// The eight boxes, left to right, in image pixels: top-left, top-right, bottom-right, bottom-left.
-const BOXES = [
-  [[248, 318], [338, 313], [350, 790], [162, 790]],
-  [[340, 318], [438, 313], [506, 790], [352, 790]],
-  [[556, 322], [674, 318], [686, 790], [520, 790]],
-  [[708, 322], [820, 318], [852, 790], [690, 790]],
-  [[861, 322], [977, 318], [1020, 790], [858, 790]],
-  [[1011, 322], [1135, 318], [1200, 790], [1030, 790]],
-  [[1195, 320], [1285, 316], [1370, 790], [1180, 790]],
-  [[1340, 322], [1440, 318], [1565, 790], [1385, 790]],
-];
-const HOLE = 1.6;     // the hole's box is 1.6 × the film box (the soft edge lives in the mask gradient)
+// Each collection of LIBRARY (config.js) is a window: its `scene` gives the backdrop, its pixel size and one
+// selection polygon per film. The windows stack under the Parapet: Down opens the next one, Up the previous one.
+let IMG = { w: 1024, h: 576 };
+const HOLE = 1.25;    // the window's box is 1.25 × the film box (the soft edge lives in the mask gradient): framed, not spilling
+const LINE_W = 0.6;   // the label's rule spans 60% of the title's width, centred under it
 const loadRappeltout = () => import('../rappeltout.js').then((m) => m.rappeltout).catch(() => null);
 const loadBeuglante = () => import('../beuglante.js').then((m) => m.beuglante).catch(() => null);
 
@@ -29,25 +22,37 @@ export default {
   root: null, ctx: null, items: [], i: 0, busy: false, timers: [], hiddenKeys: new Set(), raf: 0, cur: null, dustTimer: 0,
 
   async mount(root, ctx) {
-    this.root = root; this.ctx = ctx; this.timers = []; this.busy = false;
-    const coll = LIBRARY[0];
-    this.items = coll.items.slice(0, BOXES.length).map((it, n) => ({ ...it, box: BOXES[n], key: `${coll.id}:${it.content}` }));
+    this.root = root; this.ctx = ctx; this.timers = []; this.busy = false; this.holeBase = null;   // the veil is new on every mount
+    const windows = LIBRARY.filter((c) => c.scene && Array.isArray(c.scene.boxes) && c.scene.boxes.length);
+    const wanted = ctx.params && ctx.params.collection;
+    this.ci = Math.max(0, windows.findIndex((c) => c.id === wanted));
+    this.windows = windows;
+    const coll = windows[this.ci] || LIBRARY[0];
+    const boxes = coll.scene.boxes;
+    IMG = { w: coll.scene.w, h: coll.scene.h };
+    this.items = coll.items.slice(0, boxes.length).map((it, n) => ({ ...it, box: boxes[n], key: `${coll.id}:${it.content}`, also: coll.alsoWith || [] }));
     this.i = 0;
     root.innerHTML = `
       <div class="olv-scene">
         <img class="olv-bg" alt="">
+        <div class="olv-grade olv-grade-warm"></div>
+        <div class="olv-grade olv-grade-cool"></div>
         <div class="olv-shade"></div>
-        <div class="olv-beam"></div>
-        <div class="olv-warmth"></div>
       </div>
-      <div class="olv-caption"><div class="olv-caption-title"></div><div class="olv-caption-sub"></div></div>
-      <div class="keyhint olv-hint"><span><b>◀ ▶</b>Choisir</span><span><b>OK</b>Ouvrir le film</span><span><b>▲</b>Parapet</span></div>
+      <div class="olv-vignette"></div>
+      <div class="olv-band olv-band-top"></div><div class="olv-band olv-band-bottom"></div>
+      <div class="olv-caption"><div class="olv-caption-title"></div><i class="olv-line" aria-hidden="true"></i><div class="olv-caption-sub"></div></div>
+      <div class="keyhint olv-hint"><span><b>◀ ▶</b>Choisir</span><span><b>OK</b>Ouvrir le film</span><span class="olv-hint-up"><b>▲</b>Parapet</span><span class="olv-hint-next"><b>▼</b></span></div>
       <div class="olv-dim"></div>`;
     const bg = root.querySelector('.olv-bg');
     bg.addEventListener('error', () => root.classList.add('no-image'));
-    bg.src = 'assets/ollivanders.webp';
+    bg.src = coll.scene.image;
+    const next = windows[this.ci + 1], prev = windows[this.ci - 1];
+    const hintNext = root.querySelector('.olv-hint-next'), hintUp = root.querySelector('.olv-hint-up');
+    if (next) hintNext.append(next.title); else hintNext.remove();
+    if (prev) { hintUp.lastChild.textContent = prev.title; }
     this.timers.push(setTimeout(() => root.classList.add('is-in'), 60));
-    this.focus(0, true);
+    this.focus(this.i, true);
     this.dust();
     if (ctx.config().sounds) ctx.fx.initAudio();
   },
@@ -65,31 +70,42 @@ export default {
     return { cx: (x0 + x1) / 2 / IMG.w, cy: (y0 + y1) / 2 / IMG.h, w: (x1 - x0) / IMG.w, h: (y1 - y0) / IMG.h };
   },
 
-  // The veil (with its static hole), the beam and the warmth move by transform to the chosen box (380 ms,
-  // cubic-bezier(.33,0,.2,1) in CSS). The hole is cut once at HOLE × the first box; the veil then only translates
-  // (its centre onto the box) and scales (the box's size relative to the first).
+  // The veil (with its static window) glides by transform to the chosen box (480 ms, cubic-bezier(.3,0,.15,1) in
+  // CSS). The window is cut once at HOLE × the first box; the veil then only translates (its centre onto the box)
+  // and scales (the box's size relative to the first).
   moveHole(n, instant) {
     const root = this.root, W = root.clientWidth, H = root.clientHeight;
     const b = this.boxOf(n);
-    const shade = root.querySelector('.olv-shade'), beam = root.querySelector('.olv-beam'), warm = root.querySelector('.olv-warmth');
+    const shade = root.querySelector('.olv-shade');
     if (!this.holeBase) {
       const b0 = this.boxOf(0);
       this.holeBase = { w: b0.w * HOLE, h: b0.h * HOLE };
-      // Radii in % of the veil (three screens): half the hole, divided by three.
+      // Radii in % of the veil (three screens): half the window, divided by three. The edge is long and soft.
       const rx = (this.holeBase.w * 100 / 6).toFixed(2), ry = (this.holeBase.h * 100 / 6).toFixed(2);
-      const m = `radial-gradient(ellipse ${rx}% ${ry}% at 50% 50%, transparent 55%, #000 72%)`;
+      const m = `radial-gradient(ellipse ${rx}% ${ry}% at 50% 50%, transparent 52%, #000 92%)`;
       shade.style.webkitMaskImage = m; shade.style.maskImage = m;
     }
     const sx = (b.w * HOLE) / this.holeBase.w, sy = (b.h * HOLE) / this.holeBase.h;
     const tx = (b.cx - 0.5) * W, ty = (b.cy - 0.5) * H;
     const set = (el, v) => { if (instant) el.style.transition = 'none'; el.style.transform = v; if (instant) { void el.offsetWidth; el.style.transition = ''; } };
     set(shade, `translate(${tx.toFixed(1)}px, ${ty.toFixed(1)}px) scale(${sx.toFixed(3)}, ${sy.toFixed(3)})`);
-    // The beam hangs from the top, leaning ±4° with the box's position; the warmth sits a little above the box.
-    const lean = (b.cx - 0.5) * 8;
-    set(beam, `translate(${(b.cx * W - W * 0.07).toFixed(1)}px, 0) rotate(${lean.toFixed(2)}deg)`);
-    set(warm, `translate(${(b.cx * W - W * 0.09).toFixed(1)}px, ${(b.cy * H - H * 0.36).toFixed(1)}px)`);
-    // A single rise of the warmth on each move (no infinite breathing).
-    if (!instant && !isReduced()) warm.animate([{ opacity: 0.55 }, { opacity: 1 }], { duration: 600, easing: 'ease-out', fill: 'forwards' });
+  },
+
+  // The label's rule: a 1 px gold line between the title and the sub-line, LINE_W of the title's text width, that
+  // retracts at once (scaleX 0, no reverse draw) and draws itself again from the centre (the CSS transition, 300 ms).
+  // Called once the title is typeset, so the width measured is the new title's.
+  drawLine(instant) {
+    const cap = this.root.querySelector('.olv-caption'), line = cap.querySelector('.olv-line');
+    const range = document.createRange();
+    range.selectNodeContents(cap.querySelector('.olv-caption-title'));
+    const span = range.getBoundingClientRect().width * LINE_W;
+    line.style.transition = 'none';
+    line.classList.remove('is-drawn');
+    line.style.width = `${span.toFixed(1)}px`;
+    void line.getBoundingClientRect();
+    if (!instant) line.style.transition = '';
+    line.classList.add('is-drawn');
+    if (instant) { void line.getBoundingClientRect(); line.style.transition = ''; }
   },
 
   focus(n, instant) {
@@ -101,27 +117,31 @@ export default {
     const scene = this.root.querySelector('.olv-scene');
     scene.style.transformOrigin = `${c.x / IMG.w * 100}% ${c.y / IMG.h * 100}%`;
     scene.classList.add('lean');
-    const app = appById(it.app);
+    const app = this.appFor(it);
     const cap = this.root.querySelector('.olv-caption');
     cap.querySelector('.olv-caption-title').textContent = `${it.title} · ${it.year}`;
-    cap.querySelector('.olv-caption-sub').textContent = app ? (this.hiddenKeys.has(it.key) ? 'Ce film est prêté' : `Disponible sur ${app.name}`) : 'Appli à choisir dans les réglages';
+    const others = this.choices(it).filter((a) => a.id !== (app && app.id));
+    cap.querySelector('.olv-caption-sub').textContent = app
+      ? (this.hiddenKeys.has(it.key) ? 'Ce film est prêté' : `S’ouvre dans ${app.name}${others.length ? ` · OK long : ${others.map((a) => a.name).join(', ')}` : ''}`)
+      : 'Appli à choisir dans les réglages';
+    this.drawLine(instant);
     if (!instant) { cap.classList.remove('is-write'); void cap.offsetWidth; cap.classList.add('is-write'); }
   },
 
-  // A few specks of gold rise along the beam, now and then.
+  // A single speck of gold rises above the chosen box, rarely: a hint of life, never a show.
   dust() {
     clearTimeout(this.dustTimer);
     const tick = () => {
-      if (!isReduced() && !this.busy && this.root) { const c = this.center(this.i); const y = c.y - this.root.clientHeight * (0.12 + Math.random() * 0.3); this.ctx.fx.burst(c.x + (Math.random() - 0.5) * this.root.clientWidth * 0.04, y, 3, this.root.clientWidth / 90); }
-      this.dustTimer = setTimeout(tick, 1400 + Math.random() * 1200);
+      if (!isReduced() && !this.busy && this.root) { const c = this.center(this.i); const y = c.y - this.root.clientHeight * (0.1 + Math.random() * 0.25); this.ctx.fx.burst(c.x + (Math.random() - 0.5) * this.root.clientWidth * 0.03, y, 1, this.root.clientWidth / 140); }
+      this.dustTimer = setTimeout(tick, 3200 + Math.random() * 2800);
     };
-    this.dustTimer = setTimeout(tick, 600);
+    this.dustTimer = setTimeout(tick, 1500);
   },
 
   // Lumos: the box lights up, then the film opens in the app that owns it (link from the config).
   launch() {
     if (this.busy) return;
-    const it = this.items[this.i]; const app = appById(it.app); if (!app) return;
+    const it = this.items[this.i]; const app = this.appFor(it); if (!app) return;
     this.busy = true; Input.hold();
     const root = this.root, fx = this.ctx.fx, k = Number(getComputedStyle(root).getPropertyValue('--k')) || 1;
     const c = this.center(this.i);
@@ -148,10 +168,27 @@ export default {
   // Everything released (main.js error boundary, hand-over to another app).
   settle() { if (this.settleFn) this.settleFn(); },
 
+  // The apps that can open a film: the one in LIBRARY plus every app of `urls` (one link per app).
+  choices(it) { return [...new Set([it.app, ...Object.keys(it.urls || {}), ...(it.also || [])])].map(appById).filter(Boolean); },
+  // The app chosen for this film (config.library.apps, set from the Remembrall), else the collection's default.
+  appFor(it) { const chosen = getConfig().library.apps[it.key]; return appById(chosen && this.choices(it).some((a) => a.id === chosen) ? chosen : it.app); },
+
+  // Long OK: lend the film, and choose the app that opens it (kept per film in config.library.apps).
   async rappeltout() {
     const fn = await loadRappeltout(); if (!fn) return;
     const it = this.items[this.i]; const c = this.center(this.i);
-    const choice = await fn(this.root, { title: it.title, anchor: c, options: [{ id: 'lend', label: this.hiddenKeys.has(it.key) ? 'Reprendre ce film' : 'Marquer comme prêté' }] });
+    const current = this.appFor(it);
+    const options = this.choices(it).filter((a) => a.id !== (current && current.id)).map((a) => ({ id: `app:${a.id}`, label: `Ouvrir avec ${a.name}` }));
+    options.push({ id: 'lend', label: this.hiddenKeys.has(it.key) ? 'Reprendre ce film' : 'Marquer comme prêté' });
+    const choice = await fn(this.root, { title: it.title, anchor: c, options });
+    if (!choice || !this.root) return;
+    if (choice.startsWith('app:')) {
+      const lib = getConfig().library;
+      updateConfig({ library: { ...lib, apps: { ...lib.apps, [it.key]: choice.slice(4) } } });
+      this.focus(this.i, true);
+      this.ctx.fx.chime(1568, 0.03);
+      return;
+    }
     if (choice === 'lend') { if (this.hiddenKeys.has(it.key)) this.hiddenKeys.delete(it.key); else this.hiddenKeys.add(it.key); this.focus(this.i, true); }
   },
 
@@ -161,8 +198,16 @@ export default {
     this.root.querySelector('.olv-scene').classList.remove('is-press');
     if (action === 'right') { if (this.i < this.items.length - 1) { this.focus(this.i + 1); ctx.fx.cue ? ctx.fx.cue('move', { dir: 1 }) : ctx.fx.chime(1175, 0.02); } return true; }
     if (action === 'left') { if (this.i > 0) { this.focus(this.i - 1); ctx.fx.cue ? ctx.fx.cue('move', { dir: -1 }) : ctx.fx.chime(1046, 0.02); } return true; }
+    // The windows stack vertically under the Parapet: Down goes to the next one (the crane keeps descending), Up to
+    // the previous one, and Up from the first climbs back to the Parapet.
+    if (action === 'down') {
+      const next = this.windows[this.ci + 1];
+      if (next) { ctx.fx.cue ? ctx.fx.cue('enter') : ctx.fx.chime(880, 0.03); ctx.router.replace('library', { collection: next.id }, 'crane'); }
+      return true;
+    }
     if (action === 'ok') { this.launch(); return true; }
     if (action === 'longok') { this.rappeltout(); return true; }
+    if (action === 'up' && this.windows[this.ci - 1]) { ctx.fx.cue ? ctx.fx.cue('return') : ctx.fx.whoosh(); ctx.router.replace('library', { collection: this.windows[this.ci - 1].id }, 'uncrane'); return true; }
     if (action === 'up' || action === 'back') { if (ctx.fx.cue) ctx.fx.cue('return'); else ctx.fx.whoosh(); ctx.router.go('home', {}, 'uncrane'); return true; }
     if (action === 'home') { ctx.router.replace('home', {}, 'fade'); return true; }
     if (action === 'longback') { ctx.router.go('home', { askClassic: true }, 'uncrane'); return true; }

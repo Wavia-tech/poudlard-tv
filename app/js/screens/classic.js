@@ -17,7 +17,7 @@ import { getConfig, updateConfig, allApps, removeCustomApp, DOCK_MAX, isReduced 
 import { Platform } from '../platform.js';
 import { Input } from '../input.js';
 import { LOGOS } from '../../assets/logos.js';
-import { monogram } from '../monogram.js';
+import { monogram, logoBox } from '../monogram.js';
 import { beuglante } from '../beuglante.js';
 import { HOME_MODES, HOME_HINT, HOME_NOTE_MOCK, TV_SCREENS, TV_ONLY } from './settings.js';
 
@@ -47,7 +47,7 @@ const GLYPHS = {
 };
 const SPECIAL_NAMES = { settings: 'Réglages', lumos: 'Lumos', tv: 'Télé', home: 'Touche Home' };
 
-// The Remembrall module is being written in parallel by a colleague: dynamic import, and if it is missing, ignore it.
+// The Remembrall module is loaded on demand: dynamic import, and if it is missing, the tile simply has no options.
 // `dismissRappeltout` is also kept to close an open sphere when the screen unmounts.
 let rappeltoutPromise = null;
 let dismissRappeltout = null;
@@ -211,10 +211,10 @@ export default {
     if (L && L.src) {
       const box = document.createElement('div');
       box.className = 'cls-icon';
-      // Fixed height, width = height × ratio, capped to the plate.
-      const h = 3.4, w = Math.min(10.5, Math.max(2.2, h * (L.ratio || 1)));
-      box.style.width = w + 'cqw';
-      box.style.height = h + 'cqw';
+      // Equal visual weight (area-based), capped to the plate.
+      const bx = logoBox(L, 3.4, 10.5);
+      box.style.width = bx.w.toFixed(2) + 'cqw';
+      box.style.height = bx.h.toFixed(2) + 'cqw';
       const logo = document.createElement('div');
       logo.className = 'app-logo ivory-logo' + (L.luma ? ' luma' : '');
       logo.style.setProperty('--m', `url("${L.src}")`);

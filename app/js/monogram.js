@@ -11,3 +11,16 @@ export function monogram(name) {
   cache.set(letter, entry);
   return entry;
 }
+
+// Equal visual weight for every logo: the box is sized on the logo's AREA, not its height alone, so a wide
+// wordmark comes out lower and a square mark larger, and a row reads as one family. `h` is the reference height
+// (cqw) of a 1.6:1 logo; the height is clamped to [0.72 h, 1.2 h], the width to `wMax`.
+export function logoBox(L, h, wMax = 9.5) {
+  const r = Math.max(0.5, Math.min(6, (L && L.ratio) || 1));
+  const area = (h * 1.6) * h;
+  let bh = Math.sqrt(area / r);
+  bh = Math.max(h * 0.68, Math.min(h * 1.3, bh));       // a square mark (a single letter) reads lighter: let it grow more
+  let bw = bh * r;
+  if (bw > wMax) { bw = wMax; bh = bw / r; }
+  return { w: bw, h: bh };
+}

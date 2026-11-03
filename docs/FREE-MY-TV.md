@@ -188,9 +188,21 @@ buttons: « Ouvrir l'accueil d'origine » and « Réessayer Poudlard TV » (`Wat
 staying closed until « Touche Home : Poudlard TV » is set again).
 
 Free My TV's revert is **sticky** (`homeReverted` in its preferences): once the guard has fired, the launcher
-stays out of the way across reboots until the person re-enables it. Ours has the same effect by construction:
-the disabled `.Home` alias survives reboots, and only the settings row re-enables it (the native counterpart,
-with a 6 s long Back rescue screen, is batch 4).
+stays out of the way across reboots until the person re-enables it. Ours is sticky the same way: the guard writes
+`files/home-reverted` (tmp + rename), `HomeMode.mode()` answers `reverted`, the HOME intent shows the fallback
+screen while the flag exists (opening from the app list still shows the interface), and only « Touche Home :
+Poudlard TV » clears it. Three identical page errors within a minute count as a crash too (`Bridge.fatal`), and
+Back held 6 s opens a native rescue screen over the WebView.
+
+## Brand quirks we inherit, and the ones we do not
+
+From Free My TV's field reports: TCL Android 11+ needs `setTranslucent(false)` on resume (done) and the AUTO_START
+allowance at install (`tools/tv.sh install`); Samsung 2017-2018 sets freeze when the settings menu opens from an app
+(the section becomes a note); Allwinner reports a sleeping console as `CONNECTED_STANDBY` (handled in
+`Apps.inputs`); Hisense and the Google TV Streamer send their branded Home button to the original home (Free My TV
+catches it with an accessibility service, we do not); Hikeen sets waking from standby and MediaTek sets starting
+live TV at boot keep their quirks (no wake watch, no boot receiver); Fire TV never hands the Home key over (we say
+so instead of asking). `Bridge.device()` tells the page which case it is in.
 
 ## 8. HomeActivity: what we take over
 

@@ -67,6 +67,7 @@ echo "web        : $(find "$OUT/assets/web" -type f | wc -l | tr -d ' ') files c
 PRIVATE=""
 [ -f "$WEB_SRC/assets/logos.js" ] && ! cmp -s "$WEB_SRC/assets/logos.js" "$WEB_SRC/assets/logos.example.js" && PRIVATE="$PRIVATE logos.js"
 [ -n "$(find "$WEB_SRC/assets/music" -type f ! -name '*.md' ! -name '.gitkeep' 2>/dev/null)" ] && PRIVATE="$PRIVATE music/"
+ls "$WEB_SRC"/assets/crest-*.webp >/dev/null 2>&1 && PRIVATE="$PRIVATE crest-*.webp"
 if [ -n "$PRIVATE" ]; then
   echo "WARNING: private files embedded in the APK:$PRIVATE (personal use; do not distribute this APK)." >&2
 fi

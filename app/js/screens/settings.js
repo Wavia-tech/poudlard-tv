@@ -35,11 +35,12 @@ const TEXT = [['normal', 'Normale'], ['grand', 'Grande']];
 // Background music (sound.js): 'auto' = personal file (assets/music/ambiance.ogg, .mp3 or .m4a, not in the repo,
 // see docs/MUSIC.md) if it exists, otherwise the celesta waltz. The notes speak to the person holding the
 // remote: never a file path on screen.
-const MUSIC = [['auto', 'Auto'], ['celesta', 'Célesta'], ['aucune', 'Aucune']];
-const MUSIC_NOTE = { auto: 'Votre propre musique si vous en avez déposé une (voir la documentation), sinon une valse de célesta originale, très bas.', celesta: 'Une valse lente de célesta, harpe et cordes, composée pour le parapet. Jamais un thème des films.', aucune: 'Les clochettes seulement, sans musique.' };
+const MUSIC = [['fichier', 'Ambiance Poudlard'], ['celesta', 'Célesta'], ['auto', 'Auto'], ['aucune', 'Aucune']];
+const MUSIC_NOX = [['pause', 'Se tait'], ['continue', 'Continue']];
+const MUSIC_NOTE = { fichier: 'Votre ambiance (assets/music/ambiance.mp3), en boucle, très bas. Si le fichier manque, la valse de célesta prend le relais.', auto: 'Votre ambiance si le fichier est là, sinon la valse de célesta.', celesta: 'Une valse lente de célesta, harpe et cordes, composée pour le parapet. Jamais un thème des films.', aucune: 'Les clochettes seulement, sans musique.' };
 const MOTION_NOTE = { auto: 'Vol de la chouette, parallaxe, grain, scintillement : tout.', reduit: 'Fondus de 200 ms, rien de plus. Aussi forcé par le système si demandé.', economie: 'Sans grain ni particules ; scintillement ralenti, parallaxe sur un plan.' };
 const IDLE = [[90, '1,5 min'], [180, '3 min'], [300, '5 min'], [600, '10 min'], [0, 'Jamais']];
-const VERSION = 'Maquette 0.9 · novembre 2026';
+const VERSION = 'Maquette 0.2 · novembre 2026';   // equals android:versionName (AndroidManifest.xml); CHANGELOG.md
 // Home key: the two answers, and what the TV says back when Poudlard asks for the key (Bridge.setHome hints).
 export const HOME_MODES = [['poudlard', 'Poudlard TV'], ['original', 'Accueil d’origine']];
 export const HOME_HINT = {
@@ -262,6 +263,20 @@ export default {
   rub_home(body) {
     const mode = Platform.homeMode();
     const mock = !Platform.isTV() || mode === 'simulated';
+    const dev = Platform.device();
+    if (dev.fireTv) {               // Fire TV never hands the Home key over: no row, one honest note
+      body.appendChild(el('p', 'set-text', HOME_HINT.fire));
+      return { items: [], axis: 'v', start: 0 };
+    }
+    if (dev.phone) {
+      body.appendChild(el('p', 'set-text', 'Pas une télé : la touche Home n’est pas demandée.'));
+      return { items: [], axis: 'v', start: 0 };
+    }
+    if (mode === 'reverted') {      // the guard gave the key back after three crashes: say so, OK asks again
+      body.appendChild(el('p', 'set-text', 'Rendue après trois pannes : la touche Home est à l’accueil d’origine.'));
+      const btns = el('div', 'set-btns'); body.appendChild(btns);
+      return { items: [this.button(btns, 'Redemander la touche Home', () => { this.takeHome(); this.later(() => this.root && this.renderRight('Redemander la touche Home'), 600, true); })], axis: 'h', start: 0 };
+    }
     if (this.homeAsk) {
       body.appendChild(el('p', 'set-text set-ask', 'Rendre l’accueil d’origine ?'));
       body.appendChild(el('p', 'set-text set-note-dim', 'La touche Home rouvrira l’accueil de la télé. Poudlard TV reste dans la liste des applis.'));
@@ -303,6 +318,11 @@ export default {
 
   // ---- Section: the TV's own settings (Free My TV's "TV Settings" entry) --------------------------------------
   rub_tv(body) {
+    const dev = Platform.device();
+    if (/samsung/i.test(dev.manufacturer) && dev.sdk && dev.sdk < 28) {   // Free My TV field report: the menu freezes those sets
+      body.appendChild(el('p', 'set-text', 'Sur cette Samsung, utilisez la touche Réglages de la télécommande (le menu fige la télé depuis une appli).'));
+      return { items: [], axis: 'v', start: 0 };
+    }
     const items = TV_SCREENS.map(([key, label]) => this.button(body, label, () => this.openSystem(key)));
     return { items, axis: 'v', start: 0 };
   },
@@ -471,6 +491,8 @@ export default {
       // Background music: defensive read (config.music may not exist yet → 'Auto'), sound.js follows live.
       this.enumRow(body, 'Musique de fond', MUSIC, () => getConfig().music || 'auto', (v) => { updateConfig({ music: v }); this.ctx.fx.ambient(v); },
         (v) => MUSIC_NOTE[v]),
+      this.enumRow(body, 'Musique en veille', MUSIC_NOX, () => getConfig().musicNox || 'pause', (v) => { updateConfig({ musicNox: v }); if (this.ctx.fx.ambientHold && v === 'continue') this.ctx.fx.ambientHold(false, 'nox'); },
+        (v) => (v === 'continue' ? 'Le château s’endort, la musique continue, très bas.' : 'Quand le château s’endort, la musique se tait ; elle reprend au réveil.')),
     ];
     return { items, axis: 'v', start: 0 };
   },
@@ -519,9 +541,12 @@ export default {
   rub_about(body) {
     const facts = el('div', 'set-facts'); body.appendChild(facts);
     const mode = Platform.homeMode();
-    const homeLabel = mode === 'simulated' ? 'Maquette' : (HOME_MODES.find((m) => m[0] === mode) || HOME_MODES[1])[1];
+    const homeLabel = mode === 'simulated' ? 'Maquette' : mode === 'reverted' ? 'Rendue après trois pannes' : (HOME_MODES.find((m) => m[0] === mode) || HOME_MODES[1])[1];
     const version = Platform.version();
+    const dev = Platform.device();
     [['Réseau', 'Aucune connexion, aucune donnée collectée.'], ['Version', version ? `Télé ${version} · ${VERSION}` : VERSION], ['Touche Home', homeLabel],
+      ...(dev.sdk ? [['Télé', `${dev.manufacturer} ${dev.model} · Android ${dev.sdk}`]] : []),
+      ['Veille', 'Celle de la télé reste la sienne : Poudlard ne garde jamais l’écran allumé.'],
       ['Lancement', 'Par intent explicite, sur des applis connues seulement.'], ['Réversible', 'L’accueil d’origine reste installé ; rien n’est désactivé.']]
       .forEach(([k, v]) => { const f = el('div', 'set-fact'); f.appendChild(el('span', 'set-fact-k', k)); f.appendChild(el('span', 'set-fact-v', v)); facts.appendChild(f); });
     const acts = el('div', 'set-acts'); body.appendChild(acts);

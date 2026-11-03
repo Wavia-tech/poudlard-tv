@@ -1,7 +1,7 @@
 // Poudlard TV soundtrack: a film-score celesta, synthesized with Web Audio, with no audio file distributed.
 //
 // Two layers, a single voice:
-//   1. the CUES (very short, 0.4 to 2.5 s) played on every interaction;
+//   1. the CUES (short phrases, one to six notes with tails of 1.5 to 3.5 s) played on every interaction;
 //   2. the BACKGROUND MUSIC (ambience), looping, far below the master (an original synthesized waltz, or a personal
 //      file outside the repo), which ducks under every cue and goes on hold (Nox, app launch, hidden page).
 //
@@ -14,12 +14,17 @@
 // (the incipit of Hedwig's Theme). They only share the "music box in a great hall" spirit:
 // celesta, long reverb, clear notes.
 //
-// Timbre (per note): 3 to 4 inharmonic bell partials (x1, x2.76, x5.4, x8.9), 4 ms attack,
-// exponential decay 0.8–1.8 s, random detune ±4 cents, and a very short high-pass-filtered hammer noise
-// on the attack. The high partials die out faster than the fundamental.
+// Timbre (per note): a glass harmonica with a harp's harmonics. Harmonic partials only (x1, x2, x3, x4, the
+// highs whispering and dying first), a second fundamental a few cents away for the slow sheen of rubbed glass,
+// 30–60 ms attack (a glass that is stroked, never struck), exponential tails of 1.5 to 3.5 s. No hammer noise.
+// Under lumos, enter and return only: a breath of band-passed air that swells and fades beneath the notes.
 //
-// Space: ConvolverNode with a generated impulse response (decaying white noise 2.2 s, two decorrelated channels,
-// low-pass filtered at 5 kHz), dry/wet mix 0.65/0.35, gentle compressor, master volume −14 dB.
+// Levels: the cues are a presence, not a signal. NOTE_SCALE is computed from the master gain so that a note
+// at g = 1 peaks at CUE_PEAK_DB (−34 dBFS) at the output before the hall; the phrases are written in that
+// scale, the richest (lumos) summing near −34 dBFS, the quietest (move, one note) near −41 dBFS.
+//
+// Space: ConvolverNode with a generated impulse response (decaying white noise 3.6 s, two decorrelated channels,
+// low-pass filtered at 5 kHz), dry/wet mix 0.5/0.5, gentle compressor, master volume −14 dB.
 //
 // Robustness: if AudioContext does not exist (Node, old browser), everything is silent without errors.
 //
@@ -91,64 +96,101 @@ import { getConfig } from './config.js';
 
 const MASTER_DB = -14;                       // master volume
 const MASTER = Math.pow(10, MASTER_DB / 20); // ≈ 0.2
-const DRY = 0.65, WET = 0.35;                // dry / wet mix
-const REVERB_SECONDS = 2.2;
+const DRY = 0.5, WET = 0.5;                  // dry / wet mix: half hall, the notes bloom instead of striking
+const REVERB_SECONDS = 3.6;
 const REVERB_LOWPASS_HZ = 5000;
 const REVERB_PREDELAY = 0.018;               // small pre-delay: the sound leaves before the hall answers
 const MAX_VOICES = 40;                       // beyond this, new notes are ignored (never any saturation)
 const DEDUPE_MS = 30;                        // the same cue requested again within this window is ignored (screen duplicates)
 
-// Celesta partials: frequency ratio, relative level, duration factor (the highs die faster).
+// Glass partials: frequency ratio, relative level, duration factor (the highs die first), optional detune (cents).
+// Harmonic only, like a harp's string or a wine glass's rim: nothing clangs. The second entry doubles the
+// fundamental a few cents away: the two beat slowly (about one beat per second around E5), the sheen of
+// rubbed glass, without any chorus effect.
 const PARTIALS = [
-  { ratio: 1,    level: 1.00, decay: 1.00 },
-  { ratio: 2.76, level: 0.34, decay: 0.55 },
-  { ratio: 5.40, level: 0.12, decay: 0.32 },
-  { ratio: 8.90, level: 0.045, decay: 0.22 },
+  { ratio: 1, level: 1.00, decay: 1.00 },
+  { ratio: 1, level: 0.35, decay: 0.90, cents: 2.6 },
+  { ratio: 2, level: 0.22, decay: 0.70 },
+  { ratio: 3, level: 0.07, decay: 0.45 },
+  { ratio: 4, level: 0.025, decay: 0.30 },
 ];
+const PARTIAL_SUM = PARTIALS.reduce((s, p) => s + p.level, 0);   // ≈ 1.665: worst-case coherent peak of one note at g = 1
+
+// Target peak of the richest cue at the output, measured on the dry path (the hall adds a diffuse tail, not a peak).
+// A note at g = 1 reaches it if its partials add coherently: peak = g × PARTIAL_SUM × NOTE_SCALE × DRY × MASTER
+// = 10^(CUE_PEAK_DB / 20). They never quite do (the sheen drifts, the highs die first), so the phrases below are
+// written a little above g = 0.5 per note and measured offline: lumos ≈ −34 dBFS dry, move ≈ −41 dBFS.
+const CUE_PEAK_DB = -34;
+const NOTE_SCALE = Math.pow(10, CUE_PEAK_DB / 20) / (PARTIAL_SUM * DRY * MASTER);   // ≈ 0.12
+const ATTACK = 0.045;                        // s, default attack of a cue note (30–60 ms: stroked glass)
+
+// Air: a breath of band-passed noise that swells under lumos, enter and return. AIR_LEVEL is the gain applied to
+// the filtered noise (its RMS is far below 1): about −52 dBFS at the output, felt more than heard.
+const AIR_HZ = 1700, AIR_Q = 0.9, AIR_LEVEL = 0.07;
+const AIR_BUFFER_SECONDS = 2;
 
 // Pitches as MIDI numbers (A4 = 69 = 440 Hz). Key: E minor (E, F#, G, A, B, C, D).
-const E3 = 52, B3 = 59, E4 = 64, B4 = 71, D5 = 74, E5 = 76, F5 = 77, G5 = 79, B5 = 83, E6 = 88, G6 = 91, B6 = 95;
+const E3 = 52, E4 = 64, G4 = 67, B4 = 71, C5 = 72, D5 = 74, E5 = 76, FS5 = 78, G5 = 79, A5 = 81, B5 = 83, D6 = 86, E6 = 88;
 const hz = (midi) => 440 * Math.pow(2, (midi - 69) / 12);
 
-// The 9 cues: list of notes { n: MIDI pitch, t: start (s), d: decay (s), g: level 0–1 }.
-// `dir` (−1 | 1) reverses the note order of `move` (rising to the right, falling to the left).
-// Total durations: move 0.5 s · enter/return 1.3 s · lumos 2.5 s · nox 2.2 s · wake 1.1 s · error 0.45 s ·
-// toggle 0.5 s · confirm 0.8 s.
+// The 9 cues: list of notes { n: MIDI pitch, t: start (s), d: decay (s), g: level 0–1, a?: attack (s) },
+// plus an optional air swell { air: true, t, d, g }. `g` is in the NOTE_SCALE scale (1 = −34 dBFS, one note, coherent).
+// `dir` (−1 | 1) picks the pitch of `move` (a touch higher to the right than to the left).
+// Every phrase is original and in E minor; none opens with the B → E pickup of the films' theme, none even
+// contains a rising B → E, and none carries the cells E–G–F#–E or B–A–F# at any transposition.
+// Total durations (last tail included): move 1.7 s · toggle 1.6 s · confirm 2.4 s · enter/return 3.2 s ·
+// wake 2.6 s · error 2.6 s · nox 4 s · lumos 4.4 s.
 const CUES = {
-  // Two light notes, E → G (minor third): moving one step.
-  move: (dir) => {
-    const up = [E5, G5], seq = dir < 0 ? up.slice().reverse() : up;
-    return seq.map((n, i) => ({ n, t: i * 0.07, d: 0.55 + i * 0.1, g: 0.22 + i * 0.04 }));
-  },
-  // Four-note descending phrase: B, G, E, B (going down into the Library or the Map).
-  enter: () => [B5, G5, E5, B4].map((n, i) => ({ n, t: i * 0.11, d: 0.9 + i * 0.12, g: 0.3 - i * 0.03 })),
-  // E minor chord arpeggiated upward from the tonic: E, G, B, E (going back up to the Parapet).
-  // No B → E pickup at the head: nothing in common with the incipit of Hedwig's Theme.
-  return: () => [E5, G5, B5, E6].map((n, i) => ({ n, t: i * 0.11, d: 0.9 + i * 0.12, g: 0.26 + i * 0.02 })),
-  // Bright arpeggiated chord (E, G, B, E, G) then a held E–B that slowly fades: the light rises.
+  // One soft note: E to the left, G to the right. A breath on the glass, nothing more.
+  move: (dir) => [{ n: dir < 0 ? E5 : G5, t: 0, d: 1.6, g: 0.54 }],
+  // Going down into a section: D, B, G, the relative major settling downward, with a breath of air beneath.
+  enter: () => [
+    { n: D6, t: 0,    d: 2.0, g: 0.68 },
+    { n: B5, t: 0.2,  d: 2.3, g: 0.64 },
+    { n: G5, t: 0.42, d: 2.7, g: 0.60 },
+    { air: true, t: 0, d: 1.6, g: 0.8 },
+  ],
+  // Going back up: E, G, B, the tonic chord unfolding upward (no B → E pickup, no leap back to E).
+  return: () => [
+    { n: E5, t: 0,    d: 2.0, g: 0.64 },
+    { n: G5, t: 0.2,  d: 2.3, g: 0.64 },
+    { n: B5, t: 0.42, d: 2.7, g: 0.64 },
+    { air: true, t: 0, d: 1.6, g: 0.8 },
+  ],
+  // The light rises: a slow glass bloom over a low E (E, G, D, G, B, D: an E minor seventh opening upward,
+  // never a B → E), the longest tails of all, and a breath of air that swells with it. The richest cue.
   lumos: () => [
-    ...[E5, G5, B5, E6, G6].map((n, i) => ({ n, t: i * 0.09, d: 1.1 + i * 0.1, g: 0.26 + i * 0.03 })),
-    { n: E6, t: 0.46, d: 1.9, g: 0.34 },
-    { n: B6, t: 0.50, d: 1.7, g: 0.16 },
-    { n: E4, t: 0.46, d: 1.9, g: 0.24 },
+    { n: E4, t: 0,    d: 3.5, g: 0.66, a: 0.06 },
+    { n: G4, t: 0.17, d: 3.2, g: 0.52, a: 0.06 },
+    { n: D5, t: 0.34, d: 3.0, g: 0.48 },
+    { n: G5, t: 0.51, d: 2.9, g: 0.48 },
+    { n: B5, t: 0.68, d: 2.8, g: 0.48 },
+    { n: D6, t: 0.85, d: 2.6, g: 0.44 },
+    { air: true, t: 0, d: 2.6, g: 1 },
   ],
-  // Three low notes fading out, each softer than the last: E, B, E (the house goes to bed).
+  // The house goes to bed: B, G, E sinking, then a low E that lingers, each note softer than the last.
   nox: () => [
-    { n: E4, t: 0,    d: 1.4, g: 0.30 },
-    { n: B3, t: 0.26, d: 1.6, g: 0.22 },
-    { n: E3, t: 0.56, d: 1.8, g: 0.16 },
+    { n: B4, t: 0,    d: 2.4, g: 0.64, a: 0.06 },
+    { n: G4, t: 0.3,  d: 2.6, g: 0.52, a: 0.06 },
+    { n: E4, t: 0.62, d: 3.0, g: 0.44, a: 0.06 },
+    { n: E3, t: 1.0,  d: 3.0, g: 0.30, a: 0.06 },
   ],
-  // Two clear notes, G → E (rising sixth): the house wakes up. Not the films' B → E pickup.
-  wake: () => [{ n: G5, t: 0, d: 0.9, g: 0.26 }, { n: E6, t: 0.13, d: 1.1, g: 0.3 }],
-  // Very short grating interval: a minor second (E/F) struck twice, for the Howler.
+  // The house wakes: D, F#, A, a bright major chord rising at dawn (the chord on the seventh degree).
+  wake: () => [
+    { n: D5, t: 0,    d: 2.0, g: 0.60 },
+    { n: FS5, t: 0.18, d: 2.2, g: 0.56 },
+    { n: A5, t: 0.36, d: 2.4, g: 0.52 },
+  ],
+  // The Howler: a sigh, C sinking to B over a low E, gentle; the red envelope does the shouting.
   error: () => [
-    { n: E5, t: 0,    d: 0.28, g: 0.26 }, { n: F5, t: 0,    d: 0.28, g: 0.22 },
-    { n: D5, t: 0.09, d: 0.32, g: 0.22 }, { n: E5, t: 0.09, d: 0.32, g: 0.2 },
+    { n: C5, t: 0,    d: 1.8, g: 0.56 },
+    { n: B4, t: 0.22, d: 2.2, g: 0.50 },
+    { n: E4, t: 0.1,  d: 2.4, g: 0.32, a: 0.06 },
   ],
-  // A single dry note: checkmark or hourglass.
-  toggle: () => [{ n: B5, t: 0, d: 0.45, g: 0.26 }],
-  // Short third, G then B almost together: "done".
-  confirm: () => [{ n: G5, t: 0, d: 0.7, g: 0.24 }, { n: B5, t: 0.06, d: 0.8, g: 0.26 }],
+  // A single soft note, high and short: checkmark or hourglass.
+  toggle: () => [{ n: B5, t: 0, d: 1.5, g: 0.64 }],
+  // "Done": G then D above it, an open fifth placed almost together.
+  confirm: () => [{ n: G5, t: 0, d: 1.9, g: 0.60 }, { n: D6, t: 0.12, d: 2.2, g: 0.57 }],
 };
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -165,6 +207,8 @@ const AMB_FADE_OUT = 0.3;                        // s
 const DUCK_LEVEL = 0.5, DUCK_HOLD = 0.3, DUCK_BACK = 0.45;   // ducking under a cue
 const AMB_MAX_VOICES = 64;                       // ambience's own ceiling (independent of the cues)
 const AMB_REVERB_SEND = 0.5;                     // share of the ambience sent into the hall (celesta)
+// Waltz melody: its fundamental keeps the peak it always had (0.112 before the ambience bus), whatever NOTE_SCALE is.
+const AMB_MELODY_G = 0.112 / NOTE_SCALE;         // ≈ 0.93
 const FILE_REVERB_SEND = 0.15;                   // a file is already mixed: just a touch of hall
 // Personal file: paths relative to index.html, probed in this order (.ogg is the recommended format).
 const MUSIC_FILES = [
@@ -178,7 +222,7 @@ const BPM = 66, BEAT = 60 / BPM;                 // quarter note ≈ 0.909 s, ba
 const BEATS_PER_BAR = 3;
 const RUBATO = 0.03;                             // ±3 % over a 12-bar cycle
 // The same values as config.music (config.js, sanitize): nothing exists here that cannot be set on screen.
-const AMBIENT_MODES = ['auto', 'celesta', 'aucune'];
+const AMBIENT_MODES = ['auto', 'fichier', 'celesta', 'aucune'];   // 'fichier': the personal file, chosen by name in the settings
 
 // Harmonic grid: 24 bars, three phrases of eight. The last one (E minor) leads back to the first (E minor):
 // the loop does not "jump".
@@ -261,7 +305,7 @@ const HARP_PARTIALS = [
 
 let audio = null;        // AudioContext (null until the context has been created, or if Web Audio is missing)
 let graph = null;        // { input, master, convolver, wet, dry, comp } once the graph is built
-let noiseBuf = null;     // hammer noise (30 ms), shared by all notes
+let noiseBuf = null;     // air noise (2 s, looped), shared by all air swells
 let enabled = false;
 const voices = new Set();   // cue notes in flight: { nodes: [...], stop() }
 let armed = false;          // user-gesture listeners installed?
@@ -330,15 +374,16 @@ function makeImpulse(ctx) {
   return buf;
 }
 
+// Air buffer: white noise, looped under the band-pass of the air swell (never heard raw).
 function makeNoise(ctx) {
-  const len = Math.floor(ctx.sampleRate * 0.03);
+  const len = Math.floor(ctx.sampleRate * AIR_BUFFER_SECONDS);
   const buf = ctx.createBuffer(1, len, ctx.sampleRate);
   const d = buf.getChannelData(0);
   for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
   return buf;
 }
 
-// Built once: notes → [dry 0.65] + [convolver → wet 0.35] → gentle compressor → master (−14 dB) → output.
+// Built once: notes → [dry 0.5] + [convolver → wet 0.5] → gentle compressor → master (−14 dB) → output.
 function buildGraph(ctx) {
   const input = ctx.createGain(); input.gain.value = 1;
   const dry = ctx.createGain(); dry.gain.value = DRY;
@@ -445,42 +490,50 @@ function registerVoice(bag, nodes, longest) {
   if (longest) longest.onended = done; else done();
 }
 
-// One celesta note at time `at` (audio clock). `out`: output node; `bag` / `max`: registry and ceiling.
+// One glass note at time `at` (audio clock). `out`: output node; `bag` / `max`: registry and ceiling.
+// Envelope per partial: silence → linear rise over the attack (30–60 ms) → exponential tail (1.5–3.5 s for the
+// fundamental, shorter for the highs). The partials share one random detune (±3 cents: one glass, not a choir).
 function playNote(note, at, out = graph.input, bag = voices, max = MAX_VOICES) {
   if (bag.size >= max) return;
   const ctx = audio;
   const f0 = hz(note.n);
-  const detune = (Math.random() * 2 - 1) * 4;                      // ±4 cents, shared by the partials (a single bar)
+  const detune = (Math.random() * 2 - 1) * 3;
+  const attack = note.a || ATTACK;
   const nodes = [];
   let longest = null, longestEnd = 0;
   for (const p of PARTIALS) {
     const f = f0 * p.ratio;
     if (f > ctx.sampleRate * 0.45) continue;                       // partial beyond Nyquist: skip it
     const osc = ctx.createOscillator(), g = ctx.createGain();
-    osc.type = 'sine'; osc.frequency.value = f; osc.detune.value = detune;
-    const peak = note.g * p.level;
+    osc.type = 'sine'; osc.frequency.value = f; osc.detune.value = detune + (p.cents || 0);
+    const peak = note.g * p.level * NOTE_SCALE;
     const dur = note.d * p.decay;
     g.gain.setValueAtTime(0.0001, at);
-    g.gain.linearRampToValueAtTime(peak, at + 0.004);              // 4 ms attack
-    g.gain.exponentialRampToValueAtTime(0.0001, at + 0.004 + dur); // exponential decay
+    g.gain.linearRampToValueAtTime(peak, at + attack);
+    g.gain.exponentialRampToValueAtTime(0.0001, at + attack + dur);
     osc.connect(g).connect(out);
-    osc.start(at); osc.stop(at + 0.004 + dur + 0.05);
+    osc.start(at); osc.stop(at + attack + dur + 0.05);
     nodes.push(osc, g);
     if (at + dur > longestEnd) { longestEnd = at + dur; longest = osc; }
   }
-  // Hammer: 30 ms of high-pass noise, 12 ms envelope, very discreet.
-  if (noiseBuf) {
-    const src = ctx.createBufferSource(); src.buffer = noiseBuf;
-    const hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 3200; hp.Q.value = 0.7;
-    const g = ctx.createGain();
-    g.gain.setValueAtTime(0.0001, at);
-    g.gain.linearRampToValueAtTime(note.g * 0.18, at + 0.001);
-    g.gain.exponentialRampToValueAtTime(0.0001, at + 0.012);
-    src.connect(hp).connect(g).connect(out);
-    src.start(at); src.stop(at + 0.03);
-    nodes.push(src, hp, g);
-  }
   registerVoice(bag, nodes, longest);
+}
+
+// A breath of air at time `at`: looped noise through a band-pass, swelling over the first third of `d` and
+// fading over the rest. `g` scales AIR_LEVEL. Cues only (lumos, enter, return), under the notes.
+function playAir(air, at) {
+  if (!noiseBuf || voices.size >= MAX_VOICES) return;
+  const ctx = audio;
+  const src = ctx.createBufferSource(); src.buffer = noiseBuf; src.loop = true;
+  const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = AIR_HZ; bp.Q.value = AIR_Q;
+  const g = ctx.createGain();
+  const rise = air.d * 0.35, end = at + air.d;
+  g.gain.setValueAtTime(0.0001, at);
+  g.gain.linearRampToValueAtTime(AIR_LEVEL * air.g, at + rise);
+  g.gain.exponentialRampToValueAtTime(0.0001, end);
+  src.connect(bp).connect(g).connect(graph.input);
+  src.start(at); src.stop(end + 0.05);
+  registerVoice(voices, [src, bp, g], src);
 }
 
 // A plucked harp string (ambience only): harmonic partials, 3 ms attack, the lows last longer.
@@ -546,7 +599,7 @@ function beatDuration(beat) {
 function scheduleAmbientEvent(ev, at, dur) {
   if (ev.kind === 'mel') {
     const t = at + (Math.random() - 0.5) * 0.016;                   // ±8 ms: a hand, not a machine
-    playNote({ n: ev.n, d: ev.len * dur * 0.9 + 0.6, g: 0.28 }, t, amb.bus.mix, amb.voices, AMB_MAX_VOICES);
+    playNote({ n: ev.n, d: ev.len * dur * 0.9 + 0.6, g: AMB_MELODY_G }, t, amb.bus.mix, amb.voices, AMB_MAX_VOICES);
   } else if (ev.kind === 'harp') {
     const g = 0.15 * (0.85 + Math.random() * 0.3) * (ev.strong ? 1.25 : 1);
     playPluck(ev.n, at, g);
@@ -702,7 +755,7 @@ function ambientApply() {
   const token = ++amb.req;
   if (mode === 'aucune') { ambientStop(); return; }
   if (mode === 'celesta') { ambientStart('celesta'); return; }
-  // 'auto': the personal file if it exists, otherwise the waltz.
+  // 'auto' and 'fichier': the personal file if it exists, otherwise the waltz (the settings' note says so).
   probeFile((el) => {
     if (amb.req !== token || !enabled || amb.holds.size) return;    // another request came in meanwhile
     ambientStart(el ? 'fichier' : 'celesta');
@@ -714,7 +767,7 @@ function schedule(name, dir) {
   const make = CUES[name];
   if (!make) return false;
   const at = audio.currentTime + 0.012;                            // small lead: every note leaves on time
-  for (const note of make(dir)) playNote(note, at + note.t);
+  for (const note of make(dir)) { if (note.air) playAir(note, at + note.t); else playNote(note, at + note.t); }
   duckAmbient();
   lastAt.set(name, now());
   return true;
