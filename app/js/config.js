@@ -53,9 +53,9 @@ export const LIBRARY = [
     // `url`: the film's page on Max (links supplied by the owner). Only the hosts in URL_HOSTS are accepted by platform.js.
     id: 'hp', title: 'Harry Potter', background: 'library',
     alsoWith: ['canal'],          // other apps offered by the Remembrall ("Ouvrir avec Canal+"): the app opens, the film is searched inside
-    scene: { image: 'assets/ollivanders.webp', w: 1672, h: 941, boxes: [
-      [[248, 318], [338, 313], [350, 790], [162, 790]], [[340, 318], [438, 313], [506, 790], [352, 790]], [[556, 322], [674, 318], [686, 790], [520, 790]], [[708, 322], [820, 318], [852, 790], [690, 790]],
-      [[861, 322], [977, 318], [1020, 790], [858, 790]], [[1011, 322], [1135, 318], [1200, 790], [1030, 790]], [[1195, 320], [1285, 316], [1370, 790], [1180, 790]], [[1340, 322], [1440, 318], [1565, 790], [1385, 790]],
+    scene: { image: 'assets/ollivanders.webp', w: 1024, h: 576, boxes: [
+      [[222, 178], [292, 178], [270, 508], [180, 508]], [[300, 178], [373, 178], [350, 508], [272, 508]], [[382, 178], [450, 178], [432, 508], [355, 508]], [[460, 178], [530, 178], [520, 508], [440, 508]],
+      [[540, 178], [608, 178], [615, 508], [540, 508]], [[620, 178], [690, 178], [705, 508], [630, 508]], [[700, 178], [770, 178], [800, 508], [718, 508]], [[780, 178], [850, 178], [895, 508], [810, 508]],
     ] },
     items: [
       { n: 1, title: "À l'école des sorciers", year: 2001, symbol: 'stone', color: '#7a2328', app: 'max', content: 'hp1', url: "https://www.max.com/fr/fr/search?q=Harry+Potter+à+l'école+des+sorciers" },

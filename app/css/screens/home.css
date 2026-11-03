@@ -73,11 +73,20 @@ html[data-motion="economie"] .home-mist { animation: none; }
 /* House crest, under the clock, sealed in wax. */
 .home-crest { position: absolute; top: calc(var(--safe-y) + 9.7cqw); left: calc(var(--safe-x) + .2cqw); display: flex; align-items: center; gap: .8cqw; opacity: 0; transform: translateY(.4cqw); transition: opacity calc(var(--k) * 500ms), transform calc(var(--k) * 500ms); }
 .home-crest.show { opacity: 1; transform: none; }
-.home-crest-svg { width: 3.2cqw; height: 3.6cqw; }
-.home-crest-svg .rim { fill: color-mix(in srgb, var(--wax) 85%, #000); stroke: var(--gold-light); stroke-width: 1.6; }
-.home-crest-svg .rim.inner { fill: none; stroke-width: .9; opacity: .7; }
-.home-crest-svg .beast { fill: none; stroke: var(--gold-light); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+/* The achievement (crests.js): wax inside the shield, gold line work in two weights, the house name on the ribbon. */
+.home-crest-svg { width: 4.6cqw; height: 5.75cqw; overflow: visible; }
+.home-crest-svg .rim { fill: color-mix(in srgb, var(--wax) 82%, #000); stroke: var(--gold-light); stroke-width: 1.5; stroke-linejoin: round; }
+.home-crest-svg .rim.inner { fill: none; stroke-width: .7; opacity: .5; }
+.home-crest-svg .beast { fill: none; stroke: var(--gold-light); stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.home-crest-svg .beast .fine { stroke-width: .9; }
+.home-crest-svg .beast .stripe { stroke-width: 3; }
 .home-crest-svg .beast .dot { fill: var(--gold-light); stroke: none; }
+.home-crest-svg .helm { fill: color-mix(in srgb, var(--wax) 55%, #000); stroke: var(--gold-light); stroke-width: 1.3; stroke-linecap: round; stroke-linejoin: round; }
+.home-crest-svg .helm.fine { fill: none; stroke-width: .8; }
+.home-crest-svg .mantle { fill: none; stroke: var(--gold-light); stroke-width: .8; stroke-linecap: round; opacity: .75; }
+.home-crest-svg .banner { fill: color-mix(in srgb, var(--wax) 65%, #000); stroke: var(--gold-light); stroke-width: .8; stroke-linejoin: round; }
+.home-crest-svg .banner.fine { fill: none; }
+.home-crest-svg .banner-text { fill: var(--gold-light); font-family: var(--display); font-weight: 600; letter-spacing: .04em; }
 .home-crest-name { font-family: var(--display); font-size: var(--t-hint); letter-spacing: var(--track-wide); text-transform: uppercase; color: var(--gold-light); opacity: .8; text-shadow: 0 .08cqw .1cqw #000c; }
 .home-arena { position: absolute; inset: 0; pointer-events: none; }
 /* The Parapet's only hint: one quiet line, "vers Ollivanders", small caps at 1.3 cqw, the arrow in gold at .5. */
@@ -127,6 +136,64 @@ html:not([data-motion="auto"]) .home-launch { transition-duration: calc(var(--k)
 .screen-home.nox .home-plane { transition: transform calc(var(--k) * 90s) ease-in-out; }
 html:not([data-motion="auto"]) .home-stars { animation: none; }
 
+/* Nox entrance: the fly-by (home.js flyBy). One rider layer, 14 cqw wide, its foot above the owl's head (home.js
+   sets the top in px); home.js drives the crossing (translateX −25 → 125 cqw, 1400 ms, momentum ease) and the per-app
+   extinction. Here: the bob and the lean, four thin streaks of speed in his wake, three puffs of mist blooming
+   behind and under the broom, the apps' 120 ms fade-and-sink, the quiet things that give way. */
+.home-rider { position: absolute; left: 0; top: 48%; width: 14cqw; height: 7cqw; opacity: 0; pointer-events: none; transform: translateX(-25cqw); will-change: transform; }
+.home-rider.fly { opacity: 1; }
+.home-rider-bob { position: absolute; inset: 0; transform: rotate(-6deg); transform-origin: 48% 62%; }
+.home-rider.fly .home-rider-bob { animation: home-rider-bob calc(var(--k) * 1400ms) ease-in-out; }
+.home-rider-img { display: block; width: 100%; height: 100%; object-fit: contain; object-position: 50% 100%; }
+@keyframes home-rider-bob {
+  0% { transform: rotate(-6deg) translateY(.5cqw); }
+  25% { transform: rotate(-6deg) translateY(-.4cqw); }
+  50% { transform: rotate(-6deg) translateY(.3cqw); }
+  75% { transform: rotate(-6deg) translateY(-.35cqw); }
+  100% { transform: rotate(-6deg) translateY(.2cqw); }
+}
+/* Streaks: thin, warm, fading toward the tail, anchored behind the broom (right end at 28 % of the layer). They
+   stretch from the rider and peak at mid-flight, when he is fastest. */
+.home-streak { position: absolute; right: 72%; height: .1cqw; width: 20cqw; opacity: 0; transform-origin: 100% 50%; transform: scaleX(.2);
+  background: linear-gradient(90deg, #ffd9a000, #ffd9a070 55%, #fff6d8c0 100%); }
+.home-streak:nth-child(1) { top: 44%; width: 16cqw; }
+.home-streak:nth-child(2) { top: 52%; width: 24cqw; }
+.home-streak:nth-child(3) { top: 61%; width: 20cqw; height: .14cqw; }
+.home-streak:nth-child(4) { top: 71%; width: 13cqw; }
+.home-rider.fly .home-streak { animation: home-streak calc(var(--k) * 1400ms) ease-in-out; }
+.home-rider.fly .home-streak:nth-child(2) { animation-delay: calc(var(--k) * 40ms); }
+.home-rider.fly .home-streak:nth-child(3) { animation-delay: calc(var(--k) * 90ms); }
+.home-rider.fly .home-streak:nth-child(4) { animation-delay: calc(var(--k) * 140ms); }
+@keyframes home-streak {
+  0% { opacity: 0; transform: scaleX(.2); }
+  30% { opacity: .32; transform: scaleX(.8); }
+  55% { opacity: .5; transform: scaleX(1); }
+  85% { opacity: .18; transform: scaleX(.7); }
+  100% { opacity: 0; transform: scaleX(.3); }
+}
+/* The wake: three soft puffs of mist anchored behind and under the broom, each blooming from .4 to 1.6 and fading
+   .35 -> 0 over 600 ms, staggered like the streaks. They ride with the rider, so the mist visibly rolls off him. */
+.home-puff { position: absolute; width: 12cqw; height: 6cqw; border-radius: 50%; opacity: 0; transform: scale(.4); transform-origin: 50% 50%; pointer-events: none;
+  background: radial-gradient(closest-side, #d6e3f2 0%, #d6e3f290 40%, #d6e3f200 100%); }
+.home-puff:nth-child(1) { left: -48%; top: 50%; }
+.home-puff:nth-child(2) { left: -18%; top: 66%; width: 13cqw; height: 6.5cqw; }
+.home-puff:nth-child(3) { left: 12%; top: 80%; width: 9cqw; height: 4.6cqw; }
+.home-rider.fly .home-puff { animation: home-puff calc(var(--k) * 600ms) linear calc(var(--k) * 200ms) 2 both; }   /* two blooms each over the crossing */
+.home-rider.fly .home-puff:nth-child(2) { animation-delay: calc(var(--k) * 300ms); }
+.home-rider.fly .home-puff:nth-child(3) { animation-delay: calc(var(--k) * 400ms); }
+@keyframes home-puff {
+  0% { opacity: 0; transform: scale(.4); }
+  15% { opacity: .35; transform: scale(.75); }
+  60% { opacity: .24; transform: scale(1.25) translateX(-.8cqw); }
+  100% { opacity: 0; transform: scale(1.6) translateX(-1.6cqw); }
+}
+/* An app goes out when the nose passes it: a 120 ms cross-fade and a 1.2 cqw sink, scale preserved on the focused one. */
+.home-app.is-out { opacity: 0; transform: translateY(1.2cqw); transition: opacity calc(var(--k) * 120ms) var(--ease-fade), transform calc(var(--k) * 120ms) var(--ease-fade); }
+.home-app.is-focus.is-out { transform: scale(1.28) translateY(1.2cqw); }
+/* While he crosses, the candle pool, the crest, the hint and the bar withdraw; the dock itself waits for the apps. */
+.screen-home.nox-fly .home-candlelight, .screen-home.nox-fly .home-crest, .screen-home.nox-fly .home-hint, .screen-home.nox-fly .home-bar { opacity: 0 !important; transition-duration: calc(var(--k) * 600ms); }
+html:not([data-motion="auto"]) .home-rider { display: none; }
+
 /* "Nox?" plate */
 .home-plate { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%) scale(.96); z-index: 52; opacity: 0; pointer-events: none;
   padding: 2cqw 3.2cqw; text-align: center; display: grid; gap: 1cqw; background: var(--stone); border: .1cqw solid var(--gold-dark); border-radius: .3cqw;
@@ -137,3 +204,5 @@ html:not([data-motion="auto"]) .home-stars { animation: none; }
 .home-plate-opts { display: flex; gap: 2cqw; justify-content: center; margin-top: .6cqw; }
 .home-plate-opt { font-family: var(--body); font-size: var(--t-body); color: var(--ivory); padding: .3cqw 1.2cqw; border-bottom: .12cqw solid transparent; opacity: .6; }
 .home-plate-opt.is-focus { opacity: 1; border-bottom-color: var(--gold-light); color: var(--gold-light); }
+/* The official crest (a picture, when the private file is present): same box as the drawn one, no tint. */
+.home-crest-svg.is-img { object-fit: contain; width: 6cqw; height: 7.2cqw; }

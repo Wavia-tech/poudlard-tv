@@ -58,12 +58,21 @@
   transition: transform calc(var(--k) * 250ms) cubic-bezier(.3, .7, .2, 1), opacity calc(var(--k) * 200ms), border-color calc(var(--k) * 200ms), background-color calc(var(--k) * 200ms); }
 .sort-shield.is-on { opacity: 1; }
 .sort-shield.is-focus { opacity: 1; transform: translateY(-.35cqw) scale(1.06); border-color: #1b151055; background: #1b15100c; }
-.sort-shield-svg { width: 7.6cqw; height: 8.5cqw; overflow: visible; }
-.sort-shield-svg .rim { fill: none; stroke: var(--ink); stroke-width: 1.4; stroke-linejoin: round; opacity: .8; }
-.sort-shield-svg .rim.inner { stroke-width: .7; opacity: .35; }
-.sort-shield-svg .beast { fill: none; stroke: var(--ink); stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; opacity: .9; }
+/* The achievement (crests.js) in quill ink on the parchment: two stroke weights, the chosen house's shield in its wax. */
+.sort-shield-svg { width: 7.2cqw; height: 9cqw; overflow: visible; }
+.sort-shield-svg .rim { fill: none; stroke: var(--ink); stroke-width: 1.4; stroke-linejoin: round; opacity: .85; }
+.sort-shield-svg .rim.inner { stroke-width: .6; opacity: .35; }
+.sort-shield-svg .beast { fill: none; stroke: var(--ink); stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; opacity: .9; }
+.sort-shield-svg .beast .fine { stroke-width: .8; }
+.sort-shield-svg .beast .stripe { stroke-width: 3; }
 .sort-shield-svg .beast .dot { fill: var(--ink); stroke: none; }
+.sort-shield-svg .helm { fill: none; stroke: var(--ink); stroke-width: 1.2; stroke-linecap: round; stroke-linejoin: round; opacity: .8; }
+.sort-shield-svg .helm.fine { stroke-width: .7; }
+.sort-shield-svg .mantle { fill: none; stroke: var(--ink); stroke-width: .7; stroke-linecap: round; opacity: .6; }
+.sort-shield-svg .banner { fill: none; stroke: var(--ink); stroke-width: .7; stroke-linejoin: round; opacity: .7; }
+.sort-shield-svg .banner-text { fill: var(--ink); font-family: var(--display); font-weight: 600; letter-spacing: .04em; }
 .sort-shield.is-on .sort-shield-svg .rim { stroke: var(--wax); stroke-width: 2; opacity: 1; }
+.sort-shield.is-on .sort-shield-svg .banner-text { fill: var(--wax); }
 .sort-shield-name { font-family: var(--fell); font-variant: small-caps; font-size: 1.9cqw; letter-spacing: .06em; color: var(--ink); }
 .sort-shield.is-on .sort-shield-name::after { content: " ✦"; color: var(--wax); }
 .sort-wax { display: flex; align-items: center; gap: 1.2cqw; margin-top: .3cqw; }
@@ -127,3 +136,4 @@
 /* The tick fades in, without rotation or scale. */
 .screen-sorting.is-reduced .sort-box svg { transition: opacity 200ms ease; transform: none !important; }
 @keyframes sort-fade { from { opacity: 0; } to { opacity: 1; } }
+.sort-shield-svg.is-img { object-fit: contain; width: 9cqw; height: 10.8cqw; }

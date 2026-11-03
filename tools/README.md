@@ -107,3 +107,11 @@ franchise term: *cinematic shop window at night, three worn leather suitcases wi
 side on a wooden counter, evenly spaced, each suitcase slightly open with a faint golden glow escaping, 1920s New
 York apothecary shelves with glass jars behind, warm lamplight, rain on the glass, moody, highly detailed, no text,
 no letters*. The three selection boxes are measured on the image (`scene.boxes` in `app/js/config.js`).
+
+### The broom rider (`app/assets/rider.webp`)
+
+The Nox fly-by silhouette. Generated locally (Z-Image Turbo, `generate.ps1 -Format paysage -Seed 11`, 1024×576)
+with a generic prompt (*a single clean silhouette of a young wizard flying fast on a broomstick, side view facing
+right, crouched forward, long cape streaming behind, round glasses, one arm reaching forward, broom bristles
+trailing, high contrast, no text*), then cut out by luminance and given a baked golden rim with PIL (no CSS
+filter at runtime). Original drawing: no likeness, no film frame.

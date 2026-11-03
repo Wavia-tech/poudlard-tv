@@ -1,8 +1,9 @@
 // Ollivanders: the film collection shown as a wandmaker's shop window.
-// The reference image (assets/ollivanders.webp) is displayed as is. Selection draws no outline at all:
-// the rest of the shop rests under a soft veil (one static radial window moved by transform, no blur), the camera
-// leans in by a hair, and the caption is typeset like a museum label whose gold rule draws itself from the centre
-// between the title and the sub-line. Transform and opacity only.
+// The reference image (assets/ollivanders.webp) is staged, not decorated: a colour grade (two gradient layers at
+// low opacity, warm from the lamp and cool from the night), a vignette, a letterbox frame with a hairline, and a
+// soft veil on the whole shop except the chosen box (one static radial window moved by transform, no blur). The
+// camera leans in by a hair; the caption is typeset like a museum label whose gold rule draws itself from the
+// centre between the title and the sub-line. Transform and opacity only; all the layers live in ollivanders.css.
 import { LIBRARY, appById, getConfig, updateConfig, isReduced } from '../config.js';
 import { Platform } from '../platform.js';
 import { Input } from '../input.js';
@@ -11,7 +12,7 @@ import { monogram } from '../monogram.js';
 
 // Each collection of LIBRARY (config.js) is a window: its `scene` gives the backdrop, its pixel size and one
 // selection polygon per film. The windows stack under the Parapet: Down opens the next one, Up the previous one.
-let IMG = { w: 1672, h: 941 };
+let IMG = { w: 1024, h: 576 };
 const HOLE = 1.25;    // the window's box is 1.25 × the film box (the soft edge lives in the mask gradient): framed, not spilling
 const LINE_W = 0.6;   // the label's rule spans 60% of the title's width, centred under it
 const loadRappeltout = () => import('../rappeltout.js').then((m) => m.rappeltout).catch(() => null);
@@ -34,8 +35,12 @@ export default {
     root.innerHTML = `
       <div class="olv-scene">
         <img class="olv-bg" alt="">
+        <div class="olv-grade olv-grade-warm"></div>
+        <div class="olv-grade olv-grade-cool"></div>
         <div class="olv-shade"></div>
       </div>
+      <div class="olv-vignette"></div>
+      <div class="olv-band olv-band-top"></div><div class="olv-band olv-band-bottom"></div>
       <div class="olv-caption"><div class="olv-caption-title"></div><i class="olv-line" aria-hidden="true"></i><div class="olv-caption-sub"></div></div>
       <div class="keyhint olv-hint"><span><b>◀ ▶</b>Choisir</span><span><b>OK</b>Ouvrir le film</span><span class="olv-hint-up"><b>▲</b>Parapet</span><span class="olv-hint-next"><b>▼</b></span></div>
       <div class="olv-dim"></div>`;
@@ -77,7 +82,7 @@ export default {
       this.holeBase = { w: b0.w * HOLE, h: b0.h * HOLE };
       // Radii in % of the veil (three screens): half the window, divided by three. The edge is long and soft.
       const rx = (this.holeBase.w * 100 / 6).toFixed(2), ry = (this.holeBase.h * 100 / 6).toFixed(2);
-      const m = `radial-gradient(ellipse ${rx}% ${ry}% at 50% 50%, transparent 60%, #000 85%)`;
+      const m = `radial-gradient(ellipse ${rx}% ${ry}% at 50% 50%, transparent 52%, #000 92%)`;
       shade.style.webkitMaskImage = m; shade.style.maskImage = m;
     }
     const sx = (b.w * HOLE) / this.holeBase.w, sy = (b.h * HOLE) / this.holeBase.h;
