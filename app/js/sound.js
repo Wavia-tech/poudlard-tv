@@ -178,7 +178,7 @@ const BPM = 66, BEAT = 60 / BPM;                 // quarter note ≈ 0.909 s, ba
 const BEATS_PER_BAR = 3;
 const RUBATO = 0.03;                             // ±3 % over a 12-bar cycle
 // The same values as config.music (config.js, sanitize): nothing exists here that cannot be set on screen.
-const AMBIENT_MODES = ['auto', 'celesta', 'aucune'];
+const AMBIENT_MODES = ['auto', 'fichier', 'celesta', 'aucune'];   // 'fichier': the personal file, chosen by name in the settings
 
 // Harmonic grid: 24 bars, three phrases of eight. The last one (E minor) leads back to the first (E minor):
 // the loop does not "jump".
@@ -702,7 +702,7 @@ function ambientApply() {
   const token = ++amb.req;
   if (mode === 'aucune') { ambientStop(); return; }
   if (mode === 'celesta') { ambientStart('celesta'); return; }
-  // 'auto': the personal file if it exists, otherwise the waltz.
+  // 'auto' and 'fichier': the personal file if it exists, otherwise the waltz (the settings' note says so).
   probeFile((el) => {
     if (amb.req !== token || !enabled || amb.holds.size) return;    // another request came in meanwhile
     ambientStart(el ? 'fichier' : 'celesta');

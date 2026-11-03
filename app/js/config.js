@@ -52,6 +52,7 @@ export const LIBRARY = [
   {
     // `url`: the film's page on Max (links supplied by the owner). Only the hosts in URL_HOSTS are accepted by platform.js.
     id: 'hp', title: 'Harry Potter', background: 'library',
+    alsoWith: ['canal'],          // other apps offered by the Remembrall ("Ouvrir avec Canal+"): the app opens, the film is searched inside
     scene: { image: 'assets/ollivanders.webp', w: 1672, h: 941, boxes: [
       [[248, 318], [338, 313], [350, 790], [162, 790]], [[340, 318], [438, 313], [506, 790], [352, 790]], [[556, 322], [674, 318], [686, 790], [520, 790]], [[708, 322], [820, 318], [852, 790], [690, 790]],
       [[861, 322], [977, 318], [1020, 790], [858, 790]], [[1011, 322], [1135, 318], [1200, 790], [1030, 790]], [[1195, 320], [1285, 316], [1370, 790], [1180, 790]], [[1340, 322], [1440, 318], [1565, 790], [1385, 790]],
@@ -90,7 +91,7 @@ export const DEFAULT_CONFIG = Object.freeze({
   hidden: [],                   // apps hidden from the Map (never lost: they can be shown again)
   owl: 'vive',                  // 'vive' | 'calme' | 'absente'
   sounds: false,
-  music: 'auto',                // background music: 'auto' (personal file if present, otherwise celesta) | 'celesta' | 'aucune'
+  music: 'auto',                // background music: 'auto' (personal file if present, otherwise celesta) | 'fichier' (the file) | 'celesta' | 'aucune'
   musicNox: 'pause',            // during Nox (sleep): 'pause' the music | 'continue' it
   motion: 'auto',               // 'auto' | 'reduit' | 'economie'
   sky: 'auto',                  // the Parapet's sky: 'auto' (dusk, night, deep night, dawn by the hour) | 'nuit' (always a clear night)
@@ -141,7 +142,7 @@ export function sanitize(raw) {
   if (Array.isArray(raw.hidden)) c.hidden = idList(raw.hidden, { has: knows }).filter((id) => !c.dock.includes(id));
   if (['vive', 'calme', 'absente'].includes(raw.owl)) c.owl = raw.owl;
   if (typeof raw.sounds === 'boolean') c.sounds = raw.sounds;
-  if (['auto', 'celesta', 'aucune'].includes(raw.music)) c.music = raw.music;
+  if (['auto', 'fichier', 'celesta', 'aucune'].includes(raw.music)) c.music = raw.music;
   if (['pause', 'continue'].includes(raw.musicNox)) c.musicNox = raw.musicNox;
   if (['auto', 'reduit', 'economie'].includes(raw.motion)) c.motion = raw.motion;
   if (['auto', 'nuit'].includes(raw.sky)) c.sky = raw.sky;

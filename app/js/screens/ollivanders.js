@@ -3,7 +3,7 @@
 // a warm spotlight lights the chosen box (the rest of the shop dims gently through a soft hole that is one
 // static radial mask moved by transform, no blur), a beam of light falls on it from above, the camera leans
 // slightly towards it, and a few specks of gold dust rise along the beam. Transform and opacity only.
-import { LIBRARY, appById, getConfig, isReduced } from '../config.js';
+import { LIBRARY, appById, getConfig, updateConfig, isReduced } from '../config.js';
 import { Platform } from '../platform.js';
 import { Input } from '../input.js';
 import { LOGOS } from '../../assets/logos.js';
@@ -29,7 +29,7 @@ export default {
     const coll = windows[this.ci] || LIBRARY[0];
     const boxes = coll.scene.boxes;
     IMG = { w: coll.scene.w, h: coll.scene.h };
-    this.items = coll.items.slice(0, boxes.length).map((it, n) => ({ ...it, box: boxes[n], key: `${coll.id}:${it.content}` }));
+    this.items = coll.items.slice(0, boxes.length).map((it, n) => ({ ...it, box: boxes[n], key: `${coll.id}:${it.content}`, also: coll.alsoWith || [] }));
     this.i = 0;
     root.innerHTML = `
       <div class="olv-scene">
@@ -107,10 +107,13 @@ export default {
     const scene = this.root.querySelector('.olv-scene');
     scene.style.transformOrigin = `${c.x / IMG.w * 100}% ${c.y / IMG.h * 100}%`;
     scene.classList.add('lean');
-    const app = appById(it.app);
+    const app = this.appFor(it);
     const cap = this.root.querySelector('.olv-caption');
     cap.querySelector('.olv-caption-title').textContent = `${it.title} · ${it.year}`;
-    cap.querySelector('.olv-caption-sub').textContent = app ? (this.hiddenKeys.has(it.key) ? 'Ce film est prêté' : `Disponible sur ${app.name}`) : 'Appli à choisir dans les réglages';
+    const others = this.choices(it).filter((a) => a.id !== (app && app.id));
+    cap.querySelector('.olv-caption-sub').textContent = app
+      ? (this.hiddenKeys.has(it.key) ? 'Ce film est prêté' : `S’ouvre dans ${app.name}${others.length ? ` · OK long : ${others.map((a) => a.name).join(', ')}` : ''}`)
+      : 'Appli à choisir dans les réglages';
     if (!instant) { cap.classList.remove('is-write'); void cap.offsetWidth; cap.classList.add('is-write'); }
   },
 
@@ -127,7 +130,7 @@ export default {
   // Lumos: the box lights up, then the film opens in the app that owns it (link from the config).
   launch() {
     if (this.busy) return;
-    const it = this.items[this.i]; const app = appById(it.app); if (!app) return;
+    const it = this.items[this.i]; const app = this.appFor(it); if (!app) return;
     this.busy = true; Input.hold();
     const root = this.root, fx = this.ctx.fx, k = Number(getComputedStyle(root).getPropertyValue('--k')) || 1;
     const c = this.center(this.i);
@@ -154,10 +157,27 @@ export default {
   // Everything released (main.js error boundary, hand-over to another app).
   settle() { if (this.settleFn) this.settleFn(); },
 
+  // The apps that can open a film: the one in LIBRARY plus every app of `urls` (one link per app).
+  choices(it) { return [...new Set([it.app, ...Object.keys(it.urls || {}), ...(it.also || [])])].map(appById).filter(Boolean); },
+  // The app chosen for this film (config.library.apps, set from the Remembrall), else the collection's default.
+  appFor(it) { const chosen = getConfig().library.apps[it.key]; return appById(chosen && this.choices(it).some((a) => a.id === chosen) ? chosen : it.app); },
+
+  // Long OK: lend the film, and choose the app that opens it (kept per film in config.library.apps).
   async rappeltout() {
     const fn = await loadRappeltout(); if (!fn) return;
     const it = this.items[this.i]; const c = this.center(this.i);
-    const choice = await fn(this.root, { title: it.title, anchor: c, options: [{ id: 'lend', label: this.hiddenKeys.has(it.key) ? 'Reprendre ce film' : 'Marquer comme prêté' }] });
+    const current = this.appFor(it);
+    const options = this.choices(it).filter((a) => a.id !== (current && current.id)).map((a) => ({ id: `app:${a.id}`, label: `Ouvrir avec ${a.name}` }));
+    options.push({ id: 'lend', label: this.hiddenKeys.has(it.key) ? 'Reprendre ce film' : 'Marquer comme prêté' });
+    const choice = await fn(this.root, { title: it.title, anchor: c, options });
+    if (!choice || !this.root) return;
+    if (choice.startsWith('app:')) {
+      const lib = getConfig().library;
+      updateConfig({ library: { ...lib, apps: { ...lib.apps, [it.key]: choice.slice(4) } } });
+      this.focus(this.i, true);
+      this.ctx.fx.chime(1568, 0.03);
+      return;
+    }
     if (choice === 'lend') { if (this.hiddenKeys.has(it.key)) this.hiddenKeys.delete(it.key); else this.hiddenKeys.add(it.key); this.focus(this.i, true); }
   },
 

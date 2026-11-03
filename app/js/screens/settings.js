@@ -35,9 +35,9 @@ const TEXT = [['normal', 'Normale'], ['grand', 'Grande']];
 // Background music (sound.js): 'auto' = personal file (assets/music/ambiance.ogg, .mp3 or .m4a, not in the repo,
 // see docs/MUSIC.md) if it exists, otherwise the celesta waltz. The notes speak to the person holding the
 // remote: never a file path on screen.
-const MUSIC = [['auto', 'Auto'], ['celesta', 'Célesta'], ['aucune', 'Aucune']];
+const MUSIC = [['fichier', 'Ambiance Poudlard'], ['celesta', 'Célesta'], ['auto', 'Auto'], ['aucune', 'Aucune']];
 const MUSIC_NOX = [['pause', 'Se tait'], ['continue', 'Continue']];
-const MUSIC_NOTE = { auto: 'Votre propre musique si vous en avez déposé une (voir la documentation), sinon une valse de célesta originale, très bas.', celesta: 'Une valse lente de célesta, harpe et cordes, composée pour le parapet. Jamais un thème des films.', aucune: 'Les clochettes seulement, sans musique.' };
+const MUSIC_NOTE = { fichier: 'Votre ambiance (assets/music/ambiance.mp3), en boucle, très bas. Si le fichier manque, la valse de célesta prend le relais.', auto: 'Votre ambiance si le fichier est là, sinon la valse de célesta.', celesta: 'Une valse lente de célesta, harpe et cordes, composée pour le parapet. Jamais un thème des films.', aucune: 'Les clochettes seulement, sans musique.' };
 const MOTION_NOTE = { auto: 'Vol de la chouette, parallaxe, grain, scintillement : tout.', reduit: 'Fondus de 200 ms, rien de plus. Aussi forcé par le système si demandé.', economie: 'Sans grain ni particules ; scintillement ralenti, parallaxe sur un plan.' };
 const IDLE = [[90, '1,5 min'], [180, '3 min'], [300, '5 min'], [600, '10 min'], [0, 'Jamais']];
 const VERSION = 'Maquette 0.2 · novembre 2026';   // equals android:versionName (AndroidManifest.xml); CHANGELOG.md

@@ -73,8 +73,10 @@ export const Platform = {
 
   // Opens a specific piece of content: `item.url` (host allow-list) in the app that owns it.
   // Must be called from a user gesture (OK), otherwise the browser blocks the opening in the mock-up.
+  // `item.urls[app.id]` (one link per app) wins over `item.url`; an app with no link for this film simply opens.
   openContent(app, item) {
-    const url = item && allowedUrl(item.url);
+    const chosen = item && item.urls && app && item.urls[app.id];
+    const url = allowedUrl(chosen || (item && app && item.app === app.id ? item.url : null));
     const b = bridge();
     if (url && b && typeof b.openUrl === 'function') return call(b.openUrl, url, String(app.pkg || ''));
     if (url) {
