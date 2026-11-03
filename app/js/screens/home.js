@@ -113,6 +113,14 @@ export default {
     if (ctx.params.boot) this.boot(isReduced() ? 300 : ctx.params.short ? 700 : 1800);
     if (ctx.params.nox) this.nox();
     if (ctx.params.askClassic) this.timers.push(setTimeout(() => this.plate(true), 750));
+    // The TV lost the Home key to an update (HomeActivity.checkLostHome): offer to ask it back, once a day at most.
+    this.onHomeEvent = (e) => {
+      if (!this.root || !e.detail || !e.detail.lost || this.mode !== 'normal' || this.busy) return;
+      if (Date.now() - (getConfig().homeNagAt || 0) < 86400e3) return;
+      this.plate(true, { title: 'La télé a repris la touche Home', sub: 'Une mise à jour, sans doute. OK pour la redemander.',
+        onYes: () => Platform.setHome('poudlard'), onNo: () => updateConfig({ homeNagAt: Date.now() }) });
+    };
+    document.addEventListener('poudlard:home', this.onHomeEvent);
   },
 
   // The Home key (router.js): the Parapet goes back to its entry state, whatever it was doing. True = handled.
@@ -145,6 +153,7 @@ export default {
 
   unmount() {
     if (this.unsub) this.unsub();
+    if (this.onHomeEvent) document.removeEventListener('poudlard:home', this.onHomeEvent); this.onHomeEvent = null;
     if (this.untick) this.untick(); this.untick = null;
     this.ctx.fx.setRate(getConfig().motion === 'economie' ? 66 : 33);
     this.timers.forEach(clearTimeout); this.timers.forEach(clearInterval);
@@ -177,7 +186,7 @@ export default {
         el.style.width = Math.min(LOGO_W_MAX, Math.max(3.4, LOGO_H * (L.ratio || 1))) + 'cqw';
         el.innerHTML = `<div class="app-logo${L.luma ? ' luma' : ''}"><i class="l-ext"></i><i class="l-rimD"></i><i class="l-rimL"></i><i class="l-base"></i><i class="l-shine"></i></div>`;
         el.querySelector('.app-logo').style.setProperty('--m', `url("${L.src}")`);
-        el.title = app.name;   // no name shown under the icon (Corentin's call)
+        el.title = app.name;   // no name shown under the icon (by design)
         row.appendChild(el);
         this.items.push(el);
       });
@@ -543,10 +552,15 @@ export default {
     ctx.router.go('map', { app: app ? app.id : null, from: { x: b.cx / this.root.clientWidth, y: b.cy / this.root.clientHeight } }, 'down');
   },
 
-  plate(show) {
+  // The plate: "Nox ?" by default (classic mode), or any yes/no question (`q`: title, sub, onYes, onNo); focus on Non.
+  plate(show, q) {
     const p = this.root.querySelector('.home-plate');
     p.classList.toggle('show', show);
     this.mode = show ? 'plate' : 'normal';
+    this.plateQ = show && q ? q : null;
+    p.querySelector('.home-plate-title').textContent = q && q.title ? q.title : 'Nox ?';
+    p.querySelector('.home-plate-sub').textContent = q && q.sub ? q.sub : 'Passer en mode classique, sans décor ni chouette.';
+    p.querySelector('.home-plate-opt[data-v="yes"]').textContent = q && q.title ? 'Oui' : 'Oui, Nox';
     if (show) p.querySelectorAll('.home-plate-opt').forEach((o) => o.classList.toggle('is-focus', o.dataset.v === 'no'));
   },
 
@@ -560,8 +574,13 @@ export default {
       const opts = [...this.root.querySelectorAll('.home-plate-opt')];
       let k = opts.findIndex((o) => o.classList.contains('is-focus'));
       if (action === 'left' || action === 'right') { k = (k + (action === 'left' ? -1 : 1) + opts.length) % opts.length; opts.forEach((o, n) => o.classList.toggle('is-focus', n === k)); return true; }
-      if (action === 'ok') { const v = opts[k].dataset.v; this.plate(false); if (v === 'yes') { updateConfig({ mode: 'classique' }); ctx.fx.whoosh(); ctx.router.replace('classic', {}, 'fade'); } return true; }
-      if (action === 'back') { this.plate(false); return true; }
+      if (action === 'ok') {
+        const v = opts[k].dataset.v, q = this.plateQ; this.plate(false);
+        if (q) { if (v === 'yes' && q.onYes) q.onYes(); else if (v !== 'yes' && q.onNo) q.onNo(); return true; }
+        if (v === 'yes') { updateConfig({ mode: 'classique' }); ctx.fx.whoosh(); ctx.router.replace('classic', {}, 'fade'); }
+        return true;
+      }
+      if (action === 'back') { const q = this.plateQ; this.plate(false); if (q && q.onNo) q.onNo(); return true; }
       return true;
     }
     if (this.mode === 'move') {

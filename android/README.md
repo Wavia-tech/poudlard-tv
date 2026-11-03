@@ -55,7 +55,7 @@ Prerequisites: JDK 17 or later, the Android SDK command-line tools, adb.
 ```bash
 sdkmanager "build-tools;34.0.0" "platforms;android-34" "platform-tools"
 export ANDROID_HOME=~/Android/Sdk        # or ANDROID_SDK_ROOT; on Windows (Git Bash): /c/Users/<name>/AppData/Local/Android/Sdk
-cd tv-home/android
+cd poudlard-tv/android
 ./build.sh
 ```
 
@@ -200,3 +200,19 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
+
+## From the computer: `tools/tv.sh` / `tools/tv.ps1`
+
+The commands of this document are wrapped in two scripts (`connect`, `install`, `home poudlard|original`, `status`,
+`logs`, `uninstall`, `config pull|push`); see `tools/README.md`. The install pitfalls (adb only, Play Protect,
+Chromecast's port 5555, differently-signed builds) are listed there too.
+
+## Sticky revert and lost role
+
+- After three crashes in five minutes the guard writes `files/home-reverted` (atomically) besides disabling the
+  `.Home` alias: even if an update re-enables the alias, opening the launcher through the HOME intent shows the
+  fallback screen until « Touche Home : Poudlard TV » is set again (`Watchdog.clear`). Opening it from the app
+  list still shows the interface.
+- Three identical page errors within a minute count as one crash (`Bridge.fatal`).
+- `HomeActivity.onResume` checks whether the HOME role was lost while the alias is enabled and tells the page
+  (`poudlard:home` with `lost:true`); the Parapet offers to ask it back, once a day.

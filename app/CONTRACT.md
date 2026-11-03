@@ -26,8 +26,10 @@ app/
                              launch(app), openContent(app, item), setHome(mode), openSystem(key, arg), liveTv(), store(). Reads, cached until
                              Platform.refresh() (called by the router before each mount): apps() → [{pkg,label,system}] | null, installed() → Set | null,
                              inputs() → [{id,port,label,connected}] | null, hasLiveTv(), appIcon(pkg), homeMode() → 'poudlard'|'original'|'simulated', version().
-                             Android bridge (Bridge.java): launch, switchInput, openUrl, installedPackages, installedApps, appIcon, setHome (hint: held |
-                             role | settings | press-home | fire), homeMode, openSystem, inputs, hasLiveTv, liveTv, store, version (docs/FREE-MY-TV.md).
+                             Android bridge (Bridge.java, 16 methods): launch, switchInput, openUrl, installedPackages, installedApps, appIcon, setHome (hint: held |
+                             role | settings | press-home | fire), homeMode ('poudlard' | 'original' | 'reverted'), openSystem, inputs, hasLiveTv, liveTv, store,
+                             fatal, device, version (docs/FREE-MY-TV.md). Platform.device() and Platform.fatal() wrap the last two.
+                             Config keys beyond the defaults: passages, sky, motionSystem, text, homeNagAt (all sanitized in config.js).
   js/input.js                actions: left right up down ok back menu longok longback home, plus okdown (press feedback, never queued); Input.press(a); Input.hold()/release() (queue)
   js/router.js               Router.go(name, params, transition) / replace / back / current / refocus; transitions: fade | up | down | iris | crane | uncrane | snuff
                              (a screen may expose onLeave(transition) for its own flourish; reduced motion turns everything into a 200 ms fade)

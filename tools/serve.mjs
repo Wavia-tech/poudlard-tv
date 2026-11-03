@@ -38,7 +38,7 @@ const types = {
 };
 
 // True if `p` is the root itself or a path located under it (compared with the separator, so that
-// `C:\tv-home-bis` does not pass for a child of `C:\tv-home`).
+// `/srv/poudlard-tv-bis` does not pass for a child of `/srv/poudlard-tv`).
 const insideRoot = (p) => p === rootAbs || p.startsWith(rootAbs + sep);
 
 createServer(async (req, res) => {

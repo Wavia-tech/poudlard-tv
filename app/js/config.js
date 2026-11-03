@@ -49,7 +49,7 @@ const OLD_PASSAGES = { ps5: 'in1', ps4: 'in2', xbox: 'in3', switch: 'in4' };
 // `content`: identifier for the deep link (never a URL typed on screen).
 export const LIBRARY = [
   {
-    // `url`: the film's page on Max (links supplied by Corentin). Only the hosts in URL_HOSTS are accepted by platform.js.
+    // `url`: the film's page on Max (links supplied by the owner). Only the hosts in URL_HOSTS are accepted by platform.js.
     id: 'hp', title: 'Harry Potter', background: 'library', items: [
       { n: 1, title: "À l'école des sorciers", year: 2001, symbol: 'stone', color: '#7a2328', app: 'max', content: 'hp1', url: "https://www.max.com/fr/fr/search?q=Harry+Potter+à+l'école+des+sorciers" },
       { n: 2, title: 'La Chambre des secrets', year: 2002, symbol: 'serpent', color: '#25492c', app: 'max', content: 'hp2', url: 'https://www.max.com/fr/fr/search?q=Harry+Potter+et+la+Chambre+des+secrets' },
@@ -84,7 +84,8 @@ export const DEFAULT_CONFIG = Object.freeze({
   sky: 'auto',                  // the Parapet's sky: 'auto' (dusk, night, deep night, dawn by the hour) | 'nuit' (always a clear night)
   motionSystem: 'follow',       // 'follow' the system's reduced-motion flag | 'ignore' it
   text: 'normal',               // 'normal' | 'grand' (every type token × 1.25)
-  idleSeconds: 0,               // sleep (Nox); 0 = never (Corentin's choice: sleep OFF by default)
+  homeNagAt: 0,                 // when the Parapet last offered to ask the Home key back after a TV update (once a day)
+  idleSeconds: 0,               // sleep (Nox); 0 = never (sleep OFF by default, by design)
   lastApp: null,
   firstRunDone: false,
   library: { hidden: [], apps: {} },   // hidden titles ('collection:content') and the app chosen per title
@@ -133,6 +134,7 @@ export function sanitize(raw) {
   if (['auto', 'nuit'].includes(raw.sky)) c.sky = raw.sky;
   if (['follow', 'ignore'].includes(raw.motionSystem)) c.motionSystem = raw.motionSystem;
   if (['normal', 'grand'].includes(raw.text)) c.text = raw.text;
+  if (Number.isInteger(raw.homeNagAt) && raw.homeNagAt >= 0) c.homeNagAt = raw.homeNagAt;
   if (Number.isInteger(raw.idleSeconds) && raw.idleSeconds >= 0 && raw.idleSeconds <= 3600) c.idleSeconds = raw.idleSeconds;
   if (typeof raw.lastApp === 'string' && knows(raw.lastApp)) c.lastApp = raw.lastApp;
   if (raw.firstRunDone === true) c.firstRunDone = true;
@@ -148,7 +150,7 @@ export function loadConfig() {
   try {
     const raw = localStorage.getItem(KEY);
     const parsed = raw ? JSON.parse(raw) : null;
-    // Migration: before version 3, sleep defaulted to 90 s; Corentin wants it disabled.
+    // Migration: before version 3, sleep defaulted to 90 s; it is now disabled by default.
     if (parsed && typeof parsed === 'object' && !(Number(parsed.version) >= 3)) { parsed.idleSeconds = 0; parsed.version = 3; }
     // Migration: before version 4, the passages were named consoles (ps5…); they become HDMI ports (in1…).
     if (parsed && typeof parsed === 'object' && !(Number(parsed.version) >= 4)) {

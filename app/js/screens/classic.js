@@ -47,7 +47,7 @@ const GLYPHS = {
 };
 const SPECIAL_NAMES = { settings: 'Réglages', lumos: 'Lumos', tv: 'Télé', home: 'Touche Home' };
 
-// The Remembrall module is being written in parallel by a colleague: dynamic import, and if it is missing, ignore it.
+// The Remembrall module is loaded on demand: dynamic import, and if it is missing, the tile simply has no options.
 // `dismissRappeltout` is also kept to close an open sphere when the screen unmounts.
 let rappeltoutPromise = null;
 let dismissRappeltout = null;

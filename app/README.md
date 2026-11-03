@@ -66,7 +66,7 @@ android/                Android TV port (plain Java, no Gradle): WebView + windo
 ```
 
 On Android, the mock-up is copied as is into the APK by `android/build.sh` and served to the WebView under
-`https://poudlard.tv/`; only `platform.js` behaves differently (the `window.Android` bridge).
+`https://poudlard.invalid/`; only `platform.js` behaves differently (the `window.Android` bridge).
 
 ## Configuration model
 
@@ -86,7 +86,7 @@ A single object, readable, versioned, validated on read (`sanitize()` drops anyt
 - `music`: background music, `auto` (the personal file if present, otherwise the celesta waltz) | `celesta` | `aucune` (none); see `docs/MUSIC.md`.
 - `idleSeconds`: sleep, 0 = never; the interface offers 90, 180, 300, 600 or 0, `sanitize()` accepts 0 to 3600.
 
-Mock-up: the browser's `localStorage`. Android: the WebView's `localStorage` (origin `https://poudlard.tv`), in the app's
+Mock-up: the browser's `localStorage`. Android: the WebView's `localStorage` (origin `https://poudlard.invalid`), in the app's
 private data, never synced, wiped on uninstall. A configuration from an earlier version is migrated on read (sleep, 90 s
 before version 3, becomes 0).
 

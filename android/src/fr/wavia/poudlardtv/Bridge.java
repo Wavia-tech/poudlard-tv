@@ -240,6 +240,49 @@ final class Bridge {
         }
     }
 
+    /**
+     * A fatal error on the page side (main.js: the same error three times within a minute) counts as a crash for the
+     * guard, so a broken page that keeps throwing without dying still hands the Home key back after three.
+     */
+    @JavascriptInterface
+    public String fatal(String reason) {
+        try {
+            Log.w("page fatal: " + (reason == null ? "?" : reason.substring(0, Math.min(200, reason.length()))));
+            if (Watchdog.record(app) >= Watchdog.LIMIT) HomeMode.giveBackHome(app, true);
+            return ok();
+        } catch (Throwable t) {
+            return fail("Erreur non comptée.");
+        }
+    }
+
+    /** What the TV is: the page tunes its defaults (low RAM → economy) and its wording (Fire TV, phone). */
+    @JavascriptInterface
+    public String device() {
+        try {
+            android.app.ActivityManager am = (android.app.ActivityManager) app.getSystemService(Context.ACTIVITY_SERVICE);
+            boolean lowRam = false;
+            if (am != null) {
+                android.app.ActivityManager.MemoryInfo mi = new android.app.ActivityManager.MemoryInfo();
+                am.getMemoryInfo(mi);
+                lowRam = am.isLowRamDevice() || mi.totalMem < 2L * 1024 * 1024 * 1024;
+            }
+            android.content.pm.PackageManager pm = app.getPackageManager();
+            boolean leanback = pm.hasSystemFeature(android.content.pm.PackageManager.FEATURE_LEANBACK);
+            android.app.UiModeManager ui = (android.app.UiModeManager) app.getSystemService(Context.UI_MODE_SERVICE);
+            boolean tv = ui != null && ui.getCurrentModeType() == android.content.res.Configuration.UI_MODE_TYPE_TELEVISION;
+            boolean phone = pm.hasSystemFeature(android.content.pm.PackageManager.FEATURE_TELEPHONY) && !leanback;
+            return new JSONObject()
+                    .put("manufacturer", String.valueOf(android.os.Build.MANUFACTURER))
+                    .put("model", String.valueOf(android.os.Build.MODEL))
+                    .put("sdk", android.os.Build.VERSION.SDK_INT)
+                    .put("fireTv", HomeMode.fireTv() || "Amazon".equalsIgnoreCase(android.os.Build.BRAND))
+                    .put("lowRam", lowRam).put("leanback", leanback).put("tv", tv).put("phone", phone)
+                    .toString();
+        } catch (Throwable t) {
+            return "{}";
+        }
+    }
+
     @JavascriptInterface
     public String version() {
         try {

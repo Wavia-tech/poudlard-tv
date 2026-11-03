@@ -39,6 +39,8 @@ import java.util.List;
 final class HomeMode {
     static final String POUDLARD = "poudlard";
     static final String ORIGINAL = "original";
+    /** The guard gave the key back after three crashes; the settings say so until the person asks again. */
+    static final String REVERTED = "reverted";
     /** Hint returned by takeHome: the system's chooser screen has opened. */
     static final String HINT_SETTINGS = "settings";
     /** Hint returned by takeHome: press Home, the TV will offer both home screens. */
@@ -146,6 +148,7 @@ final class HomeMode {
 
     /** What the JavaScript shows in the settings: "poudlard" if we are the current home, "original" otherwise. */
     static String mode(Context c) {
+        if (Watchdog.reverted(c)) return REVERTED;
         if (!homeAliasEnabled(c)) return ORIGINAL;
         Boolean held = roleHeld(c);                      // Android 10+: the role is the truth
         if (held != null) return held ? POUDLARD : ORIGINAL;
@@ -157,6 +160,12 @@ final class HomeMode {
      * Never throws: as a last resort, the system will choose by itself on the next Home key press.
      */
     static void giveBackHome(Context c) {
+        giveBackHome(c, false);
+    }
+
+    /** `byWatchdog`: the guard fired; the revert is then sticky (Watchdog.markReverted) until the key is asked again. */
+    static void giveBackHome(Context c, boolean byWatchdog) {
+        if (byWatchdog) Watchdog.markReverted(c);
         try {
             setHomeAlias(c, false);
             Log.i("HOME entry point disabled: the original home takes over the Home key");

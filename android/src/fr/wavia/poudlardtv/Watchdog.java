@@ -28,6 +28,9 @@ final class Watchdog {
     static final int LIMIT = 3;
     static final long WINDOW = 5 * 60_000L;
     private static final String FILE = "home-crashes.txt";
+    /** Sticky revert (Free My TV's homeReverted): once the guard has fired, the home stays out of the way across
+     *  reboots until the person asks for the Home key again (clear()). */
+    private static final String REVERTED = "home-reverted";
     private static final int MAX_BYTES = 4096;
 
     private static boolean installed;
@@ -45,7 +48,7 @@ final class Watchdog {
             public void uncaughtException(Thread thread, Throwable error) {
                 try {
                     Log.w("home screen crash", error);
-                    if (record(app) >= LIMIT) HomeMode.giveBackHome(app);
+                    if (record(app) >= LIMIT) HomeMode.giveBackHome(app, true);
                 } catch (Throwable ignored) {
                     // Nothing must prevent the previous handler from running.
                 }
@@ -60,11 +63,7 @@ final class Watchdog {
         recent.add(System.currentTimeMillis());
         StringBuilder sb = new StringBuilder();
         for (Long t : recent) sb.append(t).append('\n');
-        try (FileOutputStream out = new FileOutputStream(file(context))) {
-            out.write(sb.toString().getBytes(StandardCharsets.US_ASCII));
-        } catch (IOException e) {
-            Log.w("could not write " + FILE + ": " + e.getMessage());
-        }
+        writeAtomic(file(context), sb.toString());
         return recent.size();
     }
 
@@ -73,14 +72,38 @@ final class Watchdog {
         return recent(context).size() >= LIMIT;
     }
 
+    /** The guard gave the Home key back: remembered until clear(). */
+    static synchronized void markReverted(Context context) {
+        writeAtomic(new File(context.getFilesDir(), REVERTED), String.valueOf(System.currentTimeMillis()) + '\n');
+    }
+
+    static boolean reverted(Context context) {
+        return new File(context.getFilesDir(), REVERTED).exists();
+    }
+
     /** To call when the person makes Poudlard TV the home again: start from scratch. */
     static synchronized void clear(Context context) {
         File f = file(context);
         if (f.exists() && !f.delete()) Log.w("could not delete " + FILE);
+        File r = new File(context.getFilesDir(), REVERTED);
+        if (r.exists() && !r.delete()) Log.w("could not delete " + REVERTED);
     }
 
     private static File file(Context context) {
         return new File(context.getFilesDir(), FILE);
+    }
+
+    /** tmp + rename: a process dying mid-write never leaves a half file behind. */
+    private static void writeAtomic(File target, String text) {
+        File tmp = new File(target.getPath() + ".tmp");
+        try (FileOutputStream out = new FileOutputStream(tmp)) {
+            out.write(text.getBytes(StandardCharsets.US_ASCII));
+            out.getFD().sync();
+        } catch (IOException e) {
+            Log.w("could not write " + tmp.getName() + ": " + e.getMessage());
+            return;
+        }
+        if (!tmp.renameTo(target)) Log.w("could not rename " + tmp.getName());
     }
 
     /** The timestamps still within the window; malformed lines and old crashes are ignored. */

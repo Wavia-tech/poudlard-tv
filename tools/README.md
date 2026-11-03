@@ -74,3 +74,28 @@ All the images in `app/assets/` (castle, parapet, parchment, mist, the owl in he
 - **Ollivanders shop window** (`ollivanders.webp`): the interior of an old shop, shelves of long boxes, candlelight, no text.
 
 Every prompt is in English, ends with "no text" and excludes people and flying figures. Raw outputs and intermediate renders stay out of the repository (`.gitignore`).
+
+## The television, from the computer: `tools/tv.sh` and `tools/tv.ps1`
+
+Two equivalent scripts (bash, PowerShell) wrap every adb operation on the TV, with `PKG=fr.wavia.poudlardtv` and
+nothing that touches another app. Every command prints what it runs first; `ADB=echo tools/tv.sh …` shows the
+commands without running them.
+
+| Command | Does |
+|---|---|
+| `connect <ip>` | `adb connect <ip>:5555` |
+| `install [apk]` | `adb install -r PoudlardTV.apk`, then the TCL auto-start allowance (ignored elsewhere) |
+| `home poudlard` | re-enables our `.Home` entry and runs `cmd package set-home-activity` on it (what the role dialog does on the TV) |
+| `home original` | finds the TV's own home (HOME activities minus ours and FallbackHome), makes it the home, closes our `.Home` entry |
+| `status` | HOME role holders, our component state, installed version |
+| `logs` | `adb logcat -s PoudlardTV chromium` |
+| `uninstall` | `home original`, then `adb uninstall` |
+| `config pull` / `push` | the launcher's configuration file, through `run-as` (debuggable builds only) |
+
+Install pitfalls, inherited from Free My TV's field reports: install over adb only (never open the APK on the TV);
+Play Protect's "Risky app blocked" → More details → Install anyway; Chromecast with Google TV (Android 14) closes
+port 5555 at each restart (`adb pair` then `adb tcpip 5555`); uninstall a build signed with another key first;
+an update is `adb install -r`.
+
+Kept outside the tree on purpose (gitignored): `app/assets/logos.js`, `app/assets/music/`, `_ecarte/`
+(working files), `tools/*.ps1` generation scripts with personal paths, `app/artifact.html`.
