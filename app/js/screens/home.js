@@ -5,7 +5,7 @@ import { dockApps, updateConfig, getConfig, isReduced, onConfigChange, HOUSES } 
 import { Platform } from '../platform.js';
 import { Input } from '../input.js';
 import { LOGOS } from '../../assets/logos.js';
-import { monogram } from '../monogram.js';
+import { monogram, logoBox } from '../monogram.js';
 import { crestSvg } from '../crests.js';
 import { createOwl } from '../owl.js';
 
@@ -183,7 +183,8 @@ export default {
         const el = document.createElement('div');
         el.className = 'home-app';
         el.dataset.id = app.id;
-        el.style.width = Math.min(LOGO_W_MAX, Math.max(3.4, LOGO_H * (L.ratio || 1))) + 'cqw';
+        const box = logoBox(L, LOGO_H, LOGO_W_MAX);           // equal visual weight across the row
+        el.style.width = box.w.toFixed(2) + 'cqw'; el.style.height = box.h.toFixed(2) + 'cqw';
         el.innerHTML = `<div class="app-logo${L.luma ? ' luma' : ''}"><i class="l-ext"></i><i class="l-rimD"></i><i class="l-rimL"></i><i class="l-base"></i><i class="l-shine"></i></div>`;
         el.querySelector('.app-logo').style.setProperty('--m', `url("${L.src}")`);
         el.title = app.name;   // no name shown under the icon (by design)

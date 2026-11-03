@@ -16,8 +16,10 @@
   --ui: "Segoe UI", system-ui, sans-serif;
   /* Type scale at 3 m: nothing below --t-hint. Safe area: nothing closer to an edge than --safe-x / --safe-y. */
   --text-scale: 1;
-  --t-hint: calc(var(--text-scale) * 1.5cqw); --t-body: calc(var(--text-scale) * 1.85cqw); --t-label: calc(var(--text-scale) * 2.05cqw); --t-title: calc(var(--text-scale) * 2.4cqw); --t-clock: calc(var(--text-scale) * 6cqw);
-  --safe-x: 5cqw; --safe-y: 4.5cqw; --track-wide: .2em; --track-tight: .14em;
+  /* TV reading distance (3 m, 1080p): hints 1.7 cqw ≈ 33 px, body 2.1 ≈ 40 px, labels 2.3, titles 2.8, the clock 6.4.
+     Capitals are tracked lightly (.1em): wide tracking reads as decoration on a TV, not as text. */
+  --t-hint: calc(var(--text-scale) * 1.7cqw); --t-body: calc(var(--text-scale) * 2.1cqw); --t-label: calc(var(--text-scale) * 2.3cqw); --t-title: calc(var(--text-scale) * 2.8cqw); --t-clock: calc(var(--text-scale) * 6.4cqw);
+  --safe-x: 5cqw; --safe-y: 4.5cqw; --track-wide: .1em; --track-tight: .06em;
   /* Focus grammar (focus.css): rest → focus → press → land. */
   --t-focus: 340ms; --t-press-in: 110ms; --t-press-out: 220ms; --t-land: 220ms;
   --ease-out: cubic-bezier(.25, .7, .2, 1); --ease-settle: cubic-bezier(.3, .5, .15, 1);

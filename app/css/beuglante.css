@@ -33,9 +33,9 @@
 
 /* The action (one at most): OK picks it, Back ignores it. On the red, in ivory. */
 .beuglante-act { display: flex; align-items: baseline; justify-content: center; gap: .8cqw; margin-top: 1cqw; white-space: nowrap;
-  font-family: var(--body); font-size: 1.6cqw; color: var(--ivory); }
-.beuglante-act b { font-family: var(--display); font-weight: 600; font-size: 1.5cqw; letter-spacing: .2em; color: var(--gold-light); }
-.beuglante-act i { font-style: normal; font-size: 1.5cqw; opacity: .6; margin-left: 1.4cqw; }
+  font-family: var(--body); font-size: var(--t-hint); color: var(--ivory); }
+.beuglante-act b { font-family: var(--display); font-weight: 600; font-size: var(--t-hint); letter-spacing: var(--track-wide); color: var(--gold-light); }
+.beuglante-act i { font-style: normal; font-size: var(--t-hint); opacity: .6; margin-left: 1.4cqw; }
 
 /* Reduced motion: 200 ms fade, no rise, no shake. */
 .beuglante.is-reduced { transform: translate(-50%, 0); opacity: 0; transition: opacity calc(var(--k) * 200ms) ease; }

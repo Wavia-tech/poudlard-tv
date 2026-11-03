@@ -22,11 +22,11 @@
 @keyframes logo-molten { from { background-position: 0 0; } to { background-position: 0 100%; } }
 
 /* Text engraved in gold / in stone. */
-.engraved { font-family: var(--display); font-weight: 600; letter-spacing: .2em; text-transform: uppercase; color: var(--gold-light);
+.engraved { font-family: var(--display); font-weight: 600; letter-spacing: var(--track-wide); text-transform: uppercase; color: var(--gold-light);
   text-shadow: 0 -.05cqw 0 #FFF6CF59, 0 .1cqw .1cqw #000000b3; }
 .engraved.gold-text { background: linear-gradient(175deg, #FFF6CF 0%, #F3D27A 25%, #C08F35 50%, #F6DD8F 65%, #A26F24 85%, #F1CF7C 100%);
   -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; text-shadow: none; }
-.stone-text { font-family: var(--display); font-weight: 600; letter-spacing: .2em; text-transform: uppercase; color: var(--moon); opacity: .75;
+.stone-text { font-family: var(--display); font-weight: 600; letter-spacing: var(--track-wide); text-transform: uppercase; color: var(--moon); opacity: .75;
   text-shadow: 0 -.05cqw 0 #ffffff33, 0 .1cqw .15cqw #000000cc; }
 
 /* Parchment (Map, settings, Letter): the generated image if present, otherwise a gradient. */

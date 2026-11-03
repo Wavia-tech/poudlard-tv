@@ -39,16 +39,16 @@
 .set-quill { position: absolute; left: 2.2cqw; right: 1cqw; bottom: .45cqw; height: .14cqw; background: linear-gradient(to right, var(--ink) 0%, var(--ink) 70%, transparent 100%); border-radius: .1cqw;
   transform: scaleX(0); transform-origin: 0 50%; opacity: .85; transition: transform calc(var(--k) * 300ms) cubic-bezier(.2, .8, .2, 1); }
 .set-rub.is-focus .set-quill { transform: scaleX(1); }
-.set-folio { position: absolute; left: 3cqw; bottom: 2cqw; font-family: var(--fell); font-style: italic; font-size: 1.5cqw; color: var(--ink); opacity: .5; }
+.set-folio { position: absolute; left: 3cqw; bottom: 2cqw; font-family: var(--fell); font-style: italic; font-size: var(--t-hint); color: var(--ink); opacity: .5; }
 
 /* Right page: title, subtitle, body, message, preview. */
 .set-rtitle { position: absolute; top: 2.4cqw; left: 3.4cqw; right: 3cqw; font-family: var(--display); font-weight: 600; font-size: 2.5cqw; letter-spacing: .14em; text-transform: uppercase; color: var(--ink); line-height: 1.1; }
-.set-rsub { position: absolute; top: 5.6cqw; left: 3.4cqw; right: 3cqw; font-family: var(--fell); font-style: italic; font-size: 1.55cqw; color: var(--ink); opacity: .7; }
+.set-rsub { position: absolute; top: 5.6cqw; left: 3.4cqw; right: 3cqw; font-family: var(--fell); font-style: italic; font-size: var(--t-hint); color: var(--ink); opacity: .7; }
 .set-body { position: absolute; top: 8.6cqw; left: 3.4cqw; right: 3cqw; bottom: 9.6cqw; overflow: hidden; }
 /* The refusal or confirmation message: outside the sliding list, laid at the bottom of the body, always visible.
    A parchment veil separates it from the lines passing underneath; invisible while empty. */
 .set-msg { position: absolute; left: 3.4cqw; right: 3cqw; bottom: 9.6cqw; z-index: 2; min-height: 2.6cqw; padding: .6cqw .9cqw .2cqw;
-  font-family: var(--fell); font-style: italic; font-size: 1.55cqw; line-height: 1.25; color: var(--wax);
+  font-family: var(--fell); font-style: italic; font-size: var(--t-hint); line-height: 1.25; color: var(--wax);
   background: linear-gradient(to bottom, #e8d9b500 0%, #e8d9b5e6 45%, #e8d9b5 100%); transition: opacity calc(var(--k) * 200ms); }
 .set-msg:empty { opacity: 0; }
 
@@ -66,8 +66,8 @@
 .set-row.is-off .set-row-value { opacity: .5; }
 .set-row.is-off .set-arrow { opacity: .12; }
 /* The TV's own screens: eleven quill buttons stacked, tighter than the action buttons of "À propos". */
-.set-body[data-rub="tv"] .set-btn { display: flex; width: 26cqw; margin: 0 0 .55cqw .9cqw; padding: .45cqw 1.6cqw; font-size: 1.7cqw; }
-.set-note { margin: .2cqw 0 1.2cqw .9cqw; font-family: var(--fell); font-style: italic; font-size: 1.55cqw; line-height: 1.3; color: var(--ink); opacity: .72; }
+.set-body[data-rub="tv"] .set-btn { display: flex; width: 26cqw; margin: 0 0 .55cqw .9cqw; padding: .45cqw 1.6cqw; font-size: var(--t-body); }
+.set-note { margin: .2cqw 0 1.2cqw .9cqw; font-family: var(--fell); font-style: italic; font-size: var(--t-hint); line-height: 1.3; color: var(--ink); opacity: .72; }
 .set-note-dim { opacity: .5; }
 .set-text { margin: 0 0 1.2cqw .9cqw; font-family: var(--body); font-size: 1.85cqw; line-height: 1.35; color: var(--ink); max-width: 46cqw; }
 .set-ask { font-family: var(--fell); font-size: 2.2cqw; margin-top: 1.6cqw; }
@@ -96,24 +96,24 @@
 
 /* About. */
 .set-facts { display: grid; gap: .35cqw; margin: 0 0 1.2cqw .9cqw; }
-.set-fact { display: grid; grid-template-columns: 10.5cqw 1fr; gap: 1cqw; font-family: var(--body); font-size: 1.7cqw; line-height: 1.3; color: var(--ink); }
-.set-fact-k { font-family: var(--display); font-size: 1.5cqw; letter-spacing: .14em; text-transform: uppercase; opacity: .65; padding-top: .15cqw; }
-.set-anote { margin: .8cqw 0 0 .9cqw; min-height: 2cqw; font-family: var(--fell); font-style: italic; font-size: 1.55cqw; color: var(--wax); }
+.set-fact { display: grid; grid-template-columns: 10.5cqw 1fr; gap: 1cqw; font-family: var(--body); font-size: var(--t-body); line-height: 1.3; color: var(--ink); }
+.set-fact-k { font-family: var(--display); font-size: var(--t-hint); letter-spacing: .14em; text-transform: uppercase; opacity: .65; padding-top: .15cqw; }
+.set-anote { margin: .8cqw 0 0 .9cqw; min-height: 2cqw; font-family: var(--fell); font-style: italic; font-size: var(--t-hint); color: var(--wax); }
 
 /* ---- Parapet and apps: ordered list, hourglass, rank ---- */
 .set-list { transition: transform calc(var(--k) * 300ms) cubic-bezier(.3, .7, .2, 1); will-change: transform; }
-.set-list-head { display: flex; justify-content: space-between; align-items: baseline; margin: .3cqw 0 .3cqw .9cqw; font-family: var(--display); font-size: 1.5cqw; letter-spacing: .16em; text-transform: uppercase; color: var(--ink); opacity: .65; }
-.set-count { font-family: var(--body); font-size: 1.6cqw; letter-spacing: 0; text-transform: none; font-variant-numeric: tabular-nums; }
-.set-empty { margin: .2cqw 0 .6cqw .9cqw; font-family: var(--fell); font-style: italic; font-size: 1.55cqw; color: var(--ink); opacity: .7; }
+.set-list-head { display: flex; justify-content: space-between; align-items: baseline; margin: .3cqw 0 .3cqw .9cqw; font-family: var(--display); font-size: var(--t-hint); letter-spacing: .16em; text-transform: uppercase; color: var(--ink); opacity: .65; }
+.set-count { font-family: var(--body); font-size: var(--t-hint); letter-spacing: 0; text-transform: none; font-variant-numeric: tabular-nums; }
+.set-empty { margin: .2cqw 0 .6cqw .9cqw; font-family: var(--fell); font-style: italic; font-size: var(--t-hint); color: var(--ink); opacity: .7; }
 .set-app { position: relative; display: flex; align-items: center; gap: 1cqw; height: 3cqw; padding: 0 3.2cqw 0 .6cqw; border-radius: .3cqw; color: var(--ink); opacity: .78;
   transition: opacity calc(var(--k) * 200ms), transform calc(var(--k) * 200ms), background-color calc(var(--k) * 200ms); }
 .set-app.is-on { opacity: 1; }
 .set-app.is-focus { background: #1b151012; opacity: 1; transform: translateX(.2cqw); }
-.set-app-rank { width: 1.7cqw; font-family: var(--display); font-weight: 600; font-size: 1.5cqw; text-align: center; opacity: .6; font-variant-numeric: tabular-nums; }
+.set-app-rank { width: 1.7cqw; font-family: var(--display); font-weight: 600; font-size: var(--t-hint); text-align: center; opacity: .6; font-variant-numeric: tabular-nums; }
 .set-app-name { flex: 1; font-family: var(--body); font-weight: 500; font-size: 1.9cqw; }
 .set-app.is-focus .set-app-name { font-weight: 600; }
 /* App hidden from the Map: ink faded to 35% and the "caché" (hidden) mention in pen. */
-.set-app-hidden { flex: none; font-family: var(--fell); font-style: italic; font-size: 1.5cqw; color: var(--ink); opacity: .6; }
+.set-app-hidden { flex: none; font-family: var(--fell); font-style: italic; font-size: var(--t-hint); color: var(--ink); opacity: .6; }
 .set-app.is-hidden .set-inklogo, .set-app.is-hidden .set-app-name { opacity: .35; }
 /* Logo in ink: a single masked layer, 85% ink, as on the Map. */
 .set-inklogo { position: relative; display: inline-block; flex: none; transition: opacity calc(var(--k) * 200ms); }
@@ -143,11 +143,11 @@
 @keyframes set-press-seal { from { transform: scale(1.3); } to { transform: scale(1.06); } }
 .set-house-letter { font-family: var(--display); font-weight: 700; font-size: 2.6cqw; color: #f1ebddcc; text-shadow: 0 .05cqw .1cqw #00000080; }
 .set-house-name { font-family: var(--body); font-weight: 600; font-size: 1.85cqw; color: var(--ink); }
-.set-house-state { height: 1.6cqw; font-family: var(--fell); font-style: italic; font-size: 1.5cqw; color: var(--ink); opacity: .7; }
+.set-house-state { height: 1.6cqw; font-family: var(--fell); font-style: italic; font-size: var(--t-hint); color: var(--ink); opacity: .7; }
 
 /* ---- Miniature preview of the parapet: a strip of stone under a night sky, mist, house candle ---- */
 .set-preview { position: absolute; left: 3.4cqw; right: 3cqw; bottom: 1.6cqw; height: 7.8cqw; z-index: 1; }
-.set-pv-label { font-family: var(--display); font-size: var(--t-hint); letter-spacing: .2em; text-transform: uppercase; color: var(--ink); opacity: .6; margin-bottom: .4cqw; font-variant-numeric: tabular-nums; }
+.set-pv-label { font-family: var(--display); font-size: var(--t-hint); letter-spacing: var(--track-wide); text-transform: uppercase; color: var(--ink); opacity: .6; margin-bottom: .4cqw; font-variant-numeric: tabular-nums; }
 .set-pv-stone { position: relative; height: 5.6cqw; border-radius: .35cqw; overflow: hidden; border-bottom: .14cqw solid var(--wax);
   background: radial-gradient(ellipse 30% 60% at 18% 0%, #c9d9ea22, transparent 70%),            /* the moon, on the left */
     linear-gradient(to bottom, #070b14 0%, #0f1627 42%, #1C2230 62%, #0d121c 100%);                  /* sky, then the stone */
@@ -165,7 +165,7 @@
 .set-pv-app.is-lit { transform: scale(1.18); }
 .set-pv-app.is-lit .app-logo .l-base { opacity: 1; background: linear-gradient(165deg, #FFF6CF 0%, #F3D27A 22%, #C08F35 46%, #F6DD8F 62%, #A26F24 82%, #F1CF7C 100%); }
 .set-pv-text { font-family: var(--display); font-size: 1cqw; letter-spacing: .1em; color: var(--ivory); opacity: .7; line-height: 2.1cqw; }
-.set-pv-empty { font-family: var(--fell); font-style: italic; font-size: 1.5cqw; color: var(--mist); opacity: .8; }
+.set-pv-empty { font-family: var(--fell); font-style: italic; font-size: var(--t-hint); color: var(--mist); opacity: .8; }
 /* The miniature owl slides (translateX) above the app concerned. */
 .set-pv-owl { position: absolute; left: 1.2cqw; top: .45cqw; width: 1.6cqw; height: 1.9cqw; transition: transform calc(var(--k) * 300ms) cubic-bezier(.3, .7, .2, 1), opacity calc(var(--k) * 200ms); }
 .set-pv-owl svg { width: 100%; height: 100%; fill: none; stroke: var(--ivory); stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; opacity: .85; }

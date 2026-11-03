@@ -60,7 +60,7 @@
 .map-rows { position: relative; transition: transform calc(var(--k) * 400ms) cubic-bezier(.33, 0, .2, 1); }
 .map-row { position: relative; display: flex; gap: 1.6cqw; margin-bottom: 1.2cqw; }
 .map-row.has-title { padding-top: 2.5cqw; }
-.map-row-title { position: absolute; left: .3cqw; top: 0; font-family: var(--fell); font-style: italic; font-size: 1.6cqw; line-height: 1.3; color: var(--ink); opacity: .75; }
+.map-row-title { position: absolute; left: .3cqw; top: 0; font-family: var(--fell); font-style: italic; font-size: var(--t-hint); line-height: 1.3; color: var(--ink); opacity: .75; }
 .map-row-title::after { content: ""; display: inline-block; width: 9cqw; height: .08cqw; margin: 0 0 .45cqw .8cqw; background: var(--ink); opacity: .45; }
 .map-empty { position: absolute; left: 0; right: 0; top: 19cqw; text-align: center; font-family: var(--fell); font-style: italic; font-size: 2.1cqw; color: var(--ink); opacity: .8; }
 .map-empty:empty { display: none; }
@@ -94,7 +94,7 @@
 .map-cell.is-focus .map-frame-corners { opacity: 1; }
 
 /* The official logo in ink: a single layer masked by the logo's SVG, ink background at 85%. */
-.map-ink-logo { --m: none; position: absolute; left: 50%; top: 1.6cqw; height: 3.4cqw; width: 3.4cqw; transform: translateX(-50%); background: var(--ink); opacity: .85;
+.map-ink-logo { --m: none; position: absolute; left: 50%; top: 3.3cqw; height: 3.4cqw; width: 3.4cqw; transform: translate(-50%, -50%); background: var(--ink); opacity: .85;
   -webkit-mask: var(--m) center / contain no-repeat; mask: var(--m) center / contain no-repeat; transition: opacity calc(var(--k) * 200ms); }
 .map-ink-logo.luma { -webkit-mask-mode: luminance; mask-mode: luminance; }
 .map-ink-logo.no-mask { -webkit-mask: none; mask: none; background: none; color: var(--ink); font-family: var(--fell); font-size: 3cqw; line-height: 3.4cqw; text-align: center; }
@@ -104,7 +104,7 @@
 
 .map-name { position: absolute; left: 0; right: 0; top: 7.35cqw; text-align: center; font-family: "IM Fell English SC", var(--fell); font-size: 1.67cqw; line-height: 1.2;
   color: var(--ink); opacity: .9; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; transition: opacity calc(var(--k) * 200ms); }
-.map-sub { position: absolute; left: 0; right: 0; top: 5.15cqw; text-align: center; font-family: var(--body); font-size: 1.5cqw; line-height: 1.1; color: var(--ink); opacity: .6; }
+.map-sub { position: absolute; left: 0; right: 0; top: 5.15cqw; text-align: center; font-family: var(--body); font-size: var(--t-hint); line-height: 1.1; color: var(--ink); opacity: .6; }
 .map-sub:empty { display: none; }
 .map-underline { position: absolute; left: 2.6cqw; width: 8.8cqw; top: 9.25cqw; height: .5cqw; overflow: visible; }
 .map-underline path { fill: none; stroke: var(--ink); stroke-width: .11cqw; stroke-linecap: round; vector-effect: non-scaling-stroke; stroke-dasharray: 100; stroke-dashoffset: 100; }
@@ -119,7 +119,7 @@
 @keyframes map-press { from { transform: scale(1.3); } to { transform: scale(1); } }
 
 /* Hidden: ink faded to 35% and the mention. */
-.map-tag { position: absolute; left: .9cqw; top: .45cqw; font-family: var(--body); font-style: italic; font-size: 1.5cqw; line-height: 1.1; color: var(--ink); opacity: 0;
+.map-tag { position: absolute; left: .9cqw; top: .45cqw; font-family: var(--body); font-style: italic; font-size: var(--t-hint); line-height: 1.1; color: var(--ink); opacity: 0;
   transition: opacity calc(var(--k) * 200ms); }
 .map-cell.is-hidden .map-ink-logo { opacity: .35; }
 .map-cell.is-hidden .map-name { opacity: .45; }
@@ -162,7 +162,7 @@
 .map-candlelight { position: absolute; left: 50%; top: 50%; width: 34cqw; height: 34cqw; margin: -17cqw 0 0 -17cqw; border-radius: 50%; opacity: 0; pointer-events: none;
   background: radial-gradient(circle, #ffb457 0%, #ffd9a0 32%, #ffffff 68%); transition: opacity calc(var(--k) * 250ms); }
 .map-candlelight.is-on { opacity: .9; }
-.map-toast { position: absolute; left: 50%; bottom: 5.4cqw; z-index: 48; font-size: 1.7cqw; white-space: nowrap; opacity: 0; transform: translate(-50%, .8cqw); pointer-events: none;
+.map-toast { position: absolute; left: 50%; bottom: 5.4cqw; z-index: 48; font-size: var(--t-body); white-space: nowrap; opacity: 0; transform: translate(-50%, .8cqw); pointer-events: none;
   transition: opacity calc(var(--k) * 300ms), transform calc(var(--k) * 300ms); }
 .map-toast.is-on { opacity: 1; transform: translate(-50%, 0); }
 
@@ -170,12 +170,12 @@
 .map-parapet { position: absolute; left: 4.8cqw; right: 4.8cqw; top: .9cqw; height: 5.6cqw; display: flex; align-items: center; gap: 2cqw; opacity: 0; transform: translateY(-1.2cqw);
   pointer-events: none; transition: opacity calc(var(--k) * 300ms), transform calc(var(--k) * 300ms) cubic-bezier(.2, .8, .2, 1); }
 .map-parapet.is-open { opacity: 1; transform: translateY(0); }
-.map-parapet-title { flex: none; font-family: var(--fell); font-style: italic; font-size: 1.6cqw; color: var(--ink); opacity: .75; }
+.map-parapet-title { flex: none; font-family: var(--fell); font-style: italic; font-size: var(--t-hint); color: var(--ink); opacity: .75; }
 .map-parapet-row { position: relative; flex: 1; display: flex; align-items: flex-end; justify-content: center; gap: 2.2cqw; height: 100%; padding-bottom: .5cqw; }
 .map-parapet-row::after { content: ""; position: absolute; left: 0; right: 0; bottom: .15cqw; height: .1cqw; background: var(--ink); opacity: .55; }   /* the parapet's stone, in one stroke */
 .map-parapet-item { display: flex; flex-direction: column; align-items: center; gap: .25cqw; opacity: .5; transition: opacity calc(var(--k) * 200ms); }   /* the slide is a FLIP in JS */
 .map-parapet-item.is-lift { opacity: 1; transform: translateY(-.7cqw); }
-.map-parapet-name { font-family: "IM Fell English SC", var(--fell); font-size: 1.5cqw; line-height: 1.1; color: var(--ink); white-space: nowrap; }
+.map-parapet-name { font-family: "IM Fell English SC", var(--fell); font-size: var(--t-hint); line-height: 1.1; color: var(--ink); white-space: nowrap; }
 
 /* ---- V4: "Add an app": the same cartouche, but dashed, with a quill in place of the logo ----
    The dashed frame does not use vector-effect: the dashes are written in viewBox units (200 × 120) so that they stay
@@ -183,7 +183,7 @@
 .map-add-cell .map-frame path { vector-effect: none; stroke-width: 1.3; stroke-dasharray: 7 5; opacity: .55; }
 .map-add-cell .map-frame-inner { display: none; }
 .map-add-cell.is-focus .map-frame path { stroke-width: 2.2; opacity: .95; }
-.map-add-cell .map-name { font-size: 1.5cqw; left: -.6cqw; right: -.6cqw; }
+.map-add-cell .map-name { font-size: var(--t-hint); left: -.6cqw; right: -.6cqw; }
 .map-quill { position: absolute; left: 50%; top: .5cqw; width: 4.6cqw; height: 6cqw; transform: translateX(-50%); fill: none; stroke: var(--ink);
   stroke-linecap: round; stroke-linejoin: round; opacity: .75; transition: opacity calc(var(--k) * 200ms), transform calc(var(--k) * 200ms); }
 .map-quill path { vector-effect: non-scaling-stroke; stroke-width: .08cqw; }
@@ -222,7 +222,7 @@
   animation: map-letter calc(var(--k) * 220ms) linear both; }
 @keyframes map-letter { from { -webkit-mask-size: 0% 100%; mask-size: 0% 100%; } to { -webkit-mask-size: 170% 100%; mask-size: 170% 100%; } }
 .map-spell-line { position: absolute; left: 2cqw; right: 2cqw; top: 4.7cqw; height: .1cqw; background: var(--ink); opacity: .55; border-radius: .05cqw; }
-.map-spell-count { position: absolute; right: 2cqw; top: 5cqw; font-family: var(--body); font-variant-numeric: tabular-nums; font-size: 1.5cqw; line-height: 1.1; color: var(--ink); opacity: .55; }
+.map-spell-count { position: absolute; right: 2cqw; top: 5cqw; font-family: var(--body); font-variant-numeric: tabular-nums; font-size: var(--t-hint); line-height: 1.1; color: var(--ink); opacity: .55; }
 
 /* The keyboard: 10 keys of 5.4 × 4.2 cqw per row, 0.8 cqw between them; the last row has three wide keys. */
 .map-spell-keys { display: flex; flex-direction: column; align-items: center; gap: .8cqw; margin-top: .9cqw; }
@@ -233,7 +233,7 @@
   border: .07cqw solid #1b1510a6; border-radius: .45cqw .6cqw .5cqw .55cqw / .55cqw .45cqw .6cqw .5cqw;
   transform: rotate(var(--rot)); transition: transform calc(var(--k) * 150ms) cubic-bezier(.2, .8, .2, 1), opacity calc(var(--k) * 150ms); }
 .map-key::before { content: ""; position: absolute; inset: 0; border-radius: inherit; background: var(--ink); opacity: 0; transition: opacity calc(var(--k) * 150ms); }
-.map-key.is-wide { font-family: var(--fell); font-style: italic; font-size: 1.7cqw; }
+.map-key.is-wide { font-family: var(--fell); font-style: italic; font-size: var(--t-body); }
 .map-key.is-focus { transform: rotate(0deg) scale(1.08); border-color: var(--ink); border-width: .12cqw; }
 .map-key.is-focus::before { opacity: .09; }
 .map-key.is-off { opacity: .4; }
@@ -245,7 +245,7 @@
 .map-spell.is-dealing .map-key.is-focus, .map-spell.is-dealing .map-key.is-off { animation: none; }
 
 /* Message written under the keyboard (already on the Map, twenty characters at most) and the seal pressed on validation. */
-.map-spell-msg { margin-top: .8cqw; text-align: center; font-family: var(--fell); font-style: italic; font-size: 1.6cqw; line-height: 1.2; color: var(--ink); opacity: .8; min-height: 2cqw; }
+.map-spell-msg { margin-top: .8cqw; text-align: center; font-family: var(--fell); font-style: italic; font-size: var(--t-hint); line-height: 1.2; color: var(--ink); opacity: .8; min-height: 2cqw; }
 .map-spell-seal { position: absolute; right: 14cqw; top: 2.2cqw; width: 4.2cqw; height: 4.2cqw; opacity: 0; transform: scale(.6); pointer-events: none;
   transition: opacity calc(var(--k) * 200ms), transform calc(var(--k) * 200ms); }
 .map-spell-seal.is-pressed { opacity: 1; animation: map-seal-press calc(var(--k) * 260ms) cubic-bezier(.2, .8, .2, 1) both; }

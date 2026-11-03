@@ -26,7 +26,7 @@ import { allApps, appById, getConfig, updateConfig, addCustomApp, removeCustomAp
 import { Platform } from '../platform.js';
 import { Input } from '../input.js';
 import { LOGOS } from '../../assets/logos.js';
-import { monogram } from '../monogram.js';
+import { monogram, logoBox } from '../monogram.js';
 import { rappeltout, dismissRappeltout } from '../rappeltout.js';
 import { beuglante } from '../beuglante.js';
 import { TV_SCREENS, TV_ONLY } from './settings.js';
@@ -330,7 +330,8 @@ export default {
     if (L && L.src) {
       logo.style.setProperty('--m', `url("${L.src}")`);
       if (L.luma) logo.classList.add('luma');
-      logo.style.width = Math.min(10, Math.max(1, 3.4 * (L.ratio || 1))).toFixed(2) + 'cqw';
+      const bx = logoBox(L, 3.4, 10);                                  // equal visual weight across the pieces
+      logo.style.width = bx.w.toFixed(2) + 'cqw'; logo.style.height = bx.h.toFixed(2) + 'cqw';
     } else {                                                             // no logo: the initial in quill
       logo.classList.add('no-mask');
       logo.textContent = (app.name || '?').charAt(0);

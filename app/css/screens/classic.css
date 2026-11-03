@@ -9,7 +9,7 @@
 .cls-clock { position: absolute; top: 2.6cqw; left: 4.5cqw; color: var(--ivory); }
 .cls-time { font-family: var(--display); font-weight: 600; font-size: 5.8cqw; line-height: 1; letter-spacing: .06em; font-variant-numeric: tabular-nums;
   opacity: .9; text-shadow: 0 -.05cqw 0 #ffffff26, 0 .1cqw .15cqw #000000cc; }
-.cls-date { margin-top: .5cqw; font-family: var(--body); font-style: italic; font-size: 1.7cqw; color: var(--moon); opacity: .8; font-variant-numeric: tabular-nums; }
+.cls-date { margin-top: .5cqw; font-family: var(--body); font-style: italic; font-size: var(--t-body); color: var(--moon); opacity: .8; font-variant-numeric: tabular-nums; }
 .cls-date::first-letter { text-transform: uppercase; }
 
 /* ---- Scroll window: the rows slide with translateY, the window clips. ---- */
@@ -21,7 +21,7 @@
 
 .cls-row { margin: 0 0 1.1cqw; }
 /* Category titles: 2.1 cqw (the contract's "titles" threshold), spaced Cinzel capitals. */
-.cls-row-title { margin: 0 0 .5cqw .3cqw; font-family: var(--display); font-weight: 600; font-size: 2.1cqw; letter-spacing: .22em; text-transform: uppercase;
+.cls-row-title { margin: 0 0 .5cqw .3cqw; font-family: var(--display); font-weight: 600; font-size: 2.1cqw; letter-spacing: var(--track-wide); text-transform: uppercase;
   color: var(--mist); opacity: .7; }
 .cls-row-tail .cls-row-title { color: var(--gold); opacity: .75; }
 /* Continuation row (category with more than 6 apps): no title, snug against the previous row at the grid pitch (1.4 cqw). */
@@ -66,7 +66,7 @@
 .cls-svg { width: 3.6cqw; height: 3.6cqw; }
 .cls-svg svg { width: 100%; height: 100%; fill: none; stroke: var(--ivory); stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; opacity: .9; }
 
-.cls-name { margin-top: .55cqw; text-align: center; font-family: var(--body); font-weight: 500; font-size: 1.65cqw; line-height: 1.2; color: var(--ivory); opacity: .78;
+.cls-name { margin-top: .55cqw; text-align: center; font-family: var(--body); font-weight: 500; font-size: var(--t-body); line-height: 1.2; color: var(--ivory); opacity: .78;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; transition: opacity calc(var(--k) * var(--cls-focus-ms)); }
 .cls-tile.is-focus .cls-name { opacity: .9; }
 
@@ -90,7 +90,7 @@
 /* ---- "Ouverture de X" (opening X) banner (mock-up) ---- */
 .cls-banner { position: absolute; left: 50%; bottom: 5.2cqw; z-index: 30; transform: translate(-50%, 1.6cqw); opacity: 0; pointer-events: none; white-space: nowrap;
   padding: .9cqw 2.8cqw; border-radius: .4cqw; background: var(--stone); box-shadow: inset 0 .08cqw 0 #ffffff14, inset 0 0 0 .1cqw #ffffff14, 0 .6cqw 1.6cqw #000b;
-  font-family: var(--display); font-weight: 600; font-size: 1.8cqw; letter-spacing: .22em; text-transform: uppercase; color: var(--ivory);
+  font-family: var(--display); font-weight: 600; font-size: var(--t-body); letter-spacing: var(--track-wide); text-transform: uppercase; color: var(--ivory);
   transition: opacity calc(var(--k) * 250ms) ease, transform calc(var(--k) * 250ms) cubic-bezier(.2, .8, .2, 1); }
 .cls-banner.is-in { opacity: 1; transform: translate(-50%, 0); }
 
