@@ -40,7 +40,9 @@ app/
   js/input.js                actions: left right up down ok back menu longok longback home, plus okdown (press feedback, never queued); Input.press(a); Input.hold()/release() (queue)
   js/router.js               Router.go(name, params, transition) / replace / back / current / refocus; transitions: fade | up | down | iris | crane | uncrane | snuff | dive | undive
                              (a screen may expose onLeave(transition) for its own flourish and diveOrigin() → {x,y} stage CSS px, the point the
-                             camera dives into; every screen's ctx.transition is the move it arrived by; reduced motion turns everything into a 200 ms fade)
+                             camera dives into; every screen's ctx.transition is the move it arrived by, ctx.visual the move actually played ('xfade' on a
+                             low-RAM TV, where html[data-lowram="1"] is set and dive/undive become a 200 ms crossfade); for a dive/undive the next
+                             screen is mounted first and the move waits for its `ready`/`sceneReady` promise (capped 1.2 s), then calls onEnter(visual); reduced motion turns everything into a 200 ms fade)
   js/fx.js                   ONE scene clock: Fx.tick(fn) / Fx.untick(fn) / Fx.setRate(ms); Fx.burst(x, y, n, power) / Fx.lumos(host, x, y, ms) /
                              Fx.cue(name) / Fx.ambient(mode) / Fx.chime / Fx.whoosh() / Fx.initAudio(). No screen runs its own requestAnimationFrame loop.
                              A callback unregisters itself (Fx.untick) once its motion has settled: with nothing registered, no frame runs.
@@ -53,19 +55,21 @@ app/
   js/beuglante.js            shared error message (see API)
   js/screens/index.js        export const SCREENS = { home, library, map, settings, sorting, classic }; `library` is served by ollivanders.js
   js/screens/<name>.js       one screen = export default { mount(root, ctx), unmount(), onKey(action, ctx) → bool }
-  assets/logos.js            VERSIONED at the maintainer's request (third-party trademarks, DISCLAIMER.md): { id: { src: SVG dataURI, ratio, luma } } (tools/logos-build.mjs)
+  assets/logos.js            VERSIONED at the maintainer's request (third-party trademarks, DISCLAIMER.md): { id: { src: SVG dataURI, ratio, luma, scale? } } (tools/logos-build.mjs;
+                             `scale`, the optical scale for equal ink, is a table kept by hand after the generated one, applied by logoBox())
   assets/logos.example.js    export const LOGOS = {}: the shape of the file, for anyone who wants to start from nothing (never copy it over logos.js)
   assets/crest-*.webp        VERSIONED at the maintainer's request (third-party, DISCLAIMER.md): the four house crest pictures
   assets/music/ambiance.ogg  VERSIONED at the maintainer's request (DISCLAIMER.md): the background music, Ogg Opus, under 3 MB (docs/MUSIC.md)
   assets/fonts/              the embedded OFL fonts and their licence (css/fonts.css)
-  assets/*.jpg|png|webp      generated images: castle.jpg, parchment.jpg, mist.png (alpha), owl-sheet.webp (the owl's poses, ivory rim baked in), feather.webp,
+  assets/*.jpg|png|webp      generated images: castle.jpg, parchment.jpg, map-parchment.webp (the same paper cut out along its edge and curls, alpha,
+                             cropped to the paper, its ring stain cloned over with clean paper: the Map's sheet), mist.png (alpha), owl-sheet.webp (the owl's poses, ivory rim baked in), feather.webp,
                              ollivanders.webp, beasts.webp, rider.webp. Each is sized for its display size, and no image is wider than 4096 px
                              (the texture limit of some TV GPUs). If an image is missing: a sober fallback, never a broken image.
 ```
 
 Screens and transitions (D-pad grammar):
 - `home` (the Parapet): down → `library` (Ollivanders, `dive` transition: the camera dives into a lit window, `diveOrigin()`), up → top bar (Sound · Map · Settings; down comes back), OK → Lumos + Platform.launch, long OK or menu → the focused app's Remembrall (Rappeltout; menu goes to `settings` (`snuff`) when the parapet is empty), long Back → classic mode ("Nox?" plate). Lumos, boot-up and Nox (sleep) live INSIDE home.js (as states), not in separate screens.
-- `library` (Ollivanders, `js/screens/ollivanders.js`, `.olv-` classes): the film collection displayed as a wand shop window; up or Back → `home` (`undive`). OK → Platform.openContent(app, item). Replaces the former Library (dropped, out of the repo).
+- `library` (Ollivanders, `js/screens/ollivanders.js`, `.olv-` classes): the film collection displayed as a wand shop window; up or Back → `home` (`undive`). OK → Platform.openContent(app, item); the help strip offers "OK Ouvrir le film" only when an app on this TV opens the chosen film. The shop picture runs to the top edge (no upper band); in the Beasts window the veil and the gold line follow each suitcase's silhouette (`SHAPES` in ollivanders.js), never a box around the shelves. Replaces the former Library (dropped, out of the repo).
 - `map` (Marauder's Map): Back, or down from the last row, or up from the first → `home` (`up`). Candle → `settings`.
 - `settings` (Room of Requirement): Back → previous screen (`ctx.router.back()`), or `home` if the stack is empty. First section "Accueil de la télé": one row "Touche Home" (Poudlard TV / Accueil d'origine → `Platform.setHome`, giving it back asks a confirmation with focus on "Non"; the hint from the TV is written in the message band; the row repaints on the `poudlard:home` document event; read-only in the mock-up). Second section "Réglages de la télé": eleven buttons → `Platform.openSystem(key)` (`TV_SCREENS`, exported for classic mode and the Map). "Mode classique" section → `updateConfig({mode:'classique'})` then `router.replace('classic')`. "Chouette et sons" section: Owl (vive / calme / absente), Sounds (yes / no), Background music (Auto / Célesta / Aucune → `config.music`, applied live by `Fx.ambient`). "Veille" section: `idleSeconds` (1.5 / 3 / 5 / 10 min / never), **0 (never) by default** since config version 3. "À propos" section: network, version, Home key, "Les issues de secours" (→ `sorting` page IV alone), "Réinitialiser" (three presses), "Relancer la Lettre d'admission".
 - `sorting` (Admission Letter, first launch): 4 pages (house, spells, owl, emergency exits + "Faire de Poudlard l'accueil" on the TV); at the end `updateConfig({firstRunDone:true, house, dock, owl, sounds})` then `router.replace('home', {boot:true})`. Params `{ page, only }` open one page alone: Back returns, nothing is saved.
@@ -182,7 +186,10 @@ export function beuglante(host, { message, action?: { label, onChoose } }) → {
   the music file, otherwise the waltz), `celesta` (a slow waltz in E minor, 3/4, 66 to the quarter note, 24 bars looped, celesta + harp + string
   pad, written note by note in sound.js, originality checked by `node tools/test-sound.mjs` against Hedwig's Theme), `aucune` (none). Music file:
   `assets/music/ambiance.ogg` (versioned at the maintainer's request, Ogg Opus, under 3 MB; the names probed are `MUSIC_FILES` in sound.js),
-  probed through `<audio>`. Levels: constants in sound.js, the file loud enough against the cues; ducking under each cue; on the TV it starts by
+  probed through `<audio>` and played by that element alone, OUTSIDE the Web Audio graph (its level, fades and ducking are `el.volume`, stepped
+  only while they move), so the AudioContext suspends 12 s after the last cue even while the music plays; the cue reverb (a ConvolverNode, 1.8 s
+  mono on a low-RAM TV) is wired in only while a cue or the celesta rings through it (round 5 on the TV: the graph left running cost about one
+  core at idle). Levels: constants in sound.js, the file loud enough against the cues; ducking under each cue; on the TV it starts by
   itself with the Parapet (a desktop browser may wait for a gesture); paused when the page is hidden, when an app launches or during Nox, muted
   by `config.sounds`. Details: `docs/MUSIC.md`.
 - **Clock typography**: a drop cap. The time in Cinzel Decorative 700, the date with an ornate initial (Cinzel Decorative, gold) followed by the rest in IM Fell.

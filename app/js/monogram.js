@@ -22,5 +22,7 @@ export function logoBox(L, h, wMax = 9.5) {
   bh = Math.max(h * 0.68, Math.min(h * 1.3, bh));       // a square mark (a single letter) reads lighter: let it grow more
   let bw = bh * r;
   if (bw > wMax) { bw = wMax; bh = bw / r; }
+  const s = Math.max(0.6, Math.min(1.6, (L && L.scale) || 1));   // optical scale (assets/logos.js): equal ink, not equal boxes
+  bw *= s; bh *= s;
   return { w: bw, h: bh };
 }

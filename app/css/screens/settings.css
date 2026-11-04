@@ -56,20 +56,20 @@ html[data-text="grand"] .set-rub::before { top: calc(.34cqw + var(--t-body) * .5
 
 /* Right page: a column (title, subtitle, body that takes the rest, preview); the message band floats over the
    bottom of the body. Nothing is placed at a fixed height: a two-line subtitle pushes the body down. */
-.set-right { display: flex; flex-direction: column; padding: 2.2cqw 2.8cqw 1.4cqw 3.2cqw; }
+.set-right { display: flex; flex-direction: column; padding: 2cqw 2.8cqw 1.7cqw 3.2cqw; }
 .set-rtitle { flex: none; font-family: var(--display); font-weight: 600; font-size: var(--t-title); letter-spacing: .12em; text-transform: uppercase; color: var(--ink); line-height: 1.1; }
 .set-rsub { flex: none; margin-top: .5cqw; font-family: var(--fell); font-style: italic; font-size: var(--t-hint); line-height: 1.25; color: var(--ink); opacity: .75; }
-.set-body { position: relative; flex: 1; min-height: 0; margin-top: 1cqw; overflow: hidden; }
+.set-body { position: relative; flex: 1; min-height: 0; margin-top: .8cqw; overflow: hidden; }
 .set-flow { position: relative; padding: .4cqw 0; transition: transform calc(var(--k) * 300ms) cubic-bezier(.3, .7, .2, 1); }
 /* The refusal or confirmation message: outside the sliding sheet, at the bottom of the body, always visible and
    whole (as many lines as the sentence needs). A parchment veil separates it from the lines passing underneath. */
-.set-msg { position: absolute; left: 3.2cqw; right: 2.8cqw; bottom: 10cqw; z-index: 2; padding: 1cqw .9cqw .3cqw;
+.set-msg { position: absolute; left: 3.2cqw; right: 2.8cqw; bottom: 11.5cqw; z-index: 2; padding: 1cqw .9cqw .3cqw;
   font-family: var(--fell); font-style: italic; font-size: var(--t-hint); line-height: 1.3; color: var(--wax);
   background: linear-gradient(to bottom, #e8d9b500 0%, #e8d9b5f0 30%, #e8d9b5 100%); transition: opacity calc(var(--k) * 200ms); }
 .set-msg:empty { opacity: 0; padding: 0; }
 /* The TV's own screens and "À propos" are long lists with nothing to show on the parapet: the preview steps aside. */
 .set-right[data-rub="tv"] .set-preview, .set-right[data-rub="about"] .set-preview { display: none; }
-.set-right[data-rub="tv"] .set-msg, .set-right[data-rub="about"] .set-msg { bottom: 1.4cqw; }
+.set-right[data-rub="tv"] .set-msg, .set-right[data-rub="about"] .set-msg { bottom: 1.7cqw; }
 
 /* Focus marks shared by the rows: a wax bar on the left and an ink wash, both layers whose opacity changes. */
 .set-row::before, .set-app::before { content: ""; position: absolute; left: 0; top: .45cqw; bottom: .45cqw; width: .3cqw; border-radius: .15cqw; background: var(--wax); opacity: 0;
@@ -79,14 +79,16 @@ html[data-text="grand"] .set-rub::before { top: calc(.34cqw + var(--t-body) * .5
 .set-row.is-focus::before, .set-app.is-focus::before { opacity: 1; }
 .set-row.is-focus::after, .set-app.is-focus::after { opacity: .08; }
 
-/* Enumerated setting row: label, value between chevrons, seal on the right. */
-.set-row { position: relative; display: flex; align-items: center; justify-content: space-between; gap: 1.2cqw; padding: .8cqw 3.2cqw .8cqw 1.1cqw; margin-bottom: .2cqw; border-radius: .3cqw;
+/* Enumerated setting row: label, then the value between chevrons. Every row keeps the same chevron gutter, shown or
+   not, and the value is right-aligned against it: all values end on one column, and the chevrons that appear on the
+   focused row move nothing. A change is confirmed by the value written in quill (no seal on these rows). */
+.set-row { position: relative; display: flex; align-items: center; justify-content: space-between; gap: 1.2cqw; padding: .7cqw 1.2cqw .7cqw 1.1cqw; margin-bottom: .2cqw; border-radius: .3cqw;
   font-family: var(--body); font-size: var(--t-label); line-height: 1.2; color: var(--ink); transition: transform calc(var(--k) * 200ms); }
 .set-row.is-focus { transform: translateX(.2cqw); }
 .set-row-label { font-weight: 500; min-width: 0; }
-.set-row-val { flex: none; display: flex; align-items: center; gap: .7cqw; font-weight: 600; font-variant-numeric: tabular-nums; }
-.set-row-value { font-weight: 600; min-width: 7cqw; text-align: center; white-space: nowrap; }
-.set-arrow { font-style: normal; font-size: var(--t-label); line-height: 1; opacity: 0; transform: scale(.8); transition: opacity calc(var(--k) * 200ms), transform calc(var(--k) * 200ms); }
+.set-row-val { flex: none; display: flex; align-items: center; gap: .6cqw; font-weight: 600; font-variant-numeric: tabular-nums; }
+.set-row-value { font-weight: 600; min-width: 7cqw; text-align: right; white-space: nowrap; }
+.set-arrow { flex: none; width: 1cqw; text-align: center; font-style: normal; font-size: var(--t-label); line-height: 1; opacity: 0; transform: scale(.8); transition: opacity calc(var(--k) * 200ms), transform calc(var(--k) * 200ms); }
 .set-row.is-focus .set-arrow { opacity: .8; transform: none; }
 .set-row.is-focus .set-arrow.is-off { opacity: .18; }
 /* Read-only row (the Home key in the mock-up): pale value, no arrows; the focus marks stay. */
@@ -94,7 +96,7 @@ html[data-text="grand"] .set-rub::before { top: calc(.34cqw + var(--t-body) * .5
 .set-row.is-off .set-arrow { opacity: .12; }
 /* The TV's own screens: eleven quill buttons stacked; the sheet slides to the focused one. */
 .set-body[data-rub="tv"] .set-btn { display: flex; width: 36cqw; margin: 0 0 .5cqw .9cqw; padding: .45cqw 1.6cqw; font-size: var(--t-body); }
-.set-note { margin: .2cqw 0 1.1cqw 1.1cqw; font-family: var(--fell); font-style: italic; font-size: var(--t-hint); line-height: 1.3; color: var(--ink); opacity: .78; }
+.set-note { margin: .2cqw 0 .95cqw 1.1cqw; font-family: var(--fell); font-style: italic; font-size: var(--t-hint); line-height: 1.3; color: var(--ink); opacity: .78; }
 .set-note-dim { opacity: .6; }
 .set-text { margin: 0 0 1.1cqw 1.1cqw; font-family: var(--body); font-size: var(--t-body); line-height: 1.35; color: var(--ink); max-width: 50cqw; }
 .set-ask { font-family: var(--fell); font-size: var(--t-label); margin-top: 1.2cqw; }
@@ -115,7 +117,7 @@ html[data-text="grand"] .set-rub::before { top: calc(.34cqw + var(--t-body) * .5
 
 /* Pen-drawn buttons: the focus fills the button with ink at once (a single repaint), only the scale moves. */
 .set-btns { display: flex; flex-wrap: wrap; gap: 1.4cqw; margin-left: 1.1cqw; }
-.set-acts { display: grid; gap: .6cqw; margin-top: .8cqw; margin-left: .2cqw; }
+.set-acts { display: grid; gap: .45cqw; margin-top: .6cqw; margin-left: .2cqw; }
 .set-btn { position: relative; display: inline-flex; align-items: center; padding: .6cqw 2cqw; font-family: var(--body); font-weight: 600; font-size: var(--t-body); line-height: 1.25; color: var(--ink);
   border: .14cqw solid #1b151088; border-radius: .35cqw; width: max-content; max-width: 100%; box-sizing: border-box; transition: transform calc(var(--k) * 200ms); }
 .set-btn::after { content: ""; position: absolute; inset: .22cqw; border: .06cqw solid #1b151055; border-radius: .2cqw; pointer-events: none; }
@@ -123,11 +125,13 @@ html[data-text="grand"] .set-rub::before { top: calc(.34cqw + var(--t-body) * .5
 .set-btn.is-focus::after { border-color: #e8d9b566; }
 .set-btn-nox.is-focus { background: var(--wax); color: var(--ivory); }
 
-/* About. */
-.set-facts { display: grid; gap: .3cqw; margin: 0 0 .8cqw 1.1cqw; }
-/* The facts in the reading size of the notes: the whole page (facts and three buttons) fits without sliding. */
-.set-fact { display: grid; grid-template-columns: 14cqw minmax(0, 1fr); gap: 1.2cqw; font-family: var(--body); font-size: var(--t-hint); line-height: 1.3; color: var(--ink); }
-.set-fact-k { font-family: var(--display); font-size: var(--t-hint); letter-spacing: .08em; text-transform: uppercase; opacity: .7; line-height: 1.3; }
+/* About: one grid for all the facts, so the keys share a column as wide as the longest one ("Touche Home" on one
+   line, at both text sizes); the facts in the reading size of the notes. With the TV's own line the page (facts and
+   three buttons) still fits without sliding, 1.7 cqw above the paper's edge. */
+.set-facts { display: grid; grid-template-columns: max-content minmax(0, 1fr); column-gap: 1.6cqw; row-gap: .25cqw; margin: 0 0 .6cqw 1.1cqw; }
+.set-fact { display: contents; font-family: var(--body); font-size: var(--t-hint); line-height: 1.3; color: var(--ink); }
+.set-fact-v { font-family: var(--body); font-size: var(--t-hint); line-height: 1.3; color: var(--ink); }
+.set-fact-k { font-family: var(--display); font-size: var(--t-hint); letter-spacing: .08em; text-transform: uppercase; color: var(--ink); opacity: .7; line-height: 1.3; white-space: nowrap; }
 .set-anote { margin: .8cqw 0 0 1.1cqw; font-family: var(--fell); font-style: italic; font-size: var(--t-hint); line-height: 1.3; color: var(--wax); }
 
 /* ---- Parapet and apps: ordered list, hourglass, rank ---- */
@@ -174,31 +178,29 @@ html[data-text="grand"] .set-rub::before { top: calc(.34cqw + var(--t-body) * .5
 .set-house-name { font-family: var(--body); font-weight: 600; font-size: var(--t-body); color: var(--ink); text-align: center; line-height: 1.1; }
 .set-house-state { min-height: 1.9cqw; font-family: var(--fell); font-style: italic; font-size: var(--t-hint); color: var(--ink); opacity: .75; }
 
-/* ---- Miniature preview of the parapet: a strip of stone under a night sky, mist, house candle ---- */
-.set-preview { position: relative; flex: none; height: 7.6cqw; margin-top: 1cqw; z-index: 1; }
-.set-pv-label { font-family: var(--display); font-size: var(--t-hint); letter-spacing: var(--track-wide); text-transform: uppercase; color: var(--ink); opacity: .65; margin-bottom: .4cqw; font-variant-numeric: tabular-nums; white-space: nowrap; }
-.set-pv-stone { position: relative; height: 5.2cqw; border-radius: .35cqw; overflow: hidden; border-bottom: .14cqw solid var(--wax);
-  background: radial-gradient(ellipse 30% 60% at 18% 0%, #c9d9ea22, transparent 70%),            /* the moon, on the left */
-    linear-gradient(to bottom, #070b14 0%, #0f1627 42%, #1C2230 62%, #0d121c 100%);                  /* sky, then the stone */
-  box-shadow: inset 0 .1cqw 0 #ffffff14; }
-/* A wisp of mist at the foot of the parapet (fixed gradient, never animated here). */
-.set-pv-mist { position: absolute; left: 0; right: 0; bottom: 0; height: 2.4cqw; pointer-events: none; opacity: .5;
-  background: radial-gradient(ellipse 18% 70% at 12% 100%, #c8daf030, transparent 70%), radial-gradient(ellipse 22% 60% at 46% 100%, #c8daf024, transparent 70%),
-    radial-gradient(ellipse 18% 70% at 82% 100%, #c8daf02c, transparent 70%); }
-/* The preview's candle: a pool in the house color under the lit app (translateX + opacity). */
-.set-pv-glow { position: absolute; left: 1.2cqw; bottom: -1.2cqw; width: 9cqw; height: 4.6cqw; pointer-events: none; opacity: 0;
-  background: radial-gradient(closest-side, var(--house-glow) 0%, transparent 70%); transition: opacity calc(var(--k) * 250ms), transform calc(var(--k) * 300ms) cubic-bezier(.3, .7, .2, 1); }
-.set-pv-glow.is-on { opacity: .22; }
-.set-pv-row { position: absolute; left: 1.2cqw; right: 1.2cqw; bottom: .6cqw; height: 2.1cqw; display: flex; align-items: center; gap: 1.5cqw; }
-.set-pv-app { position: relative; flex: none; height: 100%; transition: transform calc(var(--k) * 250ms); }
-.set-pv-app.is-lit { transform: scale(1.18); }
+/* ---- Miniature of the Parapet: the real screen at 0.521 (settings.js PV_SCALE), cropped to the band of the dock ----
+   The strip is 52.1 cqw wide (the right page's text width) and shows the screen's band y 340-460 CSS px: the
+   picture (assets/settings/parapet-mini.webp, 1000 x 125 px: the strip's size at DPR 2) is cut from castle.jpg, the
+   dock spreads like the real one (6 % margins, evenly spaced, packed when there are 1 to 3 apps), the logos keep the
+   Parapet's own boxes scaled, and the owl is the sheet's perched frame. No glow, no gradient: what the Parapet shows. */
+.set-preview { position: relative; flex: none; margin-top: .4cqw; z-index: 1; }
+.set-pv-label { font-family: var(--display); font-size: var(--t-hint); letter-spacing: var(--track-wide); text-transform: uppercase; color: var(--ink); opacity: .65; margin-bottom: .3cqw; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.set-pv-stone { position: relative; height: 6.5cqw; border-radius: .3cqw; overflow: hidden; background: #0b0f18 url("../../assets/settings/parapet-mini.webp") center / 100% 100% no-repeat;
+  box-shadow: 0 0 0 .1cqw #1b151066; }
+.set-pv-row { position: absolute; left: 6%; right: 6%; top: 3.2cqw; bottom: .3cqw; display: flex; justify-content: space-evenly; align-items: center; }   /* logos centred at 72 % of the strip: the dock line, a lit tall logo kept inside */
+.set-pv-row.is-few { justify-content: center; gap: 15.9%; }
+.set-pv-app { position: relative; flex: none; transition: transform calc(var(--k) * 250ms) cubic-bezier(.3, .7, .2, 1); }
+/* The focused app, as on the Parapet: lifted and grown by 1.24, in gold. */
+.set-pv-app.is-lit { transform: translateY(-.32cqw) scale(1.24); }
+.set-pv-app .app-logo .l-base { opacity: .8; }
 .set-pv-app.is-lit .app-logo .l-base { opacity: 1; background: linear-gradient(165deg, #FFF6CF 0%, #F3D27A 22%, #C08F35 46%, #F6DD8F 62%, #A26F24 82%, #F1CF7C 100%); }
-.set-pv-text { font-family: var(--display); font-size: var(--t-hint); letter-spacing: .06em; color: var(--ivory); opacity: .75; line-height: 2.1cqw; white-space: nowrap; }
-.set-pv-empty { font-family: var(--fell); font-style: italic; font-size: var(--t-hint); color: var(--mist); opacity: .8; }
-/* The miniature owl slides (translateX) above the app concerned. */
-.set-pv-owl { position: absolute; left: 1.2cqw; top: .35cqw; width: 1.6cqw; height: 1.9cqw; transition: transform calc(var(--k) * 300ms) cubic-bezier(.3, .7, .2, 1), opacity calc(var(--k) * 200ms); }
-.set-pv-owl svg { width: 100%; height: 100%; fill: none; stroke: var(--ivory); stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; opacity: .85; }
-.set-pv-owl circle { fill: var(--ivory); stroke: none; }
+.set-pv-text { display: block; font-family: var(--display); font-size: var(--t-hint); letter-spacing: .06em; color: var(--ivory); opacity: .8; line-height: 1.9cqw; text-align: center; white-space: nowrap; }
+.set-pv-empty { font-family: var(--fell); font-style: italic; font-size: var(--t-hint); color: var(--ivory); opacity: .8; }
+/* The owl: the perched frame of the real sheet (57 x 66 px, its size at DPR 2), placed by settings.js on the logo's top
+   edge (translate); it slides there when the focus moves along the parapet list. */
+.set-pv-owl { position: absolute; left: 0; top: 0; width: 2.97cqw; height: 3.44cqw; pointer-events: none;
+  background: url("../../assets/settings/owl-mini.webp") center / 100% 100% no-repeat;
+  transition: transform calc(var(--k) * 300ms) cubic-bezier(.3, .7, .2, 1), opacity calc(var(--k) * 200ms); }
 .set-pv-owl.is-gone { opacity: 0; }
 
 /* ---- Reduced motion: 200 ms fades and nothing more ---- */
@@ -212,7 +214,7 @@ html[data-text="grand"] .set-rub::before { top: calc(.34cqw + var(--t-body) * .5
 .screen-settings.is-reduced .set-rub.is-focus .set-quill { opacity: .9; }
 /* The sheet still slides (needed to see the focused row), but without transition; the owl and the candle teleport with a fade. */
 .screen-settings.is-reduced .set-flow { transition: none; }
-.screen-settings.is-reduced .set-pv-owl, .screen-settings.is-reduced .set-pv-glow { transition: opacity 200ms ease; }
+.screen-settings.is-reduced .set-pv-owl { transition: opacity 200ms ease; }
 /* The sand is no longer poured: it fades in. */
 .screen-settings.is-reduced .set-glass .g-top, .screen-settings.is-reduced .set-glass .g-bot { transition: opacity 200ms ease; transform: none !important; }
 @keyframes set-fade { from { opacity: 0; } to { opacity: 1; } }

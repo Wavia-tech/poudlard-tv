@@ -1,154 +1,145 @@
 {
- "note": "Parapet backdrop in three planes cut from assets/castle.jpg. Device px = image px of castle.jpg (1920x1080 on a 960x540 CSS screen at DPR 2). Every plane is 32 device px (16 CSS px) wider than the screen on each side: place each plane container at left:-16px, top:0, 992x540 CSS, and translate it horizontally only. Stacking (back to front): sky, sky-detail, castle, lit-windows, lake-shimmer, fg-left + fg-right. Children sit inside their plane's container at the given CSS offsets so they follow its parallax.",
- "screenCss": [
-  960,
-  540
- ],
- "planeCss": {
-  "left": -16,
-  "top": 0,
-  "w": 992,
-  "h": 540
- },
- "marginCss": 16,
- "parallaxCssPerStep": {
-  "sky": 1,
-  "castle": 3,
-  "fg": 7
- },
- "maxShiftCss": {
-  "sky": 2,
-  "castle": 5,
-  "fg": 10
- },
- "planes": [
-  {
-   "name": "sky",
-   "src": "sky.webp",
-   "css": {
-    "x": 0,
-    "y": 0,
+  "note": "Parapet backdrop in three planes cut from assets/castle.jpg. Device px = image px of castle.jpg (1920x1080 on a 960x540 CSS screen at DPR 2). Every plane is 32 device px (16 CSS px) wider than the screen on each side: place each plane container at left:-16px, top:0, 992x540 CSS, and translate it horizontally only. Stacking (back to front): sky, sky-detail, castle, lit-windows, lake-shimmer, fg-left + fg-right. Children sit inside their plane's container at the given CSS offsets so they follow its parallax.",
+  "screenCss": [
+    960,
+    540
+  ],
+  "planeCss": {
+    "left": -16,
+    "top": 0,
     "w": 992,
     "h": 540
-   },
-   "note": "half resolution (992x540 px drawn at 992x540 CSS): opaque, no alpha"
   },
-  {
-   "name": "sky-detail",
-   "parent": "sky",
-   "src": "sky-detail.webp",
-   "css": {
-    "x": 685.0,
-    "y": 71.5,
-    "w": 307.0,
-    "h": 254.0
-   },
-   "note": "moon and right-hand snowy ridges at full resolution over the half-res sky"
+  "marginCss": 16,
+  "parallaxCssPerStep": {
+    "sky": 1,
+    "castle": 3,
+    "fg": 7
   },
-  {
-   "name": "castle",
-   "src": "castle.webp",
-   "css": {
-    "x": 0,
-    "y": 0,
-    "w": 992,
-    "h": 540
-   },
-   "note": "castle, rock, mist, lake, boathouse; alpha 0 in the sky"
+  "maxShiftCss": {
+    "sky": 2,
+    "castle": 5,
+    "fg": 10
   },
-  {
-   "name": "lit-windows",
-   "parent": "castle",
-   "src": "lit-windows.webp",
-   "css": {
-    "x": 173.0,
-    "y": 164.5,
-    "w": 517.5,
-    "h": 251.5
-   },
-   "note": "opacity 0 at rest; windows.json for the wave"
+  "planes": [
+    {
+      "name": "sky",
+      "src": "sky.webp",
+      "css": {
+        "x": 0,
+        "y": 0,
+        "w": 992,
+        "h": 540
+      },
+      "note": "half resolution (992x540 px drawn at 992x540 CSS): opaque, no alpha"
+    },
+    {
+      "name": "sky-detail",
+      "parent": "sky",
+      "src": "sky-detail.webp",
+      "css": {
+        "x": 685.0,
+        "y": 71.5,
+        "w": 307.0,
+        "h": 254.0
+      },
+      "note": "moon and right-hand snowy ridges at full resolution over the half-res sky"
+    },
+    {
+      "name": "castle",
+      "src": "castle.webp",
+      "css": {
+        "x": 0,
+        "y": 0,
+        "w": 992,
+        "h": 540
+      },
+      "note": "castle, rock, mist, lake, boathouse; alpha 0 in the sky"
+    },
+    {
+      "name": "lit-windows",
+      "parent": "castle",
+      "src": "lit-windows.webp",
+      "css": {
+        "x": 173.0,
+        "y": 164.5,
+        "w": 517.5,
+        "h": 251.5
+      },
+      "note": "opacity 0 at rest; windows.json for the wave"
+    },
+    {
+      "name": "lake-shimmer",
+      "parent": "castle",
+      "src": [
+        "lake-shimmer-a.webp",
+        "lake-shimmer-b.webp"
+      ],
+      "css": {
+        "x": 536.0,
+        "y": 484.0,
+        "w": 360.0,
+        "h": 56.0
+      },
+      "note": "Ambiance vivante only; not in the DOM when it is off"
+    },
+    {
+      "name": "fg-left",
+      "parent": "fg",
+      "src": "fg-left.webp",
+      "css": {
+        "x": 0.0,
+        "y": 43.5,
+        "w": 346.0,
+        "h": 496.5
+      }
+    },
+    {
+      "name": "fg-right",
+      "parent": "fg",
+      "src": "fg-right.webp",
+      "css": {
+        "x": 897.5,
+        "y": 244.5,
+        "w": 94.5,
+        "h": 265.0
+      }
+    }
+  ],
+  "moon": {
+    "cxCss": 709.25,
+    "cyCss": 111.75,
+    "rCss": 27.75,
+    "note": "screen CSS px at rest (plane offset already removed)"
   },
-  {
-   "name": "lake-shimmer",
-   "parent": "castle",
-   "src": [
-    "lake-shimmer-a.webp",
-    "lake-shimmer-b.webp"
-   ],
-   "css": {
-    "x": 536.0,
-    "y": 484.0,
-    "w": 360.0,
-    "h": 56.0
-   },
-   "note": "Ambiance vivante only; not in the DOM when it is off"
-  },
-  {
-   "name": "fg-left",
-   "parent": "fg",
-   "src": "fg-left.webp",
-   "css": {
-    "x": 0.0,
-    "y": 43.5,
-    "w": 346.0,
-    "h": 496.5
-   }
-  },
-  {
-   "name": "fg-right",
-   "parent": "fg",
-   "src": "fg-right.webp",
-   "css": {
-    "x": 897.5,
-    "y": 244.5,
-    "w": 94.5,
-    "h": 265.0
-   }
+  "sprites": {
+    "logo-shadow.webp": {
+      "w": 256,
+      "h": 64,
+      "note": "static element under the focused logo; animate only its opacity (and the same transform as the logo)"
+    },
+    "lake-shimmer": {
+      "files": [
+        "lake-shimmer-a.webp",
+        "lake-shimmer-b.webp"
+      ],
+      "w": 720,
+      "h": 112,
+      "x": 1040,
+      "y": 968,
+      "planeX": 1072,
+      "planeY": 968,
+      "note": "two ripple phases of the lake reflections, normal blend over the castle plane (child of it, so it follows its parallax). Living ambience only: a at opacity 1, b cross-fading 0..1..0 over ~4 s, or b alone 0..0.85..0 over the original."
+    },
+    "lake-mist-tile.webp": {
+      "w": 960,
+      "h": 130,
+      "note": "same look and scale as assets/mist.png (displayed 960 CSS px wide), seamless horizontally: lay two side by side in one strip of 1920 CSS px, translateX(0 -> -960px) linear infinite, 120 s or slower"
+    },
+    "mist-wake.webp": {
+      "w": 320,
+      "h": 72,
+      "note": "head at the right; trails the rider, fades by opacity and drifts a few px by transform"
+    }
   }
- ],
- "moon": {
-  "cxCss": 709.25,
-  "cyCss": 111.75,
-  "rCss": 27.75,
-  "note": "screen CSS px at rest (plane offset already removed)"
- },
- "sprites": {
-  "trail-gold.webp": {
-   "w": 600,
-   "h": 60,
-   "css": [
-    300,
-    30
-   ],
-   "note": "head at the right edge (x=600, y=30): pin it under the rider, left of his broom bristles; fade it out by opacity"
-  },
-  "logo-shadow.webp": {
-   "w": 256,
-   "h": 64,
-   "note": "static element under the focused logo; animate only its opacity (and the same transform as the logo)"
-  },
-  "lake-shimmer": {
-   "files": [
-    "lake-shimmer-a.webp",
-    "lake-shimmer-b.webp"
-   ],
-   "w": 720,
-   "h": 112,
-   "x": 1040,
-   "y": 968,
-   "planeX": 1072,
-   "planeY": 968,
-   "note": "two ripple phases of the lake reflections, normal blend over the castle plane (child of it, so it follows its parallax). Living ambience only: a at opacity 1, b cross-fading 0..1..0 over ~4 s, or b alone 0..0.85..0 over the original."
-  },
-  "lake-mist-tile.webp": {
-   "w": 960,
-   "h": 130,
-   "note": "same look and scale as assets/mist.png (displayed 960 CSS px wide), seamless horizontally: lay two side by side in one strip of 1920 CSS px, translateX(0 -> -960px) linear infinite, 120 s or slower"
-  },
-  "mist-wake.webp": {
-   "w": 320,
-   "h": 72,
-   "note": "head at the right; trails the rider, fades by opacity and drifts a few px by transform"
-  }
- }
 }

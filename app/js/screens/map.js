@@ -62,6 +62,30 @@ const SCREEN_H = 56.25;              // the stage is 16:9: 100 × 56.25 cqw
 // The fonts the Map writes with (fonts.css). Loaded before the grid is built, so that its first layout is done in
 // them, not in a fallback that is thrown away (and re-laid out) a moment later.
 const MAP_FACES = ['1em "IM Fell English"', 'italic 1em "IM Fell English"', '1em "IM Fell English SC"', '1em "EB Garamond"', 'italic 500 1em "EB Garamond"'];
+// The parchment: the paper cut out of its photo (alpha along its edge and its curls, map.css), decoded off the main
+// thread before the sheet unfolds. Same URL as map.css resolves (relative to tv.html / index.html).
+const PARCHMENT = 'assets/map-parchment.webp';
+const PARCHMENT_MAX_MS = 700;        // the sheet never waits longer than that for its picture
+let parchmentP = null;               // decode promise (true: decoded, false: missing), shared by every opening
+function decodeParchment() {
+  if (!parchmentP) {
+    let im = new Image();
+    im.decoding = 'async';
+    im.src = PARCHMENT;
+    parchmentP = (typeof im.decode === 'function' ? im.decode() : new Promise((res, rej) => { im.onload = res; im.onerror = rej; }))
+      .then(() => true, () => { parchmentP = null; return false; })
+      .finally(() => { im = null; });   // the element goes; the decoded picture stays in the browser's cache
+  }
+  return parchmentP;
+}
+const facesLoaded = (faces) => { try { return Boolean(document.fonts) && faces.every((f) => document.fonts.check(f)); } catch (e) { return false; } };
+// One-shot warm-up, a few seconds after start-up, in an idle moment: the Map's faces are loaded and its parchment
+// decoded before anyone opens it, so the first opening builds its grid at once (see mount) instead of during the
+// slide. Nothing repeats: one font load per face, one decode.
+if (typeof window !== 'undefined' && typeof document !== 'undefined') {
+  const warm = () => { fontsReady(MAP_FACES, 3000); decodeParchment(); };
+  setTimeout(() => { if (typeof requestIdleCallback === 'function') requestIdleCallback(warm, { timeout: 3000 }); else warm(); }, 6000);
+}
 // Up/down chevrons of the 3-row window, and the Boutique's star: drawn, because the embedded fonts have no ⌃ ⌄ ✦
 // (a missing glyph sends the browser looking for a system font during layout).
 const CHEVRON_UP = '<svg viewBox="0 0 20 10" aria-hidden="true"><path d="M2 9 10 2l8 7"/></svg>';
@@ -172,7 +196,6 @@ export default {
       ${DEFS_SVG}
       <canvas class="map-sky" width="960" height="540"></canvas>
       <div class="map-vignette"></div>
-      <div class="map-shadow"></div>
       <div class="map-sheet parchment">
         <div class="map-paper"></div>
         <div class="map-folds"></div>
@@ -212,7 +235,8 @@ export default {
       if (!this.reduced) this.after(WALK_AFTER_MS, () => this.walk(start, this.focusCenter()));
       // Once the ink is laid, the rows' opening reveal is retired (is-quiet): a row that later scrolls into the
       // window fades in at once (250 ms), instead of replaying the opening with its delay (it stayed blank ~0.6 s).
-      this.after(380 + REVEAL_GAP * ROWS_VISIBLE + 320 + 60, () => { const host = root.querySelector('.map-rows'); if (host) host.classList.add('is-quiet'); });
+      // The opening's layers (sheet and rows, map.css is-opening) are let go at the same moment.
+      this.after(380 + REVEAL_GAP * ROWS_VISIBLE + 320 + 60, () => { const host = root.querySelector('.map-rows'); if (host) host.classList.add('is-quiet'); root.classList.remove('is-opening'); });
     };
     root.addEventListener('transitionend', (e) => { if (e.target === root && e.propertyName === 'transform') arrive(); });
     this.after(ENTER_MS + 40, arrive);
@@ -220,12 +244,19 @@ export default {
     if (ctx.config().sounds) ctx.fx.initAudio();
     ctx.fx.whoosh();
 
-    // The grid is built once the slide has started (two frames: the router starts it on the next one) and the
-    // fonts are there, then laid on the parchment one row per frame. Its first style and layout (each new logo's
-    // SVG mask is a small SVG document to parse, the names to shape) are thus spread over the slide, which the
-    // compositor runs on its own; the parchment is still folded and invisible (no .is-in), so nothing half-built
-    // shows. Keys stay with the router until mount() resolves, so none reaches a half-built Map.
-    await Promise.all([frames(2, 120), fontsReady(MAP_FACES, 600)]);
+    // While it opens, the sheet and the rows are layers of their own (map.css .is-opening), painted and rasterised
+    // during the slide although still invisible: the unfold and the ink then only composite (round 5 on the TV: the
+    // first paint of the sheet and the rows at the unfold made frames of 550 ms to 1 s).
+    root.classList.add('is-opening');
+    const parchment = decodeParchment();
+    // When the Map's faces are already loaded (the warm-up above, or an earlier opening), the whole grid is built
+    // now, inside this key's task, before the router's slide has drawn its first frame: the style and layout of the
+    // grid land before the move, which then only composites. Otherwise (fonts not there yet) the grid is built once
+    // they are, then laid on the parchment one row per frame during the slide, as before; the parchment is still
+    // folded and invisible (no .is-in), so nothing half-built shows. Keys stay with the router until mount()
+    // resolves, so none reaches a half-built Map.
+    const now = facesLoaded(MAP_FACES);
+    if (!now) await Promise.all([frames(2, 120), fontsReady(MAP_FACES, 600)]);
     if (this.root !== root) return;
     // The lines in IM Fell are written once their fonts are there: one layout, not a fallback one and then another.
     root.querySelector('.map-formula').textContent = FORMULA;
@@ -236,7 +267,7 @@ export default {
     const host = root.querySelector('.map-rows');
     for (let i = 0; i < this.rows.length; i++) {
       host.appendChild(this.rows[i].el);
-      if (i < this.rows.length - 1) await frames(1, 50);
+      if (!now && i < this.rows.length - 1) await frames(1, 50);
       if (this.root !== root) return;
     }
 
@@ -244,6 +275,12 @@ export default {
     const wanted = (ctx.params && typeof ctx.params.app === 'string') ? ctx.params.app : getConfig().lastApp;
     const pos = this.findCell((cell) => cell.kind === 'app' && cell.app.id === wanted) || { r: 0, c: 0 };
     this.setFocus(pos.r, pos.c, { walkFrom: null, instant: true });
+    if (now) void host.offsetHeight;                                     // style and layout here, before the slide's first frame
+    // The sheet unfolds once its picture is decoded (PARCHMENT_MAX_MS at most); a missing picture falls back to the
+    // plain parchment colour (map.css .no-parchment), never ink on the night.
+    const decoded = await Promise.race([parchment, new Promise((r) => setTimeout(() => r(true), PARCHMENT_MAX_MS))]);
+    if (this.root !== root) return;
+    if (!decoded) root.classList.add('no-parchment');
     this.built = true;
     if (this.arriveWanted) arrive();
   },

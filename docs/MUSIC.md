@@ -15,7 +15,7 @@ This document describes what the code does (`app/js/sound.js`), which audio file
 | **Celesta** | `celesta` | The celesta waltz, always, even if a file exists. |
 | **None** | `aucune` | Nothing: the cues only. |
 
-The levels are constants at the top of `sound.js` (`AMBIENT_DB` for the waltz, `FILE_DB` for the file, the master volume downstream). Since version 0.3 the file sits louder than before against the cues: the first device test found it too quiet.
+The levels are constants at the top of `sound.js` (`AMBIENT_DB` for the waltz, `FILE_DB` for the file, the master volume downstream). The file plays through its own `<audio>` element, outside the Web Audio graph: its level (`FILE_VOLUME`, the same loudness as before), its fades and its ducking are the element's volume, so the audio graph sleeps whenever no cue rings (on the TV, the graph kept running for the music alone cost about one core). Since version 0.3 the file sits louder than before against the cues: the first device test found it too quiet.
 
 ### The music file (versioned at the maintainer's request)
 

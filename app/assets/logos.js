@@ -116,3 +116,11 @@ export const LOGOS = {
   "src": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9Ii0yLjE3MjggLTE1LjkzMjggMzY2LjQyNTYgODMuODY1NiIgd2lkdGg9IjQzNi45MiIgaGVpZ2h0PSIxMDAiPjxwYXRoIGQ9Ik01LjUgNjBWMjhhMTIgMTIgMCAwIDEgMjQgMFY2ME0yOS41IDI4YTEyIDEyIDAgMCAxIDI0IDBWNjBNOTUuNSAxNmEyMiAyMiAwIDEgMSAwIDQ0YTIyIDIyIDAgMSAxIDAtNDR6TTEzNy41IC04VjYwTTE3OS41IDE2YTIyIDIyIDAgMSAxIDAgNDRhMjIgMjIgMCAxIDEgMC00NHpNMjE5LjUgMlY0OGExMiAxMiAwIDAgMCAxMiAxMmgxLjVNMjEyIDE4SDIzM00yNzQuNSAxNmEyMiAyMiAwIDEgMSAwIDQ0YTIyIDIyIDAgMSAxIDAtNDR6TTMxNi41IDE2TDMzNi41IDYwTDM1Ni41IDE2IiBmaWxsPSJub25lIiBzdHJva2U9IiNmZmYiIHN0cm9rZS13aWR0aD0iMTIuNSIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIi8+PC9zdmc+"
  }
 };
+
+// Optical scale (round 5, on the TV the logos did not weigh the same: the filled YouTube tile carried six times the ink
+// of Disney+). `scale` multiplies the box that logoBox() (js/monogram.js) gives from `ratio`, so that every logo's ink
+// area at rest falls within about ±10 % of the catalogue's median (measured on the Parapet box, logoBox(L, 3.6, 12),
+// at 960 × 540 DPR 2; Disney+ capped at 1.5). Under 5 % of change, none. Not written by tools/logos-build.mjs: kept
+// here, after the generated table; a rebuilt logos.js must carry it over.
+const OPTICAL = { prime: 1.34, disney: 1.5, canal: 0.9, max: 0.8, paramount: 0.88, youtube: 0.77, arte: 0.92, spotify: 0.91, ps5: 1.08, ps4: 1.11, switch: 0.95 };
+for (const [id, s] of Object.entries(OPTICAL)) if (LOGOS[id]) LOGOS[id].scale = s;

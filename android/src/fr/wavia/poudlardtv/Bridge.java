@@ -2,6 +2,9 @@ package fr.wavia.poudlardtv;
 
 import android.app.Activity;
 import android.content.Context;
+import android.content.Intent;
+import android.os.Handler;
+import android.os.Looper;
 import android.webkit.JavascriptInterface;
 
 import org.json.JSONArray;
@@ -22,6 +25,11 @@ import java.util.concurrent.TimeUnit;
  * startActivity and PackageManager cope with that; nothing here touches a view. The one exception is the HOME
  * role request (setHome("poudlard")), which needs the activity: it is posted on the UI thread and this thread
  * waits for its hint (1.5 s at most).
+ *
+ * A bridge call is synchronous: the page's main thread waits for the answer. launch() therefore answers as soon as
+ * the app is known to be there (PackageManager, a few ms) and posts startActivity on the main looper, where it no
+ * longer holds the page while the system switches apps (the last frames of Lumos). A start refused after that answer
+ * (rare: the intent was resolved) is only logged.
  *
  * Contract (platform.js):
  *   launch(pkg)            → launches the app
@@ -54,6 +62,7 @@ final class Bridge {
     private final Context app;
     private final Apps apps;
     private final WeakReference<HomeActivity> activity;
+    private final Handler main = new Handler(Looper.getMainLooper());
 
     Bridge(HomeActivity activity, Apps apps) {
         this.app = activity.getApplicationContext();
@@ -87,9 +96,23 @@ final class Bridge {
     }
 
     @JavascriptInterface
-    public String launch(String pkg) {
+    public String launch(final String pkg) {
         try {
-            return result(apps.launch(pkg));
+            final String[] why = new String[1];
+            final Intent intent = apps.launchable(pkg, why);
+            if (intent == null) return fail(why[0]);
+            main.post(new Runnable() {
+                @Override
+                public void run() {
+                    try {
+                        String error = apps.startApp(intent, pkg);
+                        if (error != null) Log.w("launch " + pkg + ": " + error);
+                    } catch (Throwable t) {
+                        Log.w("launch", t);
+                    }
+                }
+            });
+            return ok();
         } catch (Throwable t) {
             Log.w("launch", t);
             return fail("Poudlard TV n'a pas pu lancer " + apps.name(pkg) + " (erreur interne).");

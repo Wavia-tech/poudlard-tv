@@ -30,19 +30,27 @@ const AUDIO_ARM_MS = 1700, AUDIO_ARM_MAX_MS = 5000;
 function armAudio() {
   if (audioArmed) return;
   audioArmed = true;
+  themed = null;                 // the next applyTheme passes the sound on again
   Fx.configure({ sound: getConfig().sounds });
 }
 const armWhenIdle = () => { if (typeof requestIdleCallback === 'function') requestIdleCallback(armAudio, { timeout: 600 }); else armAudio(); };
 
+// Called on every config change, lastApp at each Lumos included: only what changed is written. An attribute on <html>
+// rewritten, even to the same value, can restyle the whole page in the frames of the light.
+let themed = null;
 function applyTheme(c) {
   const html = document.documentElement;
-  html.dataset.mode = c.mode;
-  html.dataset.house = c.house || 'none';
-  html.dataset.motion = c.motion;
-  html.dataset.text = c.text || 'normal';
-  html.dataset.motionSystem = c.motionSystem || 'follow';
+  const set = (k, v) => { if (html.dataset[k] !== v) html.dataset[k] = v; };
+  set('mode', c.mode);
+  set('house', c.house || 'none');
+  set('motion', c.motion);
+  set('text', c.text || 'normal');
+  set('motionSystem', c.motionSystem || 'follow');
   // The house palette is CSS (base.css, html[data-house]): nothing inline. HOUSES stays the source of the names.
   void HOUSES;
+  const key = `${c.motion}|${Boolean(c.sounds && audioArmed)}`;
+  if (key === themed) return;
+  themed = key;
   Fx.configure({ dust: c.motion === 'auto', sound: c.sounds && audioArmed, calm: c.motion !== 'auto' });
   Fx.setRate(c.motion === 'economie' ? 66 : 33);
 }
@@ -118,7 +126,14 @@ function startAmbient() {
   ambientStarted = true;
 }
 Input.onActivity(() => { if (!ambientStarted) startAmbient(); });
-onConfigChange((c) => { if (!Fx.ambient) return; if (!c.sounds) { Fx.ambient('aucune'); ambientStarted = false; } else if (ambientStarted) Fx.ambient(c.music || 'auto'); });
+// Only a change of the sound or of the music touches the music (not lastApp at each Lumos, nor any other setting).
+let heard = `${config.sounds}|${config.music}`;
+onConfigChange((c) => {
+  const now = `${c.sounds}|${c.music}`;
+  if (now === heard || !Fx.ambient) return;
+  heard = now;
+  if (!c.sounds) { Fx.ambient('aucune'); ambientStarted = false; } else if (ambientStarted) Fx.ambient(c.music || 'auto');
+});
 
 // First launch: the Admission Letter (Lettre d'admission); afterwards, the Lumos boot then the home screen of the chosen mode.
 if (!config.firstRunDone) Router.replace('sorting', {}, 'fade');

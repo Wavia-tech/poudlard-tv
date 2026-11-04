@@ -1,12 +1,12 @@
 // The Room of Requirement (Salle sur Demande): the settings, on a large ledger open as a double-page spread.
 // Left page: the sections. Right page: the section's content, and at the bottom a miniature preview
-// of the parapet that recomposes live. Every change is saved immediately (updateConfig), written in quill
-// and confirmed with a pressed wax seal. Two levels, never more.
+// of the parapet that recomposes live. Every change is saved immediately (updateConfig) and its new value written
+// in quill; a parapet row also keeps a pressed wax seal. Two levels, never more.
 // Holding Back for 2 s brings up classic mode from here too (the blueprint's reversibility rule).
 import { HOUSES, DOCK_MAX, getConfig, updateConfig, resetConfig, allApps, appById, isReduced } from '../config.js';
 import { Platform } from '../platform.js';
 import { LOGOS } from '../../assets/logos.js';
-import { monogram } from '../monogram.js';
+import { monogram, logoBox } from '../monogram.js';
 
 // App logo: official (LOGOS) or, for a hand-added app (V4), its monogram. Null if the id is unknown.
 const logoOf = (id) => LOGOS[id] || (appById(id) ? monogram(appById(id).name) : null);
@@ -32,9 +32,12 @@ const MOTION = [['auto', 'Auto'], ['reduit', 'Réduit'], ['economie', 'Économie
 const SKY = [['auto', 'Selon l’heure'], ['nuit', 'Nuit claire']];
 // Living ambience (config.ambiance): the only thing allowed to move on the Parapet at rest, off by default.
 const AMBIANCE = [['calme', 'Non'], ['vivante', 'Oui']];
+// On a TV that says it is short of memory (Bridge.device().lowRam: the owner's 1.3 GB set) the Parapet is drawn flat
+// (home.js .lite) and the ambience never starts there (syncAmbiance needs the three planes): the note says so.
 const AMBIANCE_NOTE = (v) => (v !== 'vivante' ? 'Au repos, rien ne bouge : le lac attend une touche.'
   : isReduced() ? 'Le mouvement est réduit : le lac reste immobile tant qu’il l’est.'
-    : 'La brume dérive et les reflets frémissent sur le lac. Un peu plus de calcul.');
+    : Platform.device().lowRam ? 'Éteinte sur cette télé, trop juste en mémoire : le lac reste immobile.'
+      : 'La brume dérive et les reflets frémissent sur le lac. Un peu plus de calcul.');
 const FOLLOW = [['follow', 'Oui'], ['ignore', 'Non']];
 const TEXT = [['normal', 'Normale'], ['grand', 'Grande']];
 // Background music (sound.js): 'auto' = personal file (assets/music/ambiance.ogg, .mp3 or .m4a, not in the repo,
@@ -46,6 +49,9 @@ const MUSIC_NOTE = { fichier: 'L’ambiance du château, en boucle, en fond. Si 
 const MOTION_NOTE = { auto: 'Vol de la chouette, fondus et lumières : tout ce qui bouge quand on appuie.', reduit: 'Fondus de 200 ms, rien de plus. Aussi forcé par le système si demandé.', economie: 'Le strict nécessaire, pour une télé qui rame : moins d’effets, aucune particule.' };
 const IDLE = [[90, '1,5 min'], [180, '3 min'], [300, '5 min'], [600, '10 min'], [0, 'Jamais']];
 const VERSION = 'Maquette 0.3 · novembre 2026';   // equals android:versionName (AndroidManifest.xml); CHANGELOG.md
+// Android's marketing version from the API level the bridge reports (Build.VERSION.SDK_INT): 30 is Android 11.
+const ANDROID = { 21: '5.0', 22: '5.1', 23: '6', 24: '7.0', 25: '7.1', 26: '8.0', 27: '8.1', 28: '9', 29: '10', 30: '11', 31: '12', 32: '12L', 33: '13', 34: '14', 35: '15', 36: '16' };
+const androidName = (sdk) => (ANDROID[sdk] ? `Android ${ANDROID[sdk]}` : `Android (API ${sdk})`);
 // Home key: the two answers, and what the TV says back when Poudlard asks for the key (Bridge.setHome hints).
 export const HOME_MODES = [['poudlard', 'Poudlard TV'], ['original', 'Accueil d’origine']];
 export const HOME_HINT = {
@@ -104,8 +110,11 @@ const HOURGLASS = '<svg class="set-glass" viewBox="0 0 24 32" aria-hidden="true"
   + '<path class="g-frame" d="M4 2.5h16M4 29.5h16M6.5 2.5c0 8 5.5 10 5.5 13.5S6.5 21.5 6.5 29.5M17.5 2.5c0 8-5.5 10-5.5 13.5s5.5 5.5 5.5 13.5"/>'
   + '<path class="g-top" d="M8 5h8c0 4-4 6.5-4 9.5C12 11.5 8 9 8 5z"/>'
   + '<path class="g-bot" d="M7.5 27.5h9c0-5-4.5-8-4.5-11.5C12 19.5 7.5 22.5 7.5 27.5z"/></svg>';
-// Miniature owl of the preview (ivory silhouette, a single stroke).
-const MINI_OWL = '<svg viewBox="0 0 24 28" aria-hidden="true"><path d="M5 9c0-4 3-7 7-7s7 3 7 7v9c0 4-3 7-7 7s-7-3-7-7zM8 4l-2-3M16 4l2-3"/><circle cx="9" cy="10" r="1.3"/><circle cx="15" cy="10" r="1.3"/><path d="M12 12l-1.2 2h2.4z"/></svg>';
+// The preview is the Parapet itself at a fixed scale: its strip (.set-pv-stone, 52.1 cqw wide: the right page's text
+// width) shows the real screen's band around the dock, so every size in it is the Parapet's own times PV_SCALE.
+// Logos: home.js LOGO_H 3.6 and LOGO_W_MAX 12 (cqw of the screen). The pictures (assets/settings/) are cut from the
+// real ones, never redrawn: the band y 680-920 of castle.jpg at 1000 x 125 px, and the owl sheet's perched cell.
+const PV_SCALE = 0.521;
 
 const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
 
@@ -142,15 +151,13 @@ export default {
             <div class="set-preview">
               <div class="set-pv-label"></div>
               <div class="set-pv-stone">
-                <div class="set-pv-mist"></div>
-                <div class="set-pv-glow"></div>
                 <div class="set-pv-row"></div>
-                <div class="set-pv-owl">${MINI_OWL}</div>
+                <div class="set-pv-owl"></div>
               </div>
             </div>
           </div>
         </div>
-        <div class="keyhint"><span><b>${ARROW.up}${ARROW.down}</b><em></em></span><span><b>OK</b><em></em></span><span><b>${ARROW.left}</b><em></em></span><span><b>Retour</b><em></em></span></div>
+        <div class="keyhint"><span><b>${ARROW.up}${ARROW.down}</b><em></em></span><span><b>OK</b><em></em></span><span><b>${ARROWS_LR}</b><em></em></span><span><b>Retour</b><em></em></span></div>
       </div>`;
     // The router's transition and the pages' opening need the closed style of the layer and of its pages: a
     // style-only read (no layout) of the skeleton, which holds no text to shape yet.
@@ -263,7 +270,6 @@ export default {
     const value = el('b', 'set-row-value');
     val.append(left, value, right);
     row.appendChild(val);
-    row.appendChild(el('i', 'set-rowseal wax-seal'));
     parent.appendChild(row);
     let note = null;
     if (noteFn) { note = el('div', 'set-note'); parent.appendChild(note); }
@@ -280,7 +286,6 @@ export default {
       set(options[i][0]);
       paint();
       this.writeIn(value); if (note) this.writeIn(note);
-      this.press(row.querySelector('.set-rowseal'));
       this.ctx.fx.chime(1319, 0.03);
       this.placePreviewOwl();                       // the preview reacts (owl absent, etc.)
     };
@@ -565,7 +570,8 @@ export default {
     // The ambience row says when reduced motion holds it still: the two reduced-motion rows repaint its note.
     let ambiance = null;
     const reflow = () => { this.reduced = isReduced(); this.root.classList.toggle('is-reduced', this.reduced); if (ambiance) ambiance.paint(); };
-    const motion = this.enumRow(body, 'Mouvement', MOTION, () => getConfig().motion, (v) => { updateConfig({ motion: v }); reflow(); }, (v) => MOTION_NOTE[v]);
+    // A motion set here is the person's own choice (`motionChosen`): no automatic migration may ever change it again.
+    const motion = this.enumRow(body, 'Mouvement', MOTION, () => getConfig().motion, (v) => { updateConfig({ motion: v, motionChosen: true }); reflow(); }, (v) => MOTION_NOTE[v]);
     // Saved through updateConfig like every row: the Parapet (onConfigChange) starts or stops its two loops itself.
     ambiance = this.enumRow(body, 'Ambiance vivante', AMBIANCE, () => getConfig().ambiance || 'calme', (v) => updateConfig({ ambiance: v }), AMBIANCE_NOTE);
     const items = [
@@ -615,7 +621,7 @@ export default {
     const version = Platform.version();
     const dev = Platform.device();
     [['Réseau', 'Aucune connexion, aucune donnée collectée.'], ['Version', version ? `Télé ${version} · ${VERSION}` : VERSION], ['Touche Home', homeLabel],
-      ...(dev.sdk ? [['Télé', `${dev.manufacturer} ${dev.model} · Android ${dev.sdk}`]] : []),
+      ...(dev.sdk ? [['Télé', `${dev.manufacturer} ${dev.model} · ${androidName(dev.sdk)}`]] : []),
       ['Veille', 'Celle de la télé reste la sienne : Poudlard ne garde jamais l’écran allumé.'],
       ['Lancement', 'Par intent explicite, sur des applis connues seulement.'], ['Réversible', 'L’accueil d’origine reste installé ; rien n’est désactivé.']]
       .forEach(([k, v]) => { const f = el('div', 'set-fact'); f.appendChild(el('span', 'set-fact-k', k)); f.appendChild(el('span', 'set-fact-v', v)); facts.appendChild(f); });
@@ -651,13 +657,16 @@ export default {
     row.textContent = '';
     const dock = getConfig().dock;
     // The counter lives here too: the preview is always visible, even once the list has slid.
-    this.root.querySelector('.set-pv-label').textContent = `Le parapet, en direct · ${dock.length} sur ${DOCK_MAX}`;
-    if (!dock.length) { row.appendChild(el('span', 'set-pv-empty', 'Le parapet est vide')); this.placePreviewOwl(); return; }
+    const n = dock.length;
+    this.root.querySelector('.set-pv-label').textContent = `Le Parapet, en direct · ${n ? `${n} ${n > 1 ? 'applis' : 'appli'} sur ${DOCK_MAX}` : 'aucune appli'}`;
+    row.classList.toggle('is-few', n > 0 && n <= 3);              // 1 to 3 apps: packed closer, as on the Parapet
+    if (!n) { row.appendChild(el('span', 'set-pv-empty', 'Le parapet est vide')); this.placePreviewOwl(); return; }
     dock.forEach((id) => {
       const L = logoOf(id);
       const slot = el('div', 'set-pv-app'); slot.dataset.id = id;
       if (L) {
-        slot.style.width = Math.min(4.2, 1.9 * L.ratio) + 'cqw';
+        const box = logoBox(L, 3.6 * PV_SCALE, 12 * PV_SCALE);  // the Parapet's own logo box, scaled
+        slot.style.width = box.w.toFixed(2) + 'cqw'; slot.style.height = box.h.toFixed(2) + 'cqw';
         const logo = el('div', 'app-logo ivory-logo' + (L.luma ? ' luma' : ''));
         logo.style.setProperty('--m', `url("${L.src}")`);
         // One masked layer, not the parapet's five (relief offsets of 0.1 cqw do not show at this size): each masked
@@ -665,7 +674,7 @@ export default {
         logo.innerHTML = '<i class="l-base"></i>';
         slot.appendChild(logo);
       } else {
-        slot.style.width = '3cqw';
+        slot.style.width = '3cqw'; slot.style.height = '1.9cqw';
         slot.appendChild(el('span', 'set-pv-text', (appById(id) || { name: '?' }).name.slice(0, 3)));
       }
       row.appendChild(slot);
@@ -673,10 +682,10 @@ export default {
     this.placePreviewOwl();
   },
   // The miniature owl perches above the focused app if it is on the parapet; otherwise it stays on its
-  // last perch. The gold and the candle only light up for a parapet app that is actually in focus.
+  // last perch. The logo only turns gold (and lifts) for a parapet app that is actually in focus.
   placePreviewOwl() {
     const root = this.root; if (!root) return;
-    const owl = root.querySelector('.set-pv-owl'), glow = root.querySelector('.set-pv-glow'); if (!owl) return;
+    const owl = root.querySelector('.set-pv-owl'); if (!owl) return;
     const c = getConfig();
     owl.classList.toggle('is-gone', c.owl === 'absente' || !c.dock.length);
     const cur = this.level === 'right' && RUBRIQUES[this.rub].id === 'dock' && this.items[this.row] ? this.items[this.row].id : null;
@@ -686,12 +695,15 @@ export default {
       if (!this.root) return;
       const slot = this.root.querySelector(`.set-pv-app[data-id="${CSS.escape(String(id || ''))}"]`);
       this.root.querySelectorAll('.set-pv-app').forEach((s) => s.classList.toggle('is-lit', onDock && s === slot));
-      if (glow) glow.classList.toggle('is-on', onDock && Boolean(slot));
       if (!slot) return;
       this.lastPerch = id;
-      const cx = slot.offsetLeft + slot.offsetWidth / 2;
-      owl.style.transform = `translateX(${cx - owl.offsetWidth / 2}px)`;
-      if (glow) glow.style.transform = `translateX(${cx - glow.offsetWidth / 2}px)`;
+      // Perched on the logo's top edge, as on the Parapet: the row and the owl share the strip's coordinates.
+      const row = slot.parentElement;
+      const cx = row.offsetLeft + slot.offsetLeft + slot.offsetWidth / 2;
+      // A lit logo is lifted (settings.css: translateY(-.32cqw) scale(1.24), offsets ignore transforms): she rides it.
+      const lift = onDock && !this.reduced ? slot.offsetHeight * 0.12 + this.root.clientWidth * 0.0032 : 0;
+      const top = row.offsetTop + slot.offsetTop - lift - owl.offsetHeight + slot.offsetHeight * 0.06;
+      owl.style.transform = `translate(${Math.round(cx - owl.offsetWidth / 2)}px, ${Math.max(0, Math.round(top))}px)`;   // never cut by the strip's top
     });
   },
 
@@ -719,17 +731,17 @@ export default {
     const h = this.root.querySelector('.keyhint'); if (!h) return;
     const spans = h.querySelectorAll('span');
     const [a, b, c, d] = h.querySelectorAll('em');
-    spans[0].style.opacity = '';
-    const keyC = spans[2].querySelector('b');
-    if (this.level === 'left') { a.textContent = 'Rubrique'; b.textContent = 'Entrer'; keyC.innerHTML = ARROW.left; c.textContent = 'Quitter'; d.textContent = 'Quitter'; return; }
+    // A key whose hint would repeat another one (Left does what Back does) is left out, never written twice.
+    const show = (span, on) => { span.style.display = on ? '' : 'none'; };
+    show(spans[0], true);
+    if (this.level === 'left') { a.textContent = 'Rubrique'; b.textContent = 'Entrer'; show(spans[2], false); d.textContent = 'Quitter'; return; }
     const id = RUBRIQUES[this.rub].id;
     a.textContent = 'Ligne';
-    if (this.axis === 'h') spans[0].style.opacity = '0';          // nothing to say for ▲▼: we clear it, we don't write "Nothing"
+    if (this.axis === 'h') show(spans[0], false);                 // nothing to say for up and down: left out, never "Nothing"
     b.textContent = id === 'dock' ? 'Poser · Retirer' : id === 'house' ? 'Choisir' : id === 'tv' ? 'Ouvrir' : (id === 'classic' || id === 'about') ? 'Valider' : 'Changer';
-    // Third key: what Left / Right do here. A list of buttons (TV screens, About) only goes back with Left.
-    const buttons = id === 'tv' || id === 'about';
-    keyC.innerHTML = buttons ? ARROW.left : ARROWS_LR;
-    c.textContent = buttons ? 'Rubriques' : id === 'dock' ? 'Rang' : this.axis === 'h' ? 'Choisir' : 'Valeur';
+    // Third key: what Left / Right do here. A list of buttons (TV screens, About) only goes back with Left, as Back does.
+    show(spans[2], !(id === 'tv' || id === 'about'));
+    c.textContent = id === 'dock' ? 'Rang' : this.axis === 'h' ? 'Choisir' : 'Valeur';
     d.textContent = 'Rubriques';
   },
 

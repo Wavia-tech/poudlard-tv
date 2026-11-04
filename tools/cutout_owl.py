@@ -86,7 +86,7 @@ def sheet(dst: str, srcs: list) -> None:
         im = Image.open(s).convert("RGBA")
         scale = cell_h / im.height
         im = im.resize((max(1, round(im.width * scale)), cell_h), Image.LANCZOS)
-        poses.append(rim(im))
+        poses.append(im)  # no rim: the sheet is defringed afterwards (alpha choked 1 px, edge colours pulled toward the night)
     cell_w = max(round(cell_h * CELL[0] / CELL[1]), max(p.width for p in poses) + 8)
     cells = []
     for p in poses:

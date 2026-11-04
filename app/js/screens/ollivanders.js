@@ -1,11 +1,11 @@
 // Ollivanders: the film collection shown as a wandmaker's shop window.
 // The reference image (assets/ollivanders.webp) is staged, not decorated: a static colour grade (two gradient layers
-// at low opacity, warm from the lamp and cool from the night), a vignette, a letterbox frame with a hairline, and the
+// at low opacity, warm from the lamp and cool from the night), a vignette, a lower band with a hairline, and the
 // selection: the whole shop drops under a veil except the chosen box, which keeps its full light inside a thin gold
 // frame drawn exactly on its outline. Veil and frame are one inline SVG per selection, cut from scene.boxes (config.js);
 // two such layers cross-fade (opacity only) when the choice moves. Nothing moves at rest: no loop, no dust, no breath.
 // The camera leans in by a hair on arrival (from the Parapet, the router's dive brings it in through a castle
-// window); the caption is typeset like a museum label above the boxes (never over them) whose gold rule draws itself
+// window, once the shop's picture is decoded: `ready`, then onEnter() when the move starts); the caption is typeset like a museum label above the boxes (never over them) whose gold rule draws itself
 // from the centre between the title and the sub-line. Transform and opacity only; the styles live in ollivanders.css.
 import { LIBRARY, appById, getConfig, updateConfig } from '../config.js';
 import { Platform } from '../platform.js';
@@ -22,14 +22,24 @@ const loadRappeltout = () => import('../rappeltout.js').then((m) => m.rappeltout
 const loadBeuglante = () => import('../beuglante.js').then((m) => m.beuglante).catch(() => null);
 // "Max", "Max ou Canal+", "Max, Netflix ou Canal+".
 const orList = (names) => (names.length < 2 ? names.join('') : `${names.slice(0, -1).join(', ')} ou ${names[names.length - 1]}`);
+// The Beasts window's suitcases are not boxes: each one's silhouette (handle included), cut from the owner's image
+// (assets/beasts.webp, image pixels) and pushed out by 2 px, so that the veil leaves only the case lit (never the
+// shelves behind it) and the gold line runs 1 CSS px off the leather. Keyed `collection:content`; any other film uses
+// its box from config.js (a quad), exactly as before.
+const SHAPES = {
+  'fb:fb1': [[654, 555], [643, 545], [629, 541], [487, 537], [479, 530], [474, 507], [470, 498], [463, 490], [454, 487], [420, 487], [416, 484], [417, 479], [415, 475], [406, 471], [361, 473], [325, 492], [315, 495], [309, 502], [304, 515], [304, 525], [311, 536], [310, 539], [269, 537], [260, 541], [252, 551], [226, 551], [199, 543], [171, 544], [156, 540], [115, 541], [104, 545], [95, 555], [85, 580], [85, 596], [90, 609], [92, 721], [92, 848], [85, 863], [85, 879], [90, 898], [102, 915], [105, 926], [110, 930], [118, 932], [259, 943], [375, 937], [420, 931], [440, 931], [576, 917], [624, 915], [638, 912], [657, 888], [663, 874], [665, 862], [659, 816], [659, 677], [654, 665], [654, 656], [657, 648], [657, 611], [662, 599], [662, 577], [659, 564]],
+  'fb:fb2': [[1233, 560], [1223, 552], [1201, 546], [1175, 547], [1162, 553], [1140, 553], [1110, 547], [1101, 547], [1093, 551], [1078, 553], [1060, 553], [1057, 549], [1063, 532], [1064, 516], [1062, 505], [1057, 496], [1046, 486], [1029, 479], [983, 472], [932, 475], [914, 479], [900, 485], [887, 499], [880, 515], [879, 530], [875, 542], [878, 546], [888, 548], [884, 552], [850, 551], [840, 547], [830, 547], [802, 552], [780, 552], [761, 549], [722, 551], [713, 554], [705, 567], [704, 592], [700, 604], [701, 616], [706, 624], [708, 634], [708, 846], [701, 858], [700, 873], [704, 897], [710, 913], [708, 922], [710, 936], [718, 940], [906, 941], [914, 943], [1212, 942], [1219, 939], [1224, 926], [1235, 911], [1240, 880], [1236, 860], [1237, 715], [1239, 708], [1237, 629], [1241, 612], [1239, 605], [1239, 575]],
+  'fb:fb3': [[1292, 559], [1285, 574], [1283, 601], [1294, 633], [1287, 658], [1287, 726], [1292, 740], [1293, 789], [1291, 834], [1288, 847], [1292, 859], [1286, 870], [1285, 879], [1289, 888], [1306, 911], [1348, 917], [1740, 945], [1783, 943], [1798, 935], [1816, 929], [1828, 919], [1836, 903], [1839, 891], [1839, 874], [1836, 865], [1837, 618], [1841, 607], [1841, 581], [1835, 566], [1825, 555], [1813, 551], [1763, 551], [1737, 548], [1698, 556], [1689, 546], [1683, 544], [1659, 543], [1640, 545], [1636, 538], [1636, 517], [1628, 497], [1621, 490], [1590, 479], [1551, 476], [1538, 481], [1531, 478], [1514, 479], [1498, 484], [1485, 492], [1475, 508], [1471, 529], [1458, 550], [1428, 552], [1416, 547], [1323, 550], [1302, 552]],
+};
 
 export default {
   root: null, ctx: null, items: [], i: 0, busy: false, timers: [], hiddenKeys: new Set(), sel: null, selOn: 0, live: false, skipUnmount: 0,
+  ready: null, arrive: null, stale: [],
 
   async mount(root, ctx) {
     // Window → window (Down / Up) mounts this same object again BEFORE the router unmounts the leaving one: the
     // leaving window's timers are cleared now, and the router's late unmount() is skipped (it would kill ours).
-    if (this.live) { this.timers.forEach(clearTimeout); this.skipUnmount = (this.skipUnmount || 0) + 1; }
+    if (this.live) { this.timers.forEach(clearTimeout); this.skipUnmount = (this.skipUnmount || 0) + 1; this.stale.push(this.root); }
     this.live = true;
     this.root = root; this.ctx = ctx; this.timers = []; this.busy = false; this.selOn = 0;
     const windows = LIBRARY.filter((c) => c.scene && Array.isArray(c.scene.boxes) && c.scene.boxes.length);
@@ -39,7 +49,7 @@ export default {
     const coll = windows[this.ci] || LIBRARY[0];
     const boxes = coll.scene.boxes;
     IMG = { w: coll.scene.w, h: coll.scene.h };
-    this.items = coll.items.slice(0, boxes.length).map((it, n) => ({ ...it, box: boxes[n], key: `${coll.id}:${it.content}`, also: coll.alsoWith || [] }));
+    this.items = coll.items.slice(0, boxes.length).map((it, n) => ({ ...it, box: boxes[n], shape: SHAPES[`${coll.id}:${it.content}`] || boxes[n], key: `${coll.id}:${it.content}`, also: coll.alsoWith || [] }));
     this.i = 0;
     root.innerHTML = `
       <div class="olv-scene">
@@ -49,33 +59,53 @@ export default {
         <div class="olv-sel"></div>
       </div>
       <div class="olv-vignette"></div>
-      <div class="olv-band olv-band-top"></div><div class="olv-band olv-band-bottom"></div>
+      <div class="olv-band olv-band-bottom"></div>
       <div class="olv-caption"><div class="olv-caption-title"></div><i class="olv-line" aria-hidden="true"></i><div class="olv-caption-sub"></div></div>
-      <div class="keyhint olv-hint"><span><b>◀ ▶</b>Choisir</span><span><b>OK</b>Ouvrir le film</span><span class="olv-hint-up"><b>▲</b>Parapet</span><span class="olv-hint-next"><b>▼</b></span></div>
+      <div class="keyhint olv-hint"><span><b>◀ ▶</b>Choisir</span><span class="olv-hint-ok"><b>OK</b>Ouvrir le film</span><span class="olv-hint-up"><b>▲</b>Parapet</span><span class="olv-hint-next"><b>▼</b></span></div>
       <div class="olv-dim"></div>`;
     this.buildSelection(root.querySelector('.olv-sel'));
     const bg = root.querySelector('.olv-bg');
     bg.addEventListener('error', () => root.classList.add('no-image'));
     bg.src = coll.scene.image;
+    // The router waits on this before a dive shows the shop (router.js, prepared moves): decoded, never half-painted.
+    this.ready = bg.decode ? bg.decode().then(() => true, () => false) : Promise.resolve(true);
     const next = windows[this.ci + 1], prev = windows[this.ci - 1];
     const hintNext = root.querySelector('.olv-hint-next'), hintUp = root.querySelector('.olv-hint-up');
     if (next) hintNext.append(next.title); else hintNext.remove();
     if (prev) { hintUp.lastChild.textContent = prev.title; }
-    // The shop image decodes off the main thread (decoding="async": the dive's frames do not wait on it).
+    // The shop image decodes off the main thread (decoding="async"); a dive starts once it is decoded (ready).
     // On arrival only: the layers fade in and the camera leans in by a hair (one transition, then everything rests).
-    // Through the dive (router.js) the screen itself fades in from 380 ms: the shop's light is already there (is-dive,
-    // no second fade under the first), and the letterbox, the label and the lean start as the shop appears.
+    // Through the dive (router.js) the screen itself fades in from 380 ms (from 0 in the low-RAM cross-fade): the
+    // shop's light is already there (is-dive, no second fade under the first), and the lower band, the label and the
+    // lean start as the shop appears. A prepared move (ctx.prepared) says when it starts: onEnter().
     const dive = ctx.transition === 'dive';
     if (dive) root.classList.add('is-dive');
-    const k = dive ? Number(getComputedStyle(root).getPropertyValue('--k')) || 1 : 1;
-    this.timers.push(setTimeout(() => { root.classList.add('is-in'); root.querySelector('.olv-scene').classList.add('lean'); }, dive ? 380 * k : 60));
+    this.arrive = () => { this.arrive = null; root.classList.add('is-in'); root.querySelector('.olv-scene').classList.add('lean'); };
+    if (!ctx.prepared) this.timers.push(setTimeout(() => this.arrive && this.arrive(), 60));
     this.focus(this.i, true);
     if (ctx.config().sounds) ctx.fx.initAudio();
   },
 
+  // The prepared move starts (router.js): the arrival plays as the shop shows (from 380 ms in the dive).
+  onEnter(visual) {
+    if (!this.arrive || !this.root) return;
+    const k = Number(getComputedStyle(this.root).getPropertyValue('--k')) || 1;
+    this.timers.push(setTimeout(() => this.arrive && this.arrive(), visual === 'dive' ? 380 * k : 0));
+  },
+
+  // Back up to the Parapet: the label and the help strip go at once (ollivanders.css .is-leaving), so the key is
+  // answered while the Parapet's pictures decode for the undive.
+  onLeave(transition) {
+    if (transition === 'undive' && this.root) this.root.classList.add('is-leaving');
+  },
+
+  // The layers are taken down and the shop's picture let go (its decoded copy and its GPU tiles are freed now, not
+  // at the next garbage collection). A window replaced by the next (Down / Up) is dropped the same way.
   unmount() {
-    if (this.skipUnmount) { this.skipUnmount -= 1; return; }
-    this.timers.forEach(clearTimeout); this.timers = []; this.sel = null; this.live = false;
+    const drop = (r) => { if (!r) return; r.querySelectorAll('img').forEach((im) => im.removeAttribute('src')); r.textContent = ''; };
+    if (this.skipUnmount) { this.skipUnmount -= 1; drop(this.stale.shift()); return; }
+    this.timers.forEach(clearTimeout); this.timers = []; this.sel = null; this.live = false; this.arrive = null; this.ready = null;
+    drop(this.root); this.stale.forEach(drop); this.stale = [];
   },
 
   // Centre of a box (image pixels and screen pixels).
@@ -105,12 +135,16 @@ export default {
   // layers swap their opacity. Opacity only; each layer is static between two moves.
   paintSelection(n, instant) {
     if (!this.sel) return;
-    const pts = this.items[n].box.map((p) => `${p[0]},${p[1]}`).join(' ');
+    const shape = this.items[n].shape;
+    const pts = shape.map((p) => `${p[0]},${p[1]}`).join(' ');
     const next = instant ? this.selOn : 1 - this.selOn;
     const L = this.sel[next];
-    L.veil.setAttribute('d', `M0 0H${IMG.w}V${IMG.h}H0Z M${this.items[n].box.map((p) => `${p[0]} ${p[1]}`).join(' L')} Z`);
+    L.veil.setAttribute('d', `M0 0H${IMG.w}V${IMG.h}H0Z M${shape.map((p) => `${p[0]} ${p[1]}`).join(' L')} Z`);
     L.under.setAttribute('points', pts);
     L.frame.setAttribute('points', pts);
+    // A silhouette has many short sides: round joins (a mitre would spike on its small turns); a box keeps its mitres.
+    const join = shape.length > 4 ? 'round' : '';
+    L.under.style.strokeLinejoin = join; L.frame.style.strokeLinejoin = join;
     if (instant) {
       this.sel.forEach((x, k) => { x.svg.style.transition = 'none'; x.svg.classList.toggle('is-on', k === next); });
       void L.svg.getBoundingClientRect();
@@ -156,6 +190,9 @@ export default {
     const cap = this.root.querySelector('.olv-caption');
     cap.querySelector('.olv-caption-title').textContent = `${it.title} · ${it.year}`;
     cap.querySelector('.olv-caption-sub').textContent = this.subline(it);
+    // The help strip promises "OK Ouvrir le film" only when an app on this TV will open it (the label says why not).
+    const okHint = this.root.querySelector('.olv-hint-ok');
+    if (okHint) okHint.hidden = !this.appFor(it);
     this.drawLine(instant);
     if (!instant) { cap.classList.remove('is-write'); void cap.offsetWidth; cap.classList.add('is-write'); }
   },

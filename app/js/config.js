@@ -106,6 +106,7 @@ export const DEFAULT_CONFIG = Object.freeze({
   music: 'auto',                // background music: 'auto' (personal file if present, otherwise celesta) | 'fichier' (the file) | 'celesta' | 'aucune'
   musicNox: 'pause',            // during Nox (sleep): 'pause' the music | 'continue' it
   motion: 'auto',               // 'auto' | 'reduit' | 'economie'
+  motionChosen: false,          // true once the person set "Mouvement" in the Room of Requirement: never migrated again
   ambiance: 'calme',            // the Parapet at rest: 'calme' (nothing moves) | 'vivante' (one slow mist drift and the window reflections shimmering on the lake; off whenever isReduced())
   sky: 'auto',                  // the Parapet's sky: 'auto' (dusk, night, deep night, dawn by the hour) | 'nuit' (always a clear night)
   motionSystem: 'follow',       // 'follow' the system's reduced-motion flag | 'ignore' it
@@ -158,6 +159,7 @@ export function sanitize(raw) {
   if (['auto', 'fichier', 'celesta', 'aucune'].includes(raw.music)) c.music = raw.music;
   if (['pause', 'continue'].includes(raw.musicNox)) c.musicNox = raw.musicNox;
   if (['auto', 'reduit', 'economie'].includes(raw.motion)) c.motion = raw.motion;
+  if (raw.motionChosen === true) c.motionChosen = true;
   if (['calme', 'vivante'].includes(raw.ambiance)) c.ambiance = raw.ambiance;
   if (['auto', 'nuit'].includes(raw.sky)) c.sky = raw.sky;
   if (['follow', 'ignore'].includes(raw.motionSystem)) c.motionSystem = raw.motionSystem;
@@ -205,6 +207,22 @@ export function loadConfig() {
 }
 
 export function getConfig() { return current; }
+
+// One-time undo of 0.2's automatic economy, second pass. 0.2 put every low-RAM TV in 'economie' on its first run;
+// main.js's first pass only undid it when the calm owl set with it was still there, so a TV whose owl was put back on
+// 'vive' (the owner's) stayed in economy, where none of 0.3's effects shows. This pass puts 'auto' back on a low-RAM
+// TV that has finished its Letter, is in 'economie' and has no recorded choice (`motionChosen`, written by the
+// Mouvement row since this version). It runs once per device (the storage key), and never again after a choice.
+// Called by main.js with Platform.device().lowRam; returns the config, changed or not.
+export const ECO_UNDONE_2 = 'poudlard-tv.eco-auto-undone-2';
+export function undoAutoEconomy(lowRam) {
+  try {
+    if (localStorage.getItem(ECO_UNDONE_2)) return current;
+    localStorage.setItem(ECO_UNDONE_2, '1');
+  } catch (e) { return current; }   // storage unavailable: nothing was stored, so nothing to undo
+  if (lowRam && current.firstRunDone && current.motion === 'economie' && !current.motionChosen) return updateConfig({ motion: 'auto' });
+  return current;
+}
 
 export function updateConfig(patch) {
   current = sanitize({ ...current, ...patch });

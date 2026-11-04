@@ -249,10 +249,24 @@ final class Apps {
      * FLAG_ACTIVITY_RESET_TASK_IF_NEEDED: the app resumes where it was, like a real home screen.
      */
     String launch(String pkg) {
-        if (!validPackage(pkg)) return "Nom d'appli invalide : « " + shorten(pkg) + " ».";
+        String[] why = new String[1];
+        Intent intent = launchable(pkg, why);
+        return intent == null ? why[0] : startApp(intent, pkg);
+    }
+
+    /**
+     * The first half of launch(), cheap (PackageManager only): the intent ready to start, or null with the message in
+     * why[0] (same wording as launch()). Bridge.launch() answers JavaScript with it, then starts the intent later.
+     */
+    Intent launchable(String pkg, String[] why) {
+        if (!validPackage(pkg)) { why[0] = "Nom d'appli invalide : « " + shorten(pkg) + " »."; return null; }
         Intent intent = launchIntent(pkg);
-        if (intent == null) return missing(pkg);
-        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED);
+        if (intent == null) { why[0] = missing(pkg); return null; }
+        return intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED);
+    }
+
+    /** The second half of launch(): starts an intent from launchable(). Null if all is well, else the message. */
+    String startApp(Intent intent, String pkg) {
         return start(intent, name(pkg));
     }
 

@@ -1,6 +1,6 @@
 /* Ollivanders: the reference image under a cinematic treatment made only of still layers: a warm grade from the
-   lamp's side and a cool one from the night's, a vignette, a letterbox frame with a hairline, and the selection (a
-   veil over the whole shop except the chosen box, plus a thin gold frame drawn exactly on the box). No glow, no blur,
+   lamp's side and a cool one from the night's, a vignette, a lower band with a hairline under the help strip, and the
+   selection (a veil over the whole shop except the chosen box or suitcase, plus a thin gold line drawn on its outline). No glow, no blur,
    no blend mode, no layer wider than the screen, no loop: at rest nothing moves. A move of the choice is a cross-fade
    of two static SVG layers (opacity); the arrival is one lean of the camera (transform); the caption's rule draws
    itself from the centre (scaleX). */
@@ -51,13 +51,12 @@
   background: radial-gradient(ellipse 76% 68% at 50% 46%, #03050800 48%, #030508 108%); }
 .screen-library.is-in .olv-vignette { opacity: .78; }
 
-/* Letterbox: two bands slide in from the edges, a hairline of gold on their inner edge (one 1 px line at low
-   opacity, not a glow). The help strip sits inside the lower band, as a film's subtitle would. */
+/* The lower band: it slides up from the bottom edge, a hairline of gold on its top edge (one 1 px line at low
+   opacity, not a glow), and the help strip sits inside it, as a film's subtitle would. No upper band: the shop's
+   picture runs to the top edge of the screen (a black strip there read as letterboxing on a 16:9 TV). */
 .olv-band { position: absolute; left: 0; right: 0; height: 4.2cqw; background: #030508; z-index: 5; pointer-events: none;
   transition: transform calc(var(--k) * 1100ms) var(--ease-scene); }
 .olv-band::after { content: ""; position: absolute; left: 0; right: 0; height: 1px; background: var(--gold); opacity: .18; }
-.olv-band-top { top: 0; transform: translateY(-100%); }
-.olv-band-top::after { bottom: 0; }
 .olv-band-bottom { bottom: 0; transform: translateY(100%); }
 .olv-band-bottom::after { top: 0; }
 .screen-library.is-in .olv-band { transform: translateY(0); }
@@ -66,7 +65,7 @@
 .keyhint.olv-hint { z-index: 6; bottom: .95cqw; line-height: 1.3; opacity: .5; font-size: var(--t-hint); letter-spacing: var(--track-wide); color: var(--moon); gap: 2.4cqw; }
 .keyhint.olv-hint b { color: var(--gold); opacity: .7; font-weight: 500; }
 
-/* Caption, set like a museum label under the upper band, above the boxes (the wands start at 30% of the height, the
+/* Caption, set like a museum label near the top edge, above the boxes (the wands start at 30% of the height, the
    suitcases lower): it never crosses a box or its gold frame. The title in the wizard's hand, the label's gold rule,
    a small-capitals line below in the engraved face. The cool grade already darkens this strip. */
 .olv-caption { position: absolute; left: 50%; top: 5.6cqw; z-index: 6; max-width: 90cqw; transform: translateX(-50%); text-align: center; white-space: nowrap; color: var(--ivory);
@@ -92,5 +91,8 @@
 .olv-launch-sub { font-size: var(--t-body); }
 .screen-library.is-launch .olv-scene { transition: opacity calc(var(--k) * 150ms); opacity: .35; }
 .screen-library.is-launch .olv-caption { transition-delay: 0s; transition-duration: calc(var(--k) * 150ms); opacity: 0; }
+/* Up or Back to the Parapet (ollivanders.js onLeave): the label and the help strip go at once, the shop stays lit
+   while the router readies the Parapet for the undive. */
+.screen-library.is-leaving .olv-caption, .screen-library.is-leaving .olv-hint { transition: opacity calc(var(--k) * 160ms) var(--ease-fade); opacity: 0; }
 html:not([data-motion="auto"]) .olv-sel-layer, html:not([data-motion="auto"]) .olv-line, html:not([data-motion="auto"]) .olv-band { transition-duration: calc(var(--k) * 200ms); transition-delay: 0s; }
 html:not([data-motion="auto"]) .olv-scene.lean { transform: scale(1); }

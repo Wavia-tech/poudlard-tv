@@ -23,22 +23,27 @@
   background: radial-gradient(ellipse at 50% 50%, #0000 40%, #070b14cc 100%), linear-gradient(to bottom, #070b14 0%, #070b1400 18%, #070b1400 82%, #070b14 100%); }
 
 /* ---- The parchment: 86 × 47 cqw, above the key hint (which keeps its own band at the bottom) ----
-   It unfolds from the centre (scaleX + opacity, 450 ms) once the screen is in place. The shadow is a sibling layer
-   (.map-shadow), static, whose opacity alone transitions once the sheet is open. */
-.map-shadow { position: absolute; left: 7cqw; top: 3.2cqw; width: 86cqw; height: 47cqw; border-radius: .35cqw; pointer-events: none;
-  box-shadow: 0 1.2cqw 2.4cqw #000a, 0 .3cqw .6cqw #0008; opacity: 0; transition: opacity calc(var(--k) * 200ms); }
-.screen-map.is-in .map-shadow { opacity: 1; transition-delay: calc(var(--k) * 420ms); }
-.screen-map.is-leaving .map-shadow { opacity: 0; transition-delay: 0ms; }
-
-.map-sheet { position: absolute; left: 7cqw; top: 3.2cqw; width: 86cqw; height: 47cqw; border-radius: .35cqw; overflow: hidden; box-shadow: none; opacity: 0; }
+   It unfolds from the centre (scaleX + opacity, 450 ms) once the screen is in place. The paper is cut out of its
+   photo (assets/map-parchment.webp: alpha along the paper's edge, the curls showing the night through them, the photo
+   cropped to the paper), so the sheet has no colour, no radius, no shadow and no inset glow of its own: nothing but
+   the paper over the night. If the picture is missing (map.js: .no-parchment), the plain parchment colour stands in. */
+.map-sheet { position: absolute; left: 7cqw; top: 3.2cqw; width: 86cqw; height: 47cqw; overflow: hidden; opacity: 0; }
+.map-sheet.parchment { background: url("../../assets/map-parchment.webp") 0 0 / 100% 100% no-repeat; box-shadow: none; border-radius: 0; }
+.map-sheet.parchment::after { content: none; }
+.screen-map.no-parchment .map-sheet.parchment { background: var(--parchment); border-radius: .35cqw; }
+/* While the Map opens (map.js .is-opening, from the mount until the ink is laid), the sheet and the rows are layers of
+   their own: painted and rasterised during the slide, while still invisible, so the unfold and the ink only composite.
+   Let go right after (will-change only while animating). */
+.screen-map.is-opening .map-sheet, .screen-map.is-opening .map-row { will-change: transform, opacity; }
 .screen-map.is-in .map-sheet { opacity: 1; animation: map-unfold calc(var(--k) * 450ms) cubic-bezier(.65, 0, .25, 1) backwards; }
 @keyframes map-unfold { from { opacity: 0; transform: scaleX(.5); } 40% { opacity: 1; } to { opacity: 1; transform: none; } }
 .screen-map.is-leaving .map-sheet { animation: map-fold calc(var(--k) * 300ms) cubic-bezier(.65, 0, .25, 1) calc(var(--k) * 150ms) both; }
 @keyframes map-fold { from { opacity: 1; transform: none; } to { opacity: 0; transform: scaleX(.5); } }
 
-/* Paper grain: a candle stain at the top right (away from the first piece), yellowed edges; cross folds. */
+/* Paper grain: a faint candle stain toward the top right, kept inside the paper (the curls are transparent: nothing is
+   tinted over the night), away from the first piece; the photo's own edges carry the yellowing. Cross folds. */
 .map-paper { position: absolute; inset: 0; pointer-events: none;
-  background: radial-gradient(ellipse 18% 22% at 94% 8%, #6b4a1a30, #6b4a1a00 70%), radial-gradient(ellipse 60% 70% at 50% 50%, #0000 55%, #5a3d1422 100%); }
+  background: radial-gradient(ellipse 12% 16% at 86% 16%, #6b4a1a26, #6b4a1a00 70%); }
 .map-folds { position: absolute; inset: 0; pointer-events: none; opacity: .5;
   background: linear-gradient(90deg, #0000 calc(50% - .25cqw), #5a3d1430 calc(50% - .05cqw), #fff5dd55 50%, #5a3d1422 calc(50% + .12cqw), #0000 calc(50% + .3cqw)),
     linear-gradient(180deg, #0000 calc(50% - .25cqw), #5a3d1426 calc(50% - .05cqw), #fff5dd44 50%, #5a3d141a calc(50% + .12cqw), #0000 calc(50% + .3cqw)); }

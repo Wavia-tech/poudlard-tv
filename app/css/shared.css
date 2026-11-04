@@ -19,14 +19,21 @@
 .app-logo .l-shine { opacity: 0; overflow: hidden; }
 .app-logo .l-shine::before { content: ""; position: absolute; top: 0; bottom: 0; left: 0; width: 260%; transform: translateX(-98.5%);
   background: linear-gradient(105deg, transparent 38%, #FFF8E07a 50%, transparent 62%); }
-.is-focus .app-logo .l-ext, .app-logo.lit .l-ext { opacity: 1; }
-.is-focus .app-logo .l-rimL, .app-logo.lit .l-rimL { opacity: .9; transform: translateY(-.08cqw); }
+/* The gold's extrusion: a thin bevel under the edge (1 CSS px, .7), not a brown underline. */
+.is-focus .app-logo .l-ext, .app-logo.lit .l-ext { opacity: .7; transform: translateY(.1cqw); }
+/* In gold the moonlit rim goes: a cool rim peeking over the gold's top edges (and under its holes) read as a
+   silver-blue hairline around it. The gold gradient carries its own highlight. */
+.is-focus .app-logo .l-rimL, .app-logo.lit .l-rimL { opacity: 0; }
 .is-focus .app-logo .l-rimD, .app-logo.lit .l-rimD { opacity: .7; transform: translateY(.1cqw); }
 .is-focus .app-logo .l-base, .app-logo.lit .l-base { opacity: 1; }
 .is-focus .app-logo .l-base::after, .app-logo.lit .l-base::after { opacity: 1; }
-/* The shine: one slow pass, a breath after the gold has risen. */
+/* The shine: one slow pass, a breath after the gold has risen. No fill: both ends of the pass are outside the logo,
+   and a finished animation that holds its end keeps its layer promoted (and the owl's above it) for as long as the
+   focus stays. The low-RAM TV skips it on a focus move (its GPU composites as little as possible per key press). */
 .is-focus .app-logo .l-shine, .app-logo.lit .l-shine { opacity: 1; }
-.is-focus .app-logo .l-shine::before, .app-logo.lit .l-shine::before { animation: logo-shine calc(var(--k) * 1200ms) cubic-bezier(.4, 0, .3, 1) calc(var(--k) * 120ms) 1 forwards; }
+.is-focus .app-logo .l-shine::before, .app-logo.lit .l-shine::before { animation: logo-shine calc(var(--k) * 1200ms) cubic-bezier(.4, 0, .3, 1) calc(var(--k) * 120ms) 1; }
+html[data-lowram="1"] .is-focus .app-logo:not(.charging) .l-shine { opacity: 0; }
+html[data-lowram="1"] .is-focus .app-logo:not(.charging) .l-shine::before { animation: none; }
 @keyframes logo-shine { from { transform: translateX(-98.5%); } to { transform: translateX(36.9%); } }
 /* Molten gold (Lumos): the gradient flows from top to bottom, unhurried (the ::after grows to three logo heights and
    slides up by two of them: the same picture as a background-size of 300 % moving to 100 %). */

@@ -6,7 +6,7 @@
 // bar, a nod at the edge, a startle, sleep and wake), so the Parapet costs nothing when nobody touches the remote.
 //
 // Poses come from ONE sprite sheet (assets/owl-sheet.webp, built by tools/cutout_owl.py --sheet): a grid of equal
-// cells, `cols` per row, read left to right then top to bottom in `cells` order, the ivory rim baked in (no CSS
+// cells, `cols` per row, read left to right then top to bottom in `cells` order, no rim, edges choked and pulled toward the night (no CSS
 // filter). Two layers show the current and the previous cell and swap opacities: one texture, two elements, zero filter.
 //   createOwl(host, { sheet, cells: ['perch','look','sleep','up','down','glide','land'], cols: 4, feather?, size, reduced })
 // `cols` defaults to the number of cells (the former one-row sheet). A missing sheet hides the owl (never a broken

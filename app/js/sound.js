@@ -26,8 +26,12 @@
 // music most of all, so the cues now sit just above it instead of jumping out (see "Volume").
 //
 // Space: ConvolverNode with a generated impulse response (decaying white noise 3.6 s, two decorrelated channels,
-// low-pass filtered at 5 kHz), dry/wet mix 0.5/0.5, gentle compressor, master volume −6 dB. The hall is built
-// lazily (first cue, first celesta bar, or an idle moment after start-up): the file alone never pays for it.
+// low-pass filtered at 5 kHz; 1.8 s and one channel on a low-RAM TV, Platform.device().lowRam), dry/wet mix 0.5/0.5,
+// gentle compressor, master volume −6 dB. The hall is built on the first cue (or the first celesta bar), never
+// before, and it is wired in only while something rings through it: the cue input reaches the convolver from the
+// cue's first note until its last tail plus the hall's own tail, then both links are cut. A convolver left
+// connected keeps its convolution threads busy forever, even on silence: on the TV (round 5) the two "Reverb
+// convolution" threads cost about 21 % of a core each with nothing playing.
 //
 // Robustness: if AudioContext does not exist (Node, old browser), everything is silent without errors.
 //
@@ -42,8 +46,9 @@
 // and played as soon as the context runs; a cue requested on a suspended context with no resume in progress is ignored.
 // So nothing piles up during sleep and nothing fires in a burst on wake.
 //
-// Idle and memory: when nothing has sounded for IDLE_SUSPEND_MS (no cue in flight, ambience off or on hold), the
-// context is suspended (no audio thread at all; the next cue or the music resumes it). On the window event
+// Idle and memory: when nothing has sounded for IDLE_SUSPEND_MS (no cue in flight, no celesta waltz), the context is
+// suspended (no audio thread at all; the next cue or the waltz resumes it). The music FILE does not keep it awake: it
+// plays outside Web Audio (see 2a). On the window event
 // 'poudlard:trim', if nothing is sounding, the context is CLOSED (hall impulse, air noise and graph freed) and the
 // <audio> element is emptied; both are rebuilt on demand. Nothing in this module keeps a decoded music buffer:
 // the file is always streamed by an <audio> element, never decodeAudioData.
@@ -61,8 +66,10 @@
 //       then `.mp3` or `.m4a` (MUSIC_FILES, probed in that order). Versioned in the repo at the owner's explicit
 //       request (see DISCLAIMER.md and docs/MUSIC.md). It is probed with an <audio> (preload "metadata": the probe
 //       never downloads the file); if missing, no visible error, we fall through to (b). Streamed by that <audio>
-//       in a loop, routed through the ambience bus, at FILE_DB below the master (a mastered file is much louder
-//       than the synthesis: it has its own level), with no hall (already mixed, and the convolver costs CPU).
+//       in a loop and played by it ALONE, outside the Web Audio graph (no MediaElementSource, no compressor, no
+//       hall): its level is el.volume = FILE_VOLUME, the level the graph used to give it, and its fades and its
+//       ducking are el.volume stepped every FILE_STEP_MS while they last (no timer otherwise). Round 5 on the TV:
+//       routed through the graph, the music alone kept the audio thread at about 70 % of a core, plus the hall.
 //
 //   (b) ORIGINAL COMPOSITION synthesized by the celesta engine: a slow waltz in E minor, 3/4, 66 to the quarter note,
 //       24 bars (≈ 65 s) in a seamless loop, composed for this project and published under the repo's license (MIT).
@@ -87,7 +94,7 @@
 //       These constraints are checked by script (see tools/test-sound.mjs if present, otherwise the verification
 //       script described in docs/MUSIC.md): analysis of the 48 notes, 72 beats, consecutive intervals.
 //
-// Volume: celesta at AMBIENT_DB below the master, file at FILE_DB. Ducking: on every cue, the ambience drops to
+// Volume: celesta at AMBIENT_DB below the master, file at FILE_VOLUME (el.volume). Ducking: on every cue, the ambience drops to
 // half in 20 ms, stays there 300 ms, then comes back in 450 ms; so the cues always sit on top. Fade-in 3 s
 // (2.5 s for the celesta), fade-out 300 ms (sound muted, mode change, put on hold).
 // Measured at the output in headless Chrome (round 4, TV viewport, autoplay allowed as in the WebView; RMS over
@@ -114,11 +121,13 @@
 //      Sound.ambient(mode | null) · Sound.ambientHold(on, reason) · Sound.ambientState()
 
 import { getConfig } from './config.js';
+import { Platform } from './platform.js';
 
 const MASTER_DB = -6;                        // master volume
 const MASTER = Math.pow(10, MASTER_DB / 20); // ≈ 0.5 (was −14 dB until round 4: the whole mix sat far below TV level)
 const DRY = 0.5, WET = 0.5;                  // dry / wet mix: half hall, the notes bloom instead of striking
 const REVERB_SECONDS = 3.6;
+const REVERB_SECONDS_LOW = 1.8;              // a low-RAM TV: half the hall, one channel (one convolution thread, a quarter of the work)
 const REVERB_LOWPASS_HZ = 5000;
 const REVERB_PREDELAY = 0.018;               // small pre-delay: the sound leaves before the hall answers
 const MAX_VOICES = 40;                       // beyond this, new notes are ignored (never any saturation)
@@ -236,14 +245,17 @@ const COMP_MAKEUP = Math.pow(10, 6.5 / 20);      // the DynamicsCompressor's aut
 const AMB_FADE_IN = 2.5;                         // s (celesta)
 const FILE_FADE_IN = 3;                          // s (file; the file itself also starts with a 3 s fade)
 const AMB_FADE_OUT = 0.3;                        // s
-const IDLE_SUSPEND_MS = 12000;                   // nothing sounding for that long: suspend the context
+const IDLE_SUSPEND_MS = 12000;                   // no cue and no celesta for that long: suspend the context
+// The file plays outside Web Audio: el.volume carries the level the graph gave it (file gain × master × the
+// compressor's make-up), and fades and ducking step it every FILE_STEP_MS while they last.
+const FILE_VOLUME = Math.min(1, FILE_LEVEL * MASTER * COMP_MAKEUP);   // ≈ 0.53
+const FILE_STEP_MS = 40;
 const BOOT_DELAY_MS = 700;                       // start-up context creation, in an idle moment after the first frames
 const DUCK_LEVEL = 0.5, DUCK_HOLD = 0.3, DUCK_BACK = 0.45;   // ducking under a cue
 const AMB_MAX_VOICES = 64;                       // ambience's own ceiling (independent of the cues)
 const AMB_REVERB_SEND = 0.5;                     // share of the ambience sent into the hall (celesta)
 // Waltz melody: its fundamental keeps the peak it always had (0.112 before the ambience bus), whatever NOTE_SCALE is.
 const AMB_MELODY_G = 0.112 / NOTE_SCALE;         // ≈ 2.1
-// The file is already mixed: no hall at all (the send is disconnected, so the convolver can idle).
 // File: paths relative to index.html / tv.html, probed in this order (.ogg Opus is the shipped format).
 const MUSIC_FILES = [
   { src: 'assets/music/ambiance.ogg', type: 'audio/ogg; codecs="opus"' },
@@ -350,7 +362,9 @@ const lastAt = new Map();   // cue name → timestamp (ms) of its last playback,
 let bootTried = false;      // start-up unlock attempt already made?
 let idleTimer = 0;          // pending "suspend when nothing sounds" check
 let trimTimer = 0;          // pending retry of a 'poudlard:trim' that came while a cue was ringing
-let hallTimer = 0;          // pending idle build of the hall impulse
+let hallUntil = 0;          // audio time until which a cue still rings through the hall (its tails + the hall's own)
+let hallOffTimer = 0;       // pending check that cuts the hall's links once nothing rings through it
+let lowRamCache = null;     // Platform.device().lowRam, read once
 
 // Background music state.
 const amb = {
@@ -358,7 +372,7 @@ const amb = {
   active: null,        // 'celesta' | 'fichier' | null (what is actually playing; 'fichier' is not a mode, it is a source)
   holds: new Set(),    // hold reasons ('nox', 'launch', 'hidden'…): as long as one remains, silence
   level: AMBIENT,      // target level of the active source (AMBIENT for the celesta, FILE_LEVEL for the file)
-  bus: null,           // { mix, out, duck, rev } once built
+  bus: null,           // { mix, out, duck, rev } once built (celesta only: the file never enters the graph)
   voices: new Set(),   // ambience notes in flight (same shape as `voices`)
   timer: 0,            // scheduler setInterval (celesta)
   beat: 0,             // next beat to schedule (0..71)
@@ -369,9 +383,9 @@ const amb = {
   src: null,           // { src, type } of the file found (kept across a trim, so the re-probe goes straight to it)
   pos: 0,              // playback position (s) saved by a trim, restored by the next element
   probing: null,       // callbacks waiting during the probe
-  fileNode: null,      // MediaElementAudioSourceNode (only once per element and per context)
   filePending: false,  // play() refused (no gesture): retry on the next cue
   revOn: true,         // ambience → hall send connected?
+  env: { from: 0, to: 0, t0: 0, t1: 0, duck: -1, timer: 0 },   // the file's el.volume: fade (ms clock), duck start, step timer
   visArmed: false,     // visibilitychange listener installed?
 };
 
@@ -390,17 +404,25 @@ function configuredMode() {
   } catch (e) { return 'auto'; }
 }
 
-// Impulse response: decaying white noise (−60 dB at 2.2 s), two decorrelated channels,
-// one-pole low-pass filter applied twice (≈ 5 kHz), small pre-delay, normalized level.
+function lowRam() {
+  if (lowRamCache === null) { try { lowRamCache = Boolean(Platform.device().lowRam); } catch (e) { lowRamCache = false; } }
+  return lowRamCache;
+}
+// The hall's length (s): REVERB_SECONDS, or REVERB_SECONDS_LOW on a low-RAM TV.
+function hallSeconds() { return lowRam() ? REVERB_SECONDS_LOW : REVERB_SECONDS; }
+
+// Impulse response: decaying white noise (−60 dB after hallSeconds()), two decorrelated channels (one on a low-RAM
+// TV), one-pole low-pass filter applied twice (≈ 5 kHz), small pre-delay, normalized level.
 function makeImpulse(ctx) {
-  const sr = ctx.sampleRate, len = Math.floor(sr * (REVERB_SECONDS + REVERB_PREDELAY));
-  const buf = ctx.createBuffer(2, len, sr);
+  const secs = hallSeconds(), chans = lowRam() ? 1 : 2;
+  const sr = ctx.sampleRate, len = Math.floor(sr * (secs + REVERB_PREDELAY));
+  const buf = ctx.createBuffer(chans, len, sr);
   const pre = Math.floor(sr * REVERB_PREDELAY);
   const alpha = 1 - Math.exp(-2 * Math.PI * REVERB_LOWPASS_HZ / sr);
-  for (let ch = 0; ch < 2; ch++) {
+  for (let ch = 0; ch < chans; ch++) {
     const d = buf.getChannelData(ch);
     let y1 = 0, y2 = 0, energy = 0;
-    const k = Math.exp(-6.91 / (REVERB_SECONDS * sr));             // per-sample decay: −60 dB after REVERB_SECONDS
+    const k = Math.exp(-6.91 / (secs * sr));                       // per-sample decay: −60 dB after `secs`
     let env = 1;                                                   // (one multiply per sample, no exp: cheap on a TV)
     for (let i = pre; i < len; i++) {
       const x = (Math.random() * 2 - 1) * env;
@@ -426,7 +448,8 @@ function makeNoise(ctx) {
 }
 
 // Built once per context: notes → [dry 0.5] + [convolver → wet 0.5] → gentle compressor → master (−6 dB) → output.
-// The convolver gets its impulse (and the air its noise) only in ensureHall(): the file alone never needs them.
+// The convolver gets its impulse (and the air its noise) only in ensureHall(), on the first cue. Its two links
+// (input → convolver, convolver → wet) exist only while something rings through it (hallNeed / hallCheck).
 function buildGraph(ctx) {
   const input = ctx.createGain(); input.gain.value = 1;
   const dry = ctx.createGain(); dry.gain.value = DRY;
@@ -439,27 +462,46 @@ function buildGraph(ctx) {
   const master = ctx.createGain();
   master.gain.value = enabled ? MASTER : 0;
   input.connect(dry).connect(comp);
-  input.connect(convolver).connect(wet).connect(comp);
+  wet.connect(comp);
   comp.connect(master).connect(ctx.destination);
-  return { input, master, convolver, wet, dry, comp, hall: false };
+  return { input, master, convolver, wet, dry, comp, hall: false, linked: false };
 }
 
-// The hall impulse (1.4 MB, a few ms of work) and the air noise: built on the first cue or celesta bar, or in an
-// idle moment a few seconds after the context is born, whichever comes first.
+// The hall impulse (≈ 1.4 MB stereo 3.6 s, ≈ 0.35 MB mono 1.8 s on a low-RAM TV; a few ms of work) and the air noise:
+// built on the first cue or the first celesta bar, never in advance (the file alone never needs them).
 function ensureHall() {
-  if (hallTimer) { clearTimeout(hallTimer); hallTimer = 0; }
   if (!audio || !graph || graph.hall) return;
   graph.hall = true;
   try { graph.convolver.buffer = makeImpulse(audio); } catch (e) { /* dry only */ }
   try { noiseBuf = makeNoise(audio); } catch (e) { noiseBuf = null; }
 }
-function scheduleHall() {
-  if (hallTimer || !graph || graph.hall) return;
-  hallTimer = setTimeout(() => {
-    hallTimer = 0;
-    const ric = typeof requestIdleCallback === 'function' ? requestIdleCallback : null;
-    if (ric) ric(() => ensureHall(), { timeout: 2000 }); else ensureHall();
-  }, 4000);
+
+// Wires the hall in (input → convolver → wet) until audio time `until` at least, then hallCheck() cuts it again.
+function hallNeed(until) {
+  if (!audio || !graph) return;
+  ensureHall();
+  if (!graph.linked) {
+    try { graph.input.connect(graph.convolver); graph.convolver.connect(graph.wet); graph.linked = true; } catch (e) { /* dry only */ }
+  }
+  if (until > hallUntil) hallUntil = until;
+  armHallOff();
+}
+function armHallOff() {
+  if (hallOffTimer) clearTimeout(hallOffTimer);
+  const left = audio ? hallUntil - audio.currentTime : 0;
+  hallOffTimer = setTimeout(hallCheck, Math.max(50, Math.ceil(left * 1000) + 20));
+}
+// Cuts both links once no cue tail and no celesta rings through the hall. A suspended context rings nothing (its
+// clock is frozen and the context only suspends when no voice is left): cut at once, no timer left behind.
+function hallCheck() {
+  hallOffTimer = 0;
+  if (!audio || !graph || !graph.linked) return;
+  if (amb.active === 'celesta') return;                             // the waltz holds it; ambientStop() checks again
+  if (audio.state === 'running' && audio.currentTime < hallUntil) { armHallOff(); return; }
+  try { graph.input.disconnect(graph.convolver); } catch (e) { /* nothing */ }
+  try { graph.convolver.disconnect(graph.wet); } catch (e) { /* nothing */ }
+  graph.linked = false;
+  hallUntil = 0;
 }
 
 // Creates the context and the graph if missing (or if a trim closed it). Returns true if a usable graph exists.
@@ -471,23 +513,21 @@ function ensureContext() {
   try { audio = new AC(); } catch (e) { audio = null; return false; }
   try { graph = buildGraph(audio); } catch (e) { graph = null; try { audio.close(); } catch (e2) { /* nothing */ } audio = null; return false; }
   if (audio.addEventListener) audio.addEventListener('statechange', () => { if (audio && audio.state === 'running') armIdle(); });
-  scheduleHall();
   return true;
 }
 
-// Forgets the context and everything bound to it (the bus, the voices, the file's source node).
+// Forgets the context and everything bound to it (the bus, the voices, the celesta). The file plays outside the
+// graph: it carries on untouched.
 function dropContext() {
   for (const v of Array.from(voices)) { try { v.stop(); } catch (e) { /* nothing */ } }
   for (const v of Array.from(amb.voices)) { try { v.stop(); } catch (e) { /* nothing */ } }
   voices.clear(); amb.voices.clear();
   if (amb.timer) { clearInterval(amb.timer); amb.timer = 0; }
-  if (hallTimer) { clearTimeout(hallTimer); hallTimer = 0; }
+  if (hallOffTimer) { clearTimeout(hallOffTimer); hallOffTimer = 0; }
   if (idleTimer) { clearTimeout(idleTimer); idleTimer = 0; }
   const ctx = audio;
-  audio = null; graph = null; noiseBuf = null; amb.bus = null; amb.revOn = true; amb.active = null; resuming = null; pending = null;
-  // A media element stays bound to the node of the old context: a new element is needed (see releaseFile).
-  if (amb.fileNode) releaseFile();
-  amb.fileNode = null;
+  audio = null; graph = null; noiseBuf = null; amb.bus = null; amb.revOn = true; resuming = null; pending = null; hallUntil = 0;
+  if (amb.active === 'celesta') amb.active = null;
   if (ctx && ctx.state !== 'closed') { try { const p = ctx.close(); if (p && p.catch) p.catch(() => {}); } catch (e) { /* nothing */ } }
 }
 
@@ -500,35 +540,35 @@ function releaseFile() {
     try { el.removeAttribute('src'); el.load(); } catch (e) { /* nothing */ }
   }
   if (el) amb.file = undefined;                                     // re-probed (straight to amb.src) on the next start
-  amb.fileNode = null;
   amb.filePending = false;
 }
 
-// Nothing sounding (no cue in flight, no ambience, nothing pending) for IDLE_SUSPEND_MS: suspend the context, so the
-// audio thread stops entirely. The next cue resumes it (pending mechanism), and so does ambientApply().
+// Nothing sounding through Web Audio (no cue in flight, no celesta, nothing pending) for IDLE_SUSPEND_MS: suspend the
+// context, so the audio thread stops entirely, music file playing or not. The next cue resumes it (pending
+// mechanism), and so does the celesta (ambientApply()).
 function armIdle() {
   if (idleTimer) clearTimeout(idleTimer);
   idleTimer = setTimeout(() => {
     idleTimer = 0;
     if (!audio || audio.state !== 'running') return;
-    if (voices.size || amb.active || pending || resuming) { armIdle(); return; }
+    if (voices.size || amb.active === 'celesta' || pending || resuming) { armIdle(); return; }
     try { const p = audio.suspend(); if (p && p.catch) p.catch(() => {}); } catch (e) { /* nothing */ }
   }, IDLE_SUSPEND_MS);
 }
 
-// 'poudlard:trim' (the app asks every module to give memory back): if nothing sounds, close the context and empty the
-// file's element; if a cue is still ringing, try again a little later; if the music plays, keep everything.
+// 'poudlard:trim' (the app asks every module to give memory back): if no cue rings and the celesta is off, close the
+// context; empty the file's element too unless it is playing. If a cue is still ringing, try again a little later.
 function trim() {
   if (trimTimer) { clearTimeout(trimTimer); trimTimer = 0; }
-  if (amb.active || amb.probing) return;
+  if (amb.active === 'celesta' || amb.probing) return;
   if (voices.size || pending || resuming) { trimTimer = setTimeout(trim, 4000); return; }
   if (audio) dropContext();
-  if (amb.file) releaseFile();
+  if (amb.file && amb.active !== 'fichier') releaseFile();
 }
 
-// Ambience bus (built on demand):
-//   sources → mix → out (AMBIENT_DB or FILE_DB, fades) → duck (ducking) → compressor (dry)
-//                                                        duck → rev (send, celesta only) → convolver (wet)
+// Ambience bus (built on demand, for the celesta only; the file plays outside the graph):
+//   sources → mix → out (AMBIENT_DB, fades) → duck (ducking) → compressor (dry)
+//                                            duck → rev (send) → convolver (wet, wired in by hallNeed while it plays)
 // The master (−6 dB, mute) stays downstream: setEnabled(false) also cuts the ambience.
 function ensureAmbientBus() {
   if (amb.bus || !audio || !graph) return amb.bus;
@@ -544,7 +584,7 @@ function ensureAmbientBus() {
   return amb.bus;
 }
 
-// Hall send of the ambience: on for the celesta, off (disconnected, so the convolver can go idle) for the file.
+// Hall send of the ambience: on while the celesta plays, off once it stops (disconnected, so the convolver can go idle).
 function setAmbientHall(on) {
   if (!amb.bus || amb.revOn === on) return;
   try { if (on) amb.bus.duck.connect(amb.bus.rev); else amb.bus.duck.disconnect(amb.bus.rev); amb.revOn = on; } catch (e) { /* nothing */ }
@@ -786,6 +826,7 @@ function rampAmbient(target, secs) {
 
 // Ducking: under a cue, the ambience drops to half in 20 ms, holds 300 ms, comes back in 450 ms.
 function duckAmbient() {
+  if (amb.active === 'fichier') { fileDuck(); return; }
   if (!amb.bus || !amb.active) return;
   const g = amb.bus.duck.gain, t = audio.currentTime;
   g.cancelScheduledValues(t);
@@ -841,19 +882,46 @@ function probeFile(cb) {
   tryNext();
 }
 
-// Connects the element to the bus (once per element and context); if the WebView refuses, the element plays on its
-// own at the same level (no ducking, no fades).
-function connectFile() {
-  const el = amb.file;
-  if (!el || amb.fileNode !== null) return;
-  try {
-    amb.fileNode = audio.createMediaElementSource(el);
-    amb.fileNode.connect(amb.bus.mix);
-    el.volume = 1;
-  } catch (e) {
-    amb.fileNode = false;                                           // fallback: direct output, no ducking nor fades
-    el.volume = Math.min(1, FILE_LEVEL * MASTER * COMP_MAKEUP);     // same level as the normal path
-  }
+// The file's level: el.volume = FILE_VOLUME × fade × duck. The fade is linear on the ms clock (from → to, t0 → t1),
+// the duck the same shape as the graph's (half in 20 ms, 300 ms hold, back in 450 ms). A 40 ms step timer runs only
+// while one of them moves, then clears itself.
+function fileFadeAt(t) {
+  const e = amb.env;
+  if (t >= e.t1) return e.to;
+  if (t <= e.t0) return e.from;
+  return e.from + (e.to - e.from) * (t - e.t0) / (e.t1 - e.t0);
+}
+function fileDuckAt(t) {
+  const e = amb.env;
+  if (e.duck < 0) return 1;
+  const dt = (t - e.duck) / 1000, a = 0.02, h = a + DUCK_HOLD, b = h + DUCK_BACK;
+  if (dt < a) return 1 - (1 - DUCK_LEVEL) * dt / a;
+  if (dt < h) return DUCK_LEVEL;
+  if (dt < b) return DUCK_LEVEL + (1 - DUCK_LEVEL) * (dt - h) / DUCK_BACK;
+  e.duck = -1;
+  return 1;
+}
+function fileStep() {
+  const e = amb.env, t = now(), el = amb.file;
+  const v = Math.max(0, Math.min(1, FILE_VOLUME * fileFadeAt(t) * fileDuckAt(t)));
+  if (el) { try { el.volume = v; } catch (err) { /* nothing */ } }
+  if (t >= e.t1 && e.duck < 0 && e.timer) { clearInterval(e.timer); e.timer = 0; }
+}
+function fileKick() {
+  if (!amb.env.timer) amb.env.timer = setInterval(fileStep, FILE_STEP_MS);
+  fileStep();
+}
+function fileFade(target, secs) {
+  const e = amb.env, t = now();
+  e.from = fileFadeAt(t); e.to = target; e.t0 = t; e.t1 = t + secs * 1000;
+  fileKick();
+}
+function fileDuck() { amb.env.duck = now(); fileKick(); }
+function fileSilence() {
+  const e = amb.env;
+  if (e.timer) { clearInterval(e.timer); e.timer = 0; }
+  e.from = e.to = 0; e.t0 = e.t1 = 0; e.duck = -1;
+  if (amb.file) { try { amb.file.volume = 0; } catch (err) { /* nothing */ } }
 }
 
 function playFile() {
@@ -874,21 +942,27 @@ function ambientStop(fade = AMB_FADE_OUT) {
   if (!amb.active) return;
   const kind = amb.active; amb.active = null;
   if (amb.timer) { clearInterval(amb.timer); amb.timer = 0; }
-  if (audio && amb.bus) {
+  if (kind === 'celesta' && audio && amb.bus) {
     rampAmbient(0, fade);
     const when = audio.currentTime + fade + 0.05;
     for (const v of Array.from(amb.voices)) v.stop(when);
+    // The waltz's last notes still ring through the hall: let them go, then cut it (and the send).
+    hallUntil = Math.max(hallUntil, audio.currentTime + fade + hallSeconds() + 0.1);
+    setTimeout(() => { if (amb.active !== 'celesta') setAmbientHall(false); }, (fade + hallSeconds() + 0.1) * 1000);
+    armHallOff();
   }
   if (kind === 'fichier' && amb.file) {
     const el = amb.file;
-    setTimeout(() => { if (amb.active !== 'fichier') { try { el.pause(); } catch (e) { /* nothing */ } } }, fade * 1000 + 60);
+    fileFade(0, fade);
+    setTimeout(() => { if (amb.active !== 'fichier') { fileSilence(); try { el.pause(); } catch (e) { /* nothing */ } } }, fade * 1000 + 60);
   }
   armIdle();
 }
 
 function ambientStart(kind) {
-  if (!audio || !graph || !enabled || !gestured || amb.holds.size) return;
-  ensureAmbientBus();
+  if (!enabled || !gestured || amb.holds.size) return;
+  if (kind === 'celesta' && (!audio || !graph)) return;
+  if (kind === 'fichier' && !amb.file) return;
   if (amb.active === kind) return;
   if (amb.active) {
     // Source change: fade out, then the other one comes in. The `swap` token expires this deferred restart if
@@ -900,10 +974,11 @@ function ambientStart(kind) {
   }
   amb.swap++;                                                       // direct start: expires any pending deferred restart
   amb.active = kind;
-  amb.level = kind === 'fichier' ? FILE_LEVEL : AMBIENT;
-  amb.bus.duck.gain.value = 1;
+  amb.level = kind === 'fichier' ? FILE_VOLUME : AMBIENT;
   if (kind === 'celesta') {
-    ensureHall();
+    ensureAmbientBus();
+    amb.bus.duck.gain.value = 1;
+    hallNeed(audio.currentTime);                                    // wired in for as long as the waltz plays
     setAmbientHall(true);
     rampAmbient(amb.level, AMB_FADE_IN);
     amb.beat = 0;
@@ -911,27 +986,31 @@ function ambientStart(kind) {
     amb.timer = setInterval(ambientTick, SCHED_MS);
     ambientTick();
   } else {
-    setAmbientHall(false);
-    rampAmbient(amb.level, FILE_FADE_IN);
-    connectFile();
+    // Outside the graph: the fade-in is el.volume stepped from 0 (the context can stay suspended meanwhile).
+    fileSilence();
+    fileFade(1, FILE_FADE_IN);
     playFile();
   }
 }
 
 // Applies the mode in force (explicit or config), unless on hold. Idempotent: does not restart a source
-// that is already active. Recreates the context after a trim and wakes it from an idle suspend.
+// that is already active. The celesta recreates the context after a trim and wakes it from an idle suspend; the
+// file needs neither (it plays outside Web Audio), so it never wakes a suspended context.
 function ambientApply() {
   if (!enabled || !gestured || amb.holds.size) return;
   const mode = amb.mode || configuredMode();
   const token = ++amb.req;
   if (mode === 'aucune') { ambientStop(); return; }
-  if (!ensureContext()) return;
-  if (audio.state === 'suspended') resume();                        // its success calls ambientApply() again: harmless
-  if (mode === 'celesta') { ambientStart('celesta'); return; }
+  const celesta = () => {
+    if (!ensureContext()) return;
+    if (audio.state === 'suspended') resume();                      // its success calls ambientApply() again: harmless
+    ambientStart('celesta');
+  };
+  if (mode === 'celesta') { celesta(); return; }
   // 'auto' and 'fichier': the file if it exists, otherwise the waltz (the settings' note says so).
   probeFile((el) => {
     if (amb.req !== token || !enabled || amb.holds.size) return;    // another request came in meanwhile
-    ambientStart(el ? 'fichier' : 'celesta');
+    if (el) ambientStart('fichier'); else celesta();
   });
 }
 
@@ -939,9 +1018,12 @@ function ambientApply() {
 function schedule(name, dir) {
   const make = CUES[name];
   if (!make) return false;
-  ensureHall();
   const at = audio.currentTime + 0.012;                            // small lead: every note leaves on time
-  for (const note of make(dir)) { if (note.air) playAir(note, at + note.t); else playNote(note, at + note.t); }
+  const notes = make(dir);
+  let end = 0;
+  for (const note of notes) end = Math.max(end, note.t + (note.air ? note.d : (note.a || ATTACK) + note.d));
+  hallNeed(at + end + hallSeconds() + 0.1);                         // the hall, for this cue's tails and its own
+  for (const note of notes) { if (note.air) playAir(note, at + note.t); else playNote(note, at + note.t); }
   duckAmbient();
   lastAt.set(name, now());
   armIdle();
@@ -973,20 +1055,16 @@ export const Sound = {
     armGesture();
     if (!enabled) pending = null;
     if (enabled && !gestured) tryAutoplay();
-    if (!audio || !graph) { if (enabled && gestured && !was) ambientApply(); return; }
     if (was === enabled) return;                                    // nothing changed (main.js calls this on every config change)
-    const t = audio.currentTime;
-    const g = graph.master.gain;
-    g.cancelScheduledValues(t);
-    g.setValueAtTime(g.value, t);
-    if (!enabled) {
-      g.linearRampToValueAtTime(0, t + 0.03);
-      stopAll(t + 0.035);
-      ambientStop();
-    } else {
-      g.linearRampToValueAtTime(MASTER, t + 0.03);
-      ambientApply();
+    if (audio && graph) {
+      const t = audio.currentTime;
+      const g = graph.master.gain;
+      g.cancelScheduledValues(t);
+      g.setValueAtTime(g.value, t);
+      g.linearRampToValueAtTime(enabled ? MASTER : 0, t + 0.03);
+      if (!enabled) stopAll(t + 0.035);
     }
+    if (!enabled) ambientStop(); else ambientApply();               // the file has no master: its own fade
   },
 
   // Plays a cue by name. opts.dir: 1 (right / up) or −1 (left / down) for `move`.

@@ -113,7 +113,7 @@ no letters*. The three selection boxes are measured on the image (`scene.boxes` 
 
 The Nox fly-by rider: Harry on his broom, cut out (rembg u2net, stray alpha removed, bottom edge feathered) from a
 photo supplied by the maintainer, then night-graded with PIL (399×216). He faces left in the picture; the Parapet mirrors
-him in CSS so he flies left to right, with `assets/scene/trail-gold.webp` behind the bristles. Third-party image,
+him in CSS so he flies left to right; a few warm motes fade behind the bristles (no streak). Third-party image,
 versioned at the maintainer's request (DISCLAIMER.md).
 
 ## Scenery: the Parapet in three planes (`app/assets/scene/`)
@@ -132,7 +132,6 @@ stacking order are in `app/assets/scene/scene.json`; the windows for the Lumos w
 | `castle.webp` | 1984 × 1080, alpha | 8.2 MB | Castle, rock, mist bank, lake, boathouse. Transparent in the sky, with a 10 px soft edge. |
 | `fg-left.webp`, `fg-right.webp` | 692 × 993, 189 × 530, alpha | 2.6 + 0.4 MB | The dark pines and the bare tree on the left, the pines and the snow bank on the right. |
 | `lit-windows.webp` | 1035 × 503, alpha | 2.0 MB | Only the lit windows (94 of them), brighter and a little warmer; transparent elsewhere. Child of the castle plane. |
-| `trail-gold.webp` | 600 × 60, alpha | 0.1 MB | The rider's golden trail, blur baked in, head on the right. |
 | `mist-wake.webp` | 320 × 72, alpha | 0.1 MB | A wisp of mist for the rider's wake. |
 | `logo-shadow.webp` | 256 × 64, alpha | 0.1 MB | Soft dark ellipse under the focused logo (stretch it to the logo width). |
 | `lake-shimmer-a.webp`, `-b.webp` | 720 × 112, alpha | 0.3 MB each | Two states of the window reflections in the lake, for "Ambiance vivante" only. |
@@ -174,3 +173,10 @@ hole and no doubled edge.
 `windows.json` lists every window (box, centre, weight, `t` from 0 for the leftmost to 1 for the rightmost) in
 `castle.jpg` pixels (half that in CSS px), the placement of the layer, and six vertical bands cut in empty columns of
 the layer, for a wave made of a few clipped copies of the same picture.
+
+
+## Other cut pictures
+
+- `app/assets/map-parchment.webp`: the Map's parchment, the same paper cut out along its edge and curls, studio background and shadows removed, nothing redrawn.
+- `app/assets/settings/parapet-mini.webp`: castle.jpg cropped to the dock band (0, 680, 1920, 920), 1000×125; `owl-mini.webp`: the owl sheet's first cell trimmed, 57×66. Both feed the Room of Requirement's Parapet preview.
+- `app/assets/owl-sheet.webp` is defringed after `cutout_owl.py`: alpha choked by 1 px and edge colours pulled toward the night, so no pale ring shows against the trees.

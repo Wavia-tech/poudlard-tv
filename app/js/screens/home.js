@@ -10,11 +10,19 @@
 //     reflection in the lake, Hedwig flies over;
 //   - Lumos (OK): the castle's windows light up in a wave from left to right (one pre-rendered layer, six bands);
 //   - down: the camera dives into a lit window (router.js 'dive', toward diveOrigin());
-//   - Nox: Harry crosses on his broom with a golden trail and a mist wake, the apps go out as he passes; wake: the
-//     windows come back in a gentler wave.
+//   - Nox: Harry crosses on his broom, a few motes of light left behind him, a mist wake, the apps go out as he
+//     passes; wake: the windows come back in a gentler wave.
 // Nox settled is still too: a static starfield, the clock moving to a new spot once a minute (burn-in).
 // The only loops allowed at rest are the "Ambiance vivante" option (config.ambiance, off by default): a slow mist
 // drift and the lake reflections shimmering, both compositor-only CSS animations on small layers (home.css).
+//
+// A low-RAM TV (html[data-lowram="1"], router.js; the Parapet's .lite class) is fill-rate bound: its GPU spends a
+// frame's budget drawing two screen-sized layers. There the backdrop is ONE still opaque picture (assets/castle.jpg,
+// the picture the planes were cut from; the mist above it is painted with it, never a layer of its own): no planes,
+// no parallax, nothing promoted at rest or during a focus move, so a move composites only small layers (the owl, the
+// focused logo, its shadow and reflection). The lit windows sit just above the night fade there (still under the
+// clock and the dock), so the Lumos wave composites six small bands over that one picture and nothing else. The
+// fly-by keeps Harry and his motes (the dock goes out as one, no mist wake), and "Ambiance vivante" stays off.
 import { dockApps, updateConfig, getConfig, isReduced, onConfigChange, HOUSES } from '../config.js';
 import { Platform } from '../platform.js';
 import { Input } from '../input.js';
@@ -30,9 +38,17 @@ const BAR = ['sound', 'map', 'settings'];
 const OWL_CELLS = ['perch', 'look', 'sleep', 'up', 'down', 'glide', 'land'];   // the order of tools/cutout_owl.py --sheet
 const OWL_COLS = 4;            // the sheet is a 4 x 2 grid of 320 x 248 cells
 const CANCEL_MS = 350;         // after OK, Back cancels the launch until the intent fires
+// The low-RAM TV: the intent at 500 ms, so most of the 620 ms wave is seen before the app covers it; the launch card
+// (opaque, no dim under it) once the wave is whole.
+const CANCEL_MS_LITE = 500, CARD_MS_LITE = 640;
 const NOX_CLOCK_SCALE = 1.45;  // the clock grows from --t-clock to about 9 cqw during Nox (a transform, never a font-size)
 const FOCUS_SCALE = 1.24;      // the focused logo (home.css .home-app.is-focus .home-lift)
-const FOCUS_LIFT = 0.62;       // cqw: its lift (home.css --lift)
+const FOCUS_LIFT = 0.625;      // cqw: its lift (home.css --lift): 6 CSS px of the 960 px screen, 12 device px at DPR 2
+// Filled logos (tiles, discs, a solid letter: more than 55 % of their box is ink) get a short reflection that breaks
+// like water (home.css .home-app-reflect.tile and .home-app-ripple); a wordmark keeps the long one.
+const TILE_LOGOS = new Set(['youtube', 'max', 'netflix', 'paramount', 'spotify', 'switch', 'm6']);
+// The Parapet's first frame: the chrome waits for the backdrop's pictures, this long at most.
+const SCENE_WAIT_MS = 1500;
 
 // ---- The scene (assets/scene/, made from castle.jpg; geometry in scene.json, mirrored in home.css) ----
 const SCENE = 'assets/scene/';
@@ -55,11 +71,17 @@ const WAVE = {
 // The window the camera dives into (router.js 'dive'): the brightest one, under the great tower (windows.json), as a
 // fraction of the castle picture.
 const DIVE_AT = [681.9 / 1920, 535.9 / 1080];
-// The Nox fly-by. The rider layer (17 cqw wide, Harry facing right once mirrored) goes from -22 to 132 cqw: his trail
-// (31 cqw behind the bristles) is off-screen at both ends. His hand leads at 97 % of the layer.
+// The Nox fly-by. The rider layer (17 cqw wide, Harry facing right once mirrored) goes from -22 to 132 cqw, off-screen
+// at both ends. His hand leads at 97 % of the layer; the tip of the bristles is at 3 % of its width, 70 % of its height.
 const FLY_MS = 1600;
-const FLY_X0 = -22, FLY_X1 = 132, RIDER_W = 17, NOSE = 0.97;
+const FLY_X0 = -22, FLY_X1 = 132, RIDER_W = 17, NOSE = 0.97, TAIL = [0.03, 0.7];
 const FLY_EASE = [0.3, 0.1, 0.7, 0.9];   // a gentle push and a gentle exit: he crosses the screen at speed
+// The motes he leaves behind: hard little points of warm light (home.css .home-mote), dropped at fixed points of his
+// path as the bristles pass, each fading in 300 ms (opacity only). x in fractions of the screen width.
+const MOTES = [0.1, 0.23, 0.36, 0.49, 0.62, 0.75, 0.88];
+const MOTE_MS = 320;
+// The bob of the rider (home.css @keyframes home-rider-bob, translateY in cqw at these fractions of the flight).
+const BOB = [[0, 0.45], [0.3, -0.3], [0.62, 0.22], [1, -0.25]];
 
 const FMT = { time: null, date: null };
 
@@ -69,6 +91,15 @@ const logoOf = (app) => LOGOS[app.id] || monogram(app.name);
 const kOf = (el) => Number(getComputedStyle(el).getPropertyValue('--k')) || 1;
 // Living ambience: asked for in the Room of Requirement, and never with reduced motion (setting or system).
 const ambianceOn = () => getConfig().ambiance === 'vivante' && !isReduced();
+// The low-RAM TV (router.js sets html[data-lowram="1"] from Platform.device().lowRam).
+const lowRam = () => document.documentElement.dataset.lowram === '1';
+const decoded = (im) => (im.decode ? im.decode().catch(() => {}) : Promise.resolve());
+const within = (p, ms) => Promise.race([p, new Promise((r) => setTimeout(r, ms))]);
+// The bristles' bob at a fraction of the flight (linear between the keyframes: close enough for a mote).
+function bobAt(u) {
+  for (let j = 1; j < BOB.length; j++) if (u <= BOB[j][0]) { const [a, ya] = BOB[j - 1], [b, yb] = BOB[j]; return ya + (yb - ya) * (u - a) / (b - a); }
+  return BOB[BOB.length - 1][1];
+}
 
 // The sky by the hour (config.sky 'auto'): dusk 17-20, night, deep night 1-5, dawn 5-8.
 function skyState(hour) {
@@ -91,25 +122,36 @@ const flyEase = cubic(FLY_EASE);
 export default {
   root: null, ctx: null, owl: null, apps: [], items: [], i: 0, bar: 0, zone: 'dock', busy: false, mode: 'normal',
   timers: [], ro: null, hintTimer: 0, clockTimer: 0, moveTimer: 0, noxTimers: [], launchTimers: [], cancelUntil: 0, sceneReady: null,
-  wander: { x: 0, y: 0 }, shift: null, planes: null, flat: false, sceneOk: false, lit: null, amb: null,
+  wander: { x: 0, y: 0 }, shift: null, planes: null, flat: false, sceneOk: false, lit: null, amb: null, lite: false,
+  houseShown: undefined, flyGen: 0, pendingUndive: false, howls: 0,
 
   async mount(root, ctx) {
     this.root = root; this.ctx = ctx; this.timers = []; this.noxTimers = []; this.mode = 'normal'; this.zone = 'dock'; this.launchTimers = []; this.cancelUntil = 0; this.owlAway = false; this.owlNox = false;
     this.shift = { sky: 0, castle: 0, fg: 0 }; this.flat = false; this.sceneOk = false; this.lit = null; this.amb = null; this.busy = false; clearTimeout(this.moveTimer);
+    this.lite = lowRam(); this.houseShown = undefined; this.flyGen++; this.pendingUndive = false; this.howls = 0;
     this.apps = this.dockList();
     const last = getConfig().lastApp;
     this.i = Math.max(0, this.apps.findIndex((a) => a.id === last));
     // A band of the lit windows: a window of the layer (left, width in % of it) showing the whole picture shifted left.
     const band = ([x, w]) => `<div class="home-lit-band" style="left:${(x / LIT_W * 100).toFixed(3)}%;width:${(w / LIT_W * 100).toFixed(3)}%"><img alt="" decoding="async" style="left:-${(x / w * 100).toFixed(3)}%"></div>`;
-    root.innerHTML = `
-      <div class="home-scene">
+    const lit = `<div class="home-lit">${LIT_BANDS.map(band).join('')}</div>`;
+    // The backdrop: three planes, or (low-RAM TV) the one picture they were cut from, the lit windows over the fade.
+    const scene = this.lite
+      ? `<div class="home-scene is-flat"><img class="home-fallback" alt="" decoding="async"><div class="home-mist"></div></div>
+      <div class="home-tint"></div>
+      <div class="home-shade"></div>
+      <div class="home-litwrap">${lit}</div>`
+      : `<div class="home-scene">
         <div class="home-layer home-sky"><img class="home-sky-img" alt="" decoding="async"><img class="home-sky-detail" alt="" decoding="async"></div>
-        <div class="home-layer home-castle"><img class="home-castle-img" alt="" decoding="async"><div class="home-lit">${LIT_BANDS.map(band).join('')}</div></div>
+        <div class="home-layer home-castle"><img class="home-castle-img" alt="" decoding="async">${lit}</div>
         <div class="home-mist"></div>
         <div class="home-layer home-fg"><img class="home-fg-l" alt="" decoding="async"><img class="home-fg-r" alt="" decoding="async"></div>
       </div>
       <div class="home-tint"></div>
-      <div class="home-shade"></div>
+      <div class="home-shade"></div>`;
+    root.classList.toggle('lite', this.lite);
+    root.innerHTML = `
+      ${scene}
       <div class="home-night"></div>
       <div class="home-clock"><div class="home-time"></div><div class="home-date"><span class="home-cap"></span><span class="home-date-rest"></span></div></div>
       <div class="home-crest" aria-hidden="true"></div>
@@ -120,30 +162,50 @@ export default {
       </div>
       <div class="home-dock"><div class="home-rows"></div></div>
       <div class="home-arena"></div>
-      <div class="home-rider" aria-hidden="true"><img class="home-rider-trail" alt="" decoding="async"><img class="home-rider-wake" alt="" decoding="async"><div class="home-rider-bob"><img class="home-rider-img" alt="" decoding="async"></div></div>
+      <div class="home-rider" aria-hidden="true">${this.lite ? '' : '<img class="home-rider-wake" alt="" decoding="async">'}<div class="home-rider-bob"><img class="home-rider-img" alt="" decoding="async"></div></div>
+      <div class="home-motes" aria-hidden="true">${MOTES.map(() => '<i class="home-mote"></i>').join('')}</div>
       <div class="keyhint home-hint"><span><b>▼</b>vers Ollivanders</span></div>
       <div class="home-dim"></div><div class="home-veil"></div><div class="home-disc"></div>
       <div class="home-launch"><img class="home-launch-banner" alt=""><div class="home-launch-logo"></div><div class="home-launch-title engraved gold-text"></div><div class="home-launch-sub"></div></div>
       <div class="home-plate"><div class="home-plate-title engraved">Nox ?</div><div class="home-plate-sub">Passer en mode classique, sans décor ni chouette.</div><div class="home-plate-opts"><span class="home-plate-opt" data-v="yes">Oui, Nox</span><span class="home-plate-opt is-focus" data-v="no">Non</span></div></div>`;
 
-    this.loadScene();
+    // The chrome (clock, crest, bar, dock, owl, hint) waits for the backdrop, so the first frame is never a half-built
+    // page over flat night: until then the scene shows a tiny inline picture of the castle (home.css). A prepared
+    // screen (router.js: dive and undive) is invisible until its pictures are decoded: nothing to hold there. The
+    // boot holds it under its veil (boot()).
+    if (!ctx.prepared) root.classList.add('is-waiting');
+    if (this.lite) this.loadFlat(); else this.loadScene();
+    const t0 = performance.now();
+    within(this.sceneReady, SCENE_WAIT_MS).then(() => {
+      if (this.root !== root || !root.classList.contains('is-waiting')) return;
+      root.classList.remove('is-waiting');
+      // A wait the eye could see: the castle and the chrome come in together (one short fade of the chrome).
+      if (!ctx.params.boot && performance.now() - t0 > 80 && !isReduced()) {
+        root.classList.add('is-reveal');
+        this.timers.push(setTimeout(() => { if (this.root === root) root.classList.remove('is-reveal'); }, 450 * kOf(root)));
+      }
+    });
     const mistProbe = new Image();
     mistProbe.onerror = () => { const m = root.querySelector('.home-mist'); if (m) m.classList.add('fallback'); };
     mistProbe.src = 'assets/mist.png';
-    // The fly-by's pictures (rider, trail, wake: 0.6 MB decoded in all) are fetched now and decoded off the main
-    // thread, so the first frame of a Nox does not wait on them; hidden, they are never painted at rest.
+    // The fly-by's pictures (rider and, beyond the low-RAM TV, the mist wake) are fetched and decoded now, off the
+    // main thread, so the first frame of a Nox does not wait on them; hidden, they are never painted at rest.
     const rider = root.querySelector('.home-rider');
-    [['.home-rider-img', 'assets/rider.webp'], ['.home-rider-trail', SCENE + 'trail-gold.webp'], ['.home-rider-wake', SCENE + 'mist-wake.webp']].forEach(([sel, src]) => {
-      const im = rider.querySelector(sel); im.src = src; if (im.decode) im.decode().catch(() => {});
+    [['.home-rider-img', 'assets/rider.webp'], ['.home-rider-wake', SCENE + 'mist-wake.webp']].forEach(([sel, src]) => {
+      const im = rider.querySelector(sel); if (!im) return;
+      im.src = src; decoded(im);
     });
 
     this.buildDock();
     this.syncBar();
     this.syncHouse();
     this.wasReduced = isReduced();
+    // A setting changed (or only lastApp, at each Lumos): only what changed is touched. The crest is rebuilt only
+    // when the house changes (a rebuilt crest picture stays blank until it is decoded again).
     this.unsub = onConfigChange(() => {
       if (!this.root) return;
-      this.syncHouse(); this.tick(); this.syncAmbiance();
+      if ((getConfig().house || null) !== this.houseShown) this.syncHouse();
+      this.tick(); this.syncAmbiance();
       const r = isReduced(); if (r !== this.wasReduced) { this.wasReduced = r; this.parallax(true); }
     });
     this.ro = new ResizeObserver(() => { if (this.mode === 'nox') this.placeNoxClock(false); else this.layout(true); });
@@ -165,9 +227,10 @@ export default {
     if (ctx.params.nox) this.nox();
     if (ctx.params.askClassic) this.timers.push(setTimeout(() => this.plate(true), 750));
     // Coming back up out of Ollivanders (router.js 'undive'): the camera pulls back out of the lit window, which then
-    // goes back to the castle's own light.
+    // goes back to the castle's own light. A prepared screen hears onEnter() when its move starts.
     if (ctx.transition === 'undive' && !isReduced()) {
-      this.sceneReady.then((ok) => { if (ok && this.root === root && this.mode === 'normal' && !this.busy) this.lightWindows('undive'); });
+      if (ctx.prepared) this.pendingUndive = true;
+      else this.sceneReady.then((ok) => { if (ok && this.root === root && this.mode === 'normal' && !this.busy) this.lightWindows('undive'); });
     }
     // The TV lost the Home key to an update (HomeActivity.checkLostHome): offer to ask it back, once a day at most.
     this.onHomeEvent = (e) => {
@@ -177,6 +240,12 @@ export default {
         onYes: () => Platform.setHome('poudlard'), onNo: () => updateConfig({ homeNagAt: Date.now() }) });
     };
     document.addEventListener('poudlard:home', this.onHomeEvent);
+  },
+  // A prepared move starts (router.js): the undive's window, lit as the camera pulls back out of it.
+  onEnter(visual) {
+    if (!this.pendingUndive || !this.root) return;
+    this.pendingUndive = false;
+    if ((visual === 'undive' || visual === 'xfade') && !isReduced() && this.mode === 'normal' && !this.busy) this.sceneReady.then((ok) => { if (ok && this.root) this.lightWindows('undive'); });
   },
 
   // ---- The backdrop: three planes (sky, castle, foreground), shown together once all four pictures are decoded. A
@@ -207,10 +276,29 @@ export default {
     const detail = scene.querySelector('.home-sky-detail');
     detail.onerror = () => detail.remove();
     detail.src = SCENE + 'sky-detail.webp';
-    // The lit windows: six clipped copies of one picture (one fetch, one decode).
-    const lit = scene.querySelector('.home-lit'), bands = [...lit.querySelectorAll('.home-lit-band')];
-    const first = bands[0].querySelector('img');
-    first.onload = () => { if (this.root === root && !this.flat) this.lit = { el: lit, bands, anims: [], out: null, timer: 0, outMs: 900 }; };
+    this.loadLit();
+  },
+  // The low-RAM TV's backdrop: the one opaque picture (assets/castle.jpg, 1920 x 1080: the screen's device pixels),
+  // still, never promoted. Without it: the night gradient.
+  loadFlat() {
+    const root = this.root, scene = root.querySelector('.home-scene'), img = scene.querySelector('.home-fallback');
+    this.flat = true; this.planes = null;
+    this.sceneReady = new Promise((resolve) => {
+      img.onerror = () => { img.remove(); root.classList.add('no-castle'); scene.classList.add('is-ready'); resolve(false); };
+      img.onload = () => decoded(img).then(() => {
+        if (this.root !== root) return resolve(false);
+        scene.classList.add('is-ready'); this.sceneOk = true; resolve(true);
+      });
+      img.src = 'assets/castle.jpg';
+    });
+    this.loadLit();
+  },
+  // The lit windows: six clipped copies of one picture (one fetch, one decode, done now so the first wave never
+  // waits on it). Hidden at rest.
+  loadLit() {
+    const root = this.root, lit = root.querySelector('.home-lit'); if (!lit) return;
+    const bands = [...lit.querySelectorAll('.home-lit-band')], first = bands[0].querySelector('img');
+    first.onload = () => { decoded(first); if (this.root === root && lit.isConnected) this.lit = { el: lit, bands, anims: [], out: null, timer: 0, outMs: 900 }; };
     first.onerror = () => lit.remove();
     bands.forEach((b) => { b.querySelector('img').src = SCENE + 'lit-windows.webp'; });
   },
@@ -355,6 +443,7 @@ export default {
   syncHouse() {
     const c = getConfig(); const h = c.house ? HOUSES[c.house] : null;
     const el = this.root.querySelector('.home-crest'); if (!el) return;
+    this.houseShown = c.house || null;
     el.innerHTML = '';
     if (h) { mountCrest(el, c.house, 'home-crest-svg'); const name = document.createElement('span'); name.className = 'home-crest-name'; name.textContent = h.name; el.appendChild(name); }
     el.classList.toggle('show', Boolean(h));
@@ -369,6 +458,7 @@ export default {
     this.noxTimers.forEach(clearTimeout); this.noxTimers = [];
     clearTimeout(this.clockTimer); clearTimeout(this.hintTimer); clearTimeout(this.moveTimer);
     this.clearFly();
+    this.howls++;
     this.litStop(); this.lit = null;
     if (this.amb) { this.amb.els.forEach((e) => e.remove()); this.amb = null; }
     if (this.ro) this.ro.disconnect();
@@ -411,10 +501,11 @@ export default {
         el.dataset.id = app.id;
         const box = logoBox(L, LOGO_H, LOGO_W_MAX);           // equal visual weight across the row
         el.style.width = box.w.toFixed(2) + 'cqw'; el.style.height = box.h.toFixed(2) + 'cqw';
-        el.innerHTML = `<i class="home-app-shadow"></i><div class="home-lift"><div class="app-logo${L.luma ? ' luma' : ''}"><i class="l-ext"></i><i class="l-rimD"></i><i class="l-rimL"></i><i class="l-base"></i><i class="l-shine"></i></div></div><i class="home-app-reflect${L.luma ? ' luma' : ''}"></i>`;
+        const tile = TILE_LOGOS.has(app.id), luma = L.luma ? ' luma' : '';
+        el.innerHTML = `<i class="home-app-shadow"></i><div class="home-lift"><div class="app-logo${luma}"><i class="l-ext"></i><i class="l-rimD"></i><i class="l-rimL"></i><i class="l-base"></i><i class="l-shine"></i></div></div><b class="home-app-water"><i class="home-app-reflect${luma}${tile ? ' tile' : ''}"></i>${tile ? `<i class="home-app-ripple${luma}"></i>` : ''}</b>`;
         const m = `url("${L.src}")`;   // the logo's mask: its engraved layers, and its reflection in the lake
         el.querySelector('.app-logo').style.setProperty('--m', m);
-        el.querySelector('.home-app-reflect').style.setProperty('--m', m);
+        el.querySelectorAll('.home-app-reflect, .home-app-ripple').forEach((r) => r.style.setProperty('--m', m));
         el.title = app.name;   // no name shown under the icon (by design)
         row.appendChild(el);
         this.items.push(el);
@@ -431,11 +522,14 @@ export default {
     const now = new Date();
     // Two formatters made once per page life (each toLocale…String call builds a new one: about 35 ms on the TV).
     if (!FMT.time) { FMT.time = new Intl.DateTimeFormat('fr-FR', { hour: '2-digit', minute: '2-digit' }); FMT.date = new Intl.DateTimeFormat('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }); }
-    this.root.querySelector('.home-time').textContent = FMT.time.format(now);
+    // Only what changed is written (a config change calls this too: an unchanged clock costs nothing).
+    const set = (sel, text) => { const n = this.root.querySelector(sel); if (n.textContent !== text) n.textContent = text; };
+    set('.home-time', FMT.time.format(now));
     const d = FMT.date.format(now);
-    this.root.querySelector('.home-cap').textContent = d.charAt(0).toUpperCase();   // the drop cap
-    this.root.querySelector('.home-date-rest').textContent = d.slice(1);
-    this.root.dataset.sky = getConfig().sky === 'nuit' ? 'night' : skyState(now.getHours());
+    set('.home-cap', d.charAt(0).toUpperCase());   // the drop cap
+    set('.home-date-rest', d.slice(1));
+    const sky = getConfig().sky === 'nuit' ? 'night' : skyState(now.getHours());
+    if (this.root.dataset.sky !== sky) this.root.dataset.sky = sky;
   },
   // One timer per minute, aligned on the minute change (+ 50 ms), re-armed each time; during Nox the clock also
   // moves to a new spot (burn-in protection), one short transition per minute.
@@ -519,44 +613,50 @@ export default {
   },
 
   // ---- Lumos ----
-  // t=0 the press, the logo charges, the castle's windows light up in a wave from left to right (300 ms from the
-  // first band to the last, each band 320 ms) · t=100 molten gold, the owl lifts off, the cue · t=350 the intent ·
-  // t=420 the backdrop dims and the launch card comes up (on the TV the app usually covers the screen by then).
+  // t=0 the press: the castle's windows light up in a wave from left to right (300 ms from the first band to the
+  // last, each band 320 ms) and the owl lifts off, before any other work, then the logo charges · t=100 molten gold,
+  // the cue · t=350 the intent (500 on the low-RAM TV), then lastApp is saved · t=420 the backdrop dims and the launch
+  // card comes up (the low-RAM TV: the card alone at 640, once the wave is whole). On the TV the app usually covers
+  // the screen soon after. The card is filled at 180 ms (the TV's banner is a bridge call and a picture to decode:
+  // never in the press's frame).
   // Until the intent, Back cancels everything (nothing was started yet).
   // When the Parapet comes back (done), the windows go back to the castle's own light (one 900 ms fade).
   async launch() {
     if (this.busy) return;
     const app = this.apps[this.i]; if (!app) return;
     this.busy = true;                                         // keys still reach onKey (Back cancels) until the intent fires
-    this.ambPause();
+    this.lightWindows('lumos');                               // the light first
+    if (this.owl) this.owl.liftOff(500);
     let held = false, heldMusic = false;
-    const root = this.root, fx = this.ctx.fx, k = kOf(root);
+    const root = this.root, fx = this.ctx.fx, k = kOf(root), lite = this.lite;
+    const cancelMs = lite ? CANCEL_MS_LITE : CANCEL_MS, cardMs = lite ? CARD_MS_LITE : 420;
     const item = this.items[this.i], logoEl = item.querySelector('.app-logo');
     const timers = []; this.launchTimers = timers;
     const at = (ms, fn) => timers.push(setTimeout(fn, ms * k));
     item.classList.add('is-press'); logoEl.classList.add('charging');
-    this.lightWindows('lumos');
-    this.cancelUntil = performance.now() + CANCEL_MS * k;
+    this.ambPause();
+    this.cancelUntil = performance.now() + cancelMs * k;
     const box = root.querySelector('.home-launch');
     at(100, () => {
       item.classList.remove('is-press');
       logoEl.classList.add('molten');
-      if (this.owl) this.owl.liftOff(500);
       if (fx.cue) fx.cue('lumos'); else fx.arpeggio();
     });
-    at(420, () => root.querySelector('.home-dim').classList.add('on'));   // with the card: the wave is seen whole
-    const L = logoOf(app);
-    const lg = box.querySelector('.home-launch-logo'), banner = box.querySelector('.home-launch-banner');
-    lg.className = `home-launch-logo app-logo lit${L.luma ? ' luma' : ''}`;
-    lg.innerHTML = '<i class="l-ext"></i><i class="l-rimD"></i><i class="l-rimL"></i><i class="l-base"></i><i class="l-shine"></i>';
-    lg.style.setProperty('--m', `url("${L.src}")`);
-    const uri = app.pkg ? Platform.appIcon(app.pkg) : null;        // the TV's own banner when it has one
-    box.classList.toggle('has-banner', Boolean(uri));
-    if (uri) banner.src = uri; else banner.removeAttribute('src');
-    box.querySelector('.home-launch-title').textContent = `Ouverture de ${app.name}`;
-    box.querySelector('.home-launch-sub').textContent = app.port ? `Entrée HDMI ${app.port}` : app.input ? `Entrée ${app.input}` : '';
-    updateConfig({ lastApp: app.id });
-    const showCard = setTimeout(() => box.classList.add('show'), 420 * k); timers.push(showCard);
+    if (!lite) at(420, () => root.querySelector('.home-dim').classList.add('on'));   // with the card: the wave is seen whole
+    at(180, () => {
+      const L = logoOf(app);
+      const lg = box.querySelector('.home-launch-logo'), banner = box.querySelector('.home-launch-banner');
+      lg.className = `home-launch-logo app-logo lit${L.luma ? ' luma' : ''}`;
+      lg.innerHTML = '<i class="l-ext"></i><i class="l-rimD"></i><i class="l-rimL"></i><i class="l-base"></i><i class="l-shine"></i>';
+      lg.style.setProperty('--m', `url("${L.src}")`);
+      const uri = app.pkg ? Platform.appIcon(app.pkg) : null;        // the TV's own banner when it has one
+      box.classList.toggle('has-banner', Boolean(uri));
+      banner.decoding = 'async';
+      if (uri) banner.src = uri; else banner.removeAttribute('src');
+      box.querySelector('.home-launch-title').textContent = `Ouverture de ${app.name}`;
+      box.querySelector('.home-launch-sub').textContent = app.port ? `Entrée HDMI ${app.port}` : app.input ? `Entrée ${app.input}` : '';
+    });
+    const showCard = setTimeout(() => box.classList.add('show'), cardMs * k); timers.push(showCard);
     const done = () => {
       timers.forEach(clearTimeout);
       box.classList.remove('show'); root.querySelector('.home-dim').classList.remove('on');
@@ -569,25 +669,26 @@ export default {
       if (heldMusic) { heldMusic = false; if (fx.ambientHold) fx.ambientHold(false, 'launch'); }   // the music comes back with the Parapet
     };
     this.launchDone = done;
-    // The intent fires at 350 ms; from then on keys are queued and replayed at the end. The TV's answer decides the
-    // rest: refused → everything settles at once and the Howler reads the TV's sentence; taken → the card stays while
-    // the app takes the screen (4 s), 2.4 s in the mock-up.
-    at(CANCEL_MS, async () => {
+    // The intent fires at 350 ms (500 on the low-RAM TV); from then on keys are queued and replayed at the end. The
+    // TV's answer decides the rest: refused → everything settles at once and the Howler reads the TV's sentence;
+    // taken → the card stays while the app takes the screen (4 s), 2.4 s in the mock-up. lastApp is saved right after
+    // the intent (its storage write and the config listeners never land in the light's first frames).
+    at(cancelMs, async () => {
       this.cancelUntil = 0;
       held = true; Input.hold();
       if (fx.ambientHold) { fx.ambientHold(true, 'launch'); heldMusic = true; }   // lifted by done(): never by a timer that done() could cancel
       const r = Platform.launch(app);
+      updateConfig({ lastApp: app.id });
       if (r.status === 'failed') {
         clearTimeout(showCard);
         done();
-        const beuglante = await loadBeuglante();
         if (fx.cue) fx.cue('error');
         if (this.owl) this.owl.startle();
         const action = r.missing && app.pkg ? { label: 'Retirer du parapet', onChoose: () => this.removeFromDock(app.id) } : undefined;
-        if (beuglante) beuglante(root, { message: r.error, action });
+        this.howl({ message: r.error, action });
         return;
       }
-      at((r.status === 'bridge' ? 4000 : 2400) - CANCEL_MS, done);
+      at((r.status === 'bridge' ? 4000 : 2400) - cancelMs, done);
     });
   },
   // Back before the intent: the light recedes, nothing was launched.
@@ -602,11 +703,17 @@ export default {
   // wave, when the lit layer is already decoded), the clock writes itself, the dock rises, the owl arrives last.
   // `ms`: the whole thing (1300 cold, 700 short, 300 reduced). Transform and opacity only: the veil (a night layer)
   // fades while the disc grows; no clip-path. ----
+  // The sequence starts once the backdrop is decoded (SCENE_WAIT_MS at most): until then the veil holds the screen
+  // dark, so the castle is there when the light opens, never the chrome over an empty night.
   boot(ms) {
     const root = this.root; root.classList.add('booting');
+    Input.hold();
+    within(this.sceneReady, SCENE_WAIT_MS).then(() => { if (this.root === root) this.bootRun(ms); else Input.release(); });
+  },
+  bootRun(ms) {
+    const root = this.root;
     const W = root.clientWidth, H = root.clientHeight;
     const disc = root.querySelector('.home-disc');
-    Input.hold();
     const k = kOf(root);
     const s = ms / 1300;                                      // the short and reduced boots keep the same shape, compressed
     const at = (t, fn) => this.timers.push(setTimeout(fn, t * s * k));
@@ -642,12 +749,16 @@ export default {
   },
 
   // ---- Nox ----
-  // Entrance: the fly-by. Harry on his broom crosses the Parapet left to right, above the owl, at speed; a golden
-  // trail stretches behind him and fades as he leaves, a mist wake rolls off the broom (home.css); each app goes out
-  // the moment his hand passes it (one timer per app, from the same ease: no per-frame work), Hedwig takes off as he
-  // flies over her, the lake mist is pushed aside, then the Nox state settles (settleNox).
-  // Timeline (× --k): 0 he starts (1600 ms), hint/bar/crest fade (600) · 120 the mist push (1600) · the apps go out
-  // one by one · 1600 he is gone · 1700 settleNox. All of it transform and opacity, on the compositor.
+  // Entrance: the fly-by. Harry on his broom crosses the Parapet left to right, above the owl, at speed; a few hard
+  // motes of warm light stay behind the bristles where they passed and fade (no streak, no glow), a mist wake rolls
+  // off the broom (home.css); each app goes out the moment his hand passes it (one timer per app, from the same ease:
+  // no per-frame work), Hedwig takes off as he flies over her, the lake mist is pushed aside, then the Nox state
+  // settles (settleNox). The low-RAM TV keeps Harry and the motes only: the dock goes out as one (home.css), no mist
+  // wake, no mist push.
+  // Timeline (× --k): his layer is shown and promoted first, off-screen, and the crossing starts two frames later
+  // (its picture decoded, its layer rasterised: no hitch on the first frames) · 0 he starts (1600 ms), hint/bar/crest
+  // fade (600) · 120 the mist push (1600) · the apps go out one by one · 1600 he is gone · 1700 settleNox. All of it
+  // transform and opacity, on the compositor.
   // Reduced motion, or the rider picture missing: straight to settleNox (fades).
   nox() {
     if (this.mode === 'nox') return;
@@ -664,7 +775,7 @@ export default {
     const root = this.root, W = root.clientWidth;
     const layer = root.querySelector('.home-rider'), img = layer && layer.querySelector('.home-rider-img');
     if (isReduced() || !layer || !img || !img.complete || !img.naturalWidth || !W) return false;
-    const k = kOf(root);
+    const k = kOf(root), lite = this.lite;
     const DUR = FLY_MS * k;
     root.classList.add('nox-fly');
     // His height: the broom passes just over the owl's head (or over the logos when she is absent), never through them.
@@ -672,45 +783,63 @@ export default {
     let clear;
     if (this.owl && this.items.length) { const t = this.owlTarget(), s = this.owl.size(); clear = t.y - 0.2 * s.h - 0.012 * W; }
     else { const rr = root.querySelector('.home-rows').getBoundingClientRect(), r0 = root.getBoundingClientRect(); clear = rr.top - r0.top - 0.03 * W; }
-    layer.style.top = Math.round(Math.max(root.clientHeight * 0.12, clear - lh)) + 'px';
+    const top = Math.round(Math.max(root.clientHeight * 0.12, clear - lh));
+    layer.style.top = top + 'px';
+    // The time a point of the layer (`at`, a fraction of its width) reaches x cqw, from the crossing's own ease.
+    const when = (x, at = NOSE) => flyEase.inverse(Math.max(0, Math.min(1, (x - FLY_X0 - RIDER_W * at) / (FLY_X1 - FLY_X0)))) * DUR;
+    // The items' centres are read now, before anything moves (one layout read).
+    const centres = this.items.map((el) => this.center(el).cx / W * 100);
+    const owlAt = this.owl && this.items[this.i] ? centres[this.i] : null;
+    // Shown and promoted first, still off-screen (home.css .fly), then the crossing two frames later.
     layer.classList.add('fly');
-    this.riderAnim = layer.animate([{ transform: `translateX(${FLY_X0}cqw)` }, { transform: `translateX(${FLY_X1}cqw)` }],
-      { duration: DUR, easing: `cubic-bezier(${FLY_EASE.join(',')})`, fill: 'forwards' });
-    const anim = this.riderAnim;
-    anim.onfinish = () => { if (this.riderAnim !== anim) return; anim.cancel(); this.riderAnim = null; layer.classList.remove('fly'); };
-    // The lake mist, pushed aside in his wake: one transform wave (translate + a slight scaleX) and an opacity dip on
-    // the single, screen-wide mist layer.
-    const mist = root.querySelector('.home-mist'), rest = Number(getComputedStyle(mist).opacity) || 0.13;
-    this.noxTimers.push(setTimeout(() => {
-      if (this.mode !== 'nox' || !this.root) return;
-      this.mistAnim = mist.animate([
-        { transform: 'translateX(0) scaleX(1)', opacity: rest },
-        { transform: 'translateX(3cqw) scaleX(1.08)', opacity: rest * 0.2, offset: 0.5 },
-        { transform: 'translateX(-1.2cqw) scaleX(1.03)', opacity: rest * 0.55, offset: 0.78 },
-        { transform: 'translateX(0) scaleX(1)', opacity: rest },
-      ], { duration: DUR, easing: 'ease-in-out' });
-      this.mistAnim.onfinish = () => { this.mistAnim = null; };
-    }, 120 * k));
-    // The time his hand (NOSE of the layer) reaches x cqw, from the crossing's own ease.
-    const when = (x) => flyEase.inverse(Math.max(0, Math.min(1, (x - FLY_X0 - RIDER_W * NOSE) / (FLY_X1 - FLY_X0)))) * DUR;
-    this.items.forEach((el) => {
-      const cx = this.center(el).cx / W * 100;
-      this.noxTimers.push(setTimeout(() => { if (this.mode === 'nox') el.classList.add('is-out'); }, when(cx)));
-    });
-    // Hedwig: as he flies over her, she takes off in his wake and leaves the frame (her perch is going out).
-    if (this.owl && this.items[this.i]) {
-      const cx = this.center(this.items[this.i]).cx / W * 100;
-      this.noxTimers.push(setTimeout(() => { if (this.mode === 'nox' && this.owl && !this.owlNox) { this.owlNox = true; this.owl.liftOff(900); } }, when(cx + 3)));
-    }
-    this.noxTimers.push(setTimeout(() => { if (this.mode === 'nox' && this.root) this.settleNox(); }, (FLY_MS + 100) * k));
+    const gen = ++this.flyGen;
+    const start = () => {
+      if (this.flyGen !== gen || this.mode !== 'nox' || !this.root) return;
+      layer.classList.add('go');
+      this.riderAnim = layer.animate([{ transform: `translateX(${FLY_X0}cqw)` }, { transform: `translateX(${FLY_X1}cqw)` }],
+        { duration: DUR, easing: `cubic-bezier(${FLY_EASE.join(',')})`, fill: 'forwards' });
+      const anim = this.riderAnim;
+      anim.onfinish = () => { if (this.riderAnim !== anim) return; anim.cancel(); this.riderAnim = null; layer.classList.remove('fly', 'go'); };
+      // The motes: where the bristles pass, at the height they pass at (the bob included), each fading in 300 ms.
+      const tipY = top + TAIL[1] * lh + 0.004 * W;
+      this.motes = [...root.querySelectorAll('.home-mote')].map((m, j) => {
+        const x = MOTES[j] * 100, t = when(x, TAIL[0]);
+        m.style.transform = `translate(${(MOTES[j] * W).toFixed(1)}px, ${(tipY + bobAt(t / DUR) * W / 100 + (j % 2 ? 0.1 : -0.1) * W / 100).toFixed(1)}px)`;
+        return m.animate([{ opacity: 0 }, { opacity: 0.9, offset: 0.1 }, { opacity: 0 }], { duration: MOTE_MS * k, delay: t, easing: 'linear', fill: 'backwards' });
+      });
+      // The lake mist, pushed aside in his wake: one transform wave (translate + a slight scaleX) and an opacity dip
+      // on the single, screen-wide mist layer. Not on the low-RAM TV (the mist is painted with the picture there).
+      const mist = root.querySelector('.home-mist');
+      if (!lite && mist) {
+        const rest = Number(getComputedStyle(mist).opacity) || 0.13;
+        this.noxTimers.push(setTimeout(() => {
+          if (this.mode !== 'nox' || !this.root) return;
+          this.mistAnim = mist.animate([
+            { transform: 'translateX(0) scaleX(1)', opacity: rest },
+            { transform: 'translateX(3cqw) scaleX(1.08)', opacity: rest * 0.2, offset: 0.5 },
+            { transform: 'translateX(-1.2cqw) scaleX(1.03)', opacity: rest * 0.55, offset: 0.78 },
+            { transform: 'translateX(0) scaleX(1)', opacity: rest },
+          ], { duration: DUR, easing: 'ease-in-out' });
+          this.mistAnim.onfinish = () => { this.mistAnim = null; };
+        }, 120 * k));
+      }
+      // Each app goes out as his hand passes it (the low-RAM TV: the dock goes out as one, home.css .lite.nox-fly).
+      if (!lite) this.items.forEach((el, j) => { this.noxTimers.push(setTimeout(() => { if (this.mode === 'nox') el.classList.add('is-out'); }, when(centres[j]))); });
+      // Hedwig: as he flies over her, she takes off in his wake and leaves the frame (her perch is going out).
+      if (owlAt != null) this.noxTimers.push(setTimeout(() => { if (this.mode === 'nox' && this.owl && !this.owlNox) { this.owlNox = true; this.owl.liftOff(900); } }, when(owlAt + 3)));
+      this.noxTimers.push(setTimeout(() => { if (this.mode === 'nox' && this.root) this.settleNox(); }, (FLY_MS + 100) * k));
+    };
+    decoded(img).then(() => requestAnimationFrame(() => requestAnimationFrame(start)));
     return true;
   },
-  // The rider, the mist push and the per-app extinction all reset: used by wake() and before a new fly-by.
+  // The rider, the motes, the mist push and the per-app extinction all reset: used by wake() and before a new fly-by.
   clearFly() {
     const root = this.root; if (!root) return;
+    this.flyGen++;                                             // a crossing still waiting for its frames never starts
     if (this.riderAnim) { this.riderAnim.onfinish = null; this.riderAnim.cancel(); this.riderAnim = null; }
     if (this.mistAnim) { this.mistAnim.onfinish = null; this.mistAnim.cancel(); this.mistAnim = null; }
-    const layer = root.querySelector('.home-rider'); if (layer) layer.classList.remove('fly');
+    if (this.motes) { this.motes.forEach((a) => a.cancel()); this.motes = null; }
+    const layer = root.querySelector('.home-rider'); if (layer) layer.classList.remove('fly', 'go');
     root.classList.remove('nox-fly');
     this.items.forEach((it) => it.classList.remove('is-out'));
   },
@@ -807,8 +936,33 @@ export default {
     if (choice === 'move') this.enterMove();
     else if (choice === 'remove') this.removeFromDock(app.id);
     else if (choice === 'hide') { const c = getConfig(); updateConfig({ dock: c.dock.filter((id) => id !== app.id), hidden: [...c.hidden, app.id] }); this.rebuild(); }
-    else if (choice === 'appinfo') { const r = Platform.openSystem('appinfo', app.pkg); if (r.status === 'failed') { const b = await loadBeuglante(); if (b) b(this.root, { message: r.error }); } }
-    else if (choice === 'info') { const b = await loadBeuglante(); if (b) b(this.root, { message: app.pkg ? `${app.name} · ${app.pkg}` : `${app.name} · ${app.input || 'ajoutée à la main'}` }); }
+    else if (choice === 'appinfo') { const r = Platform.openSystem('appinfo', app.pkg); if (r.status === 'failed') this.howl({ message: r.error }); }
+    else if (choice === 'info') this.howl({ message: this.infoText(app) });
+  },
+  // "Infos": one plain French sentence, never a package name or an input id.
+  infoText(app) {
+    const n = app.name;
+    if (app.absent) return app.cat === 'passage'
+      ? `${n} : cette entrée n’existe pas sur cette télé. « Retirer du parapet » l’enlève.`
+      : `${n} n’est pas installée sur cette télé. « Retirer du parapet » l’enlève.`;
+    if (app.port) return `${n} : entrée HDMI ${app.port}${app.connected === false ? ', rien n’y est branché pour l’instant' : ''}.`;
+    if (app.cat === 'passage') return `${n} : une entrée de la télé.`;
+    if (app.custom) return `${n} : ajoutée à la main sur la Carte du Maraudeur.`;
+    return `${n} : sur la télé, « Infos de l’appli » ouvre sa page.`;
+  },
+  // A Howler over the Parapet: while it is up, the dock (its reflections with it) and the owl step back, so the card
+  // never sits over half-hidden logos; they come back when it burns out.
+  async howl(opts) {
+    const b = await loadBeuglante(); if (!b || !this.root) return;
+    const root = this.root;
+    root.classList.add('howling');
+    b(root, opts);
+    const gen = ++this.howls;
+    const cards = root.querySelectorAll('.beuglante'), card = cards[cards.length - 1];
+    const back = () => { if (this.root === root && this.howls === gen) root.classList.remove('howling'); };
+    if (!card) { back(); return; }
+    const mo = new MutationObserver(() => { if (!card.isConnected) { mo.disconnect(); back(); } });
+    mo.observe(root, { childList: true });
   },
   removeFromDock(id) { updateConfig({ dock: getConfig().dock.filter((x) => x !== id) }); this.rebuild(); },
   rebuild() { if (!this.root) return; this.apps = this.dockList(); this.i = Math.min(this.i, Math.max(0, this.apps.length - 1)); this.buildDock(); this.layout(true); },

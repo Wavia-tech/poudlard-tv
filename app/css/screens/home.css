@@ -8,12 +8,18 @@
    castle, hidden at rest, revealed by opacity in six vertical bands (a wave). Movement answers a key, is transform /
    opacity only and stops by itself. Zero blend mode, zero filter, zero clip-path animation, no animated box-shadow,
    will-change only while something moves. Sizes from the base.css type scale, nothing below --t-hint.
-   Geometry: every scene number is a CSS px of the 960 x 540 screen (scene.json), written calc(<px>cqw / 9.6). */
+   Geometry: every scene number is a CSS px of the 960 x 540 screen (scene.json), written calc(<px>cqw / 9.6).
+   The low-RAM TV (.lite, home.js): ONE still opaque picture (castle.jpg) with the mist painted on it, no planes, no
+   parallax, the lit windows over the night fade; nothing screen-sized is ever promoted there. */
 .screen-home { background: var(--night); }
 
 /* ---- Backdrop: three planes ---- */
-/* The scene keeps the screen's 16:9 at any stage size (the TV is 960 x 540): a taller stage shows night around it. */
-.home-scene { position: absolute; left: 0; top: calc((100% - 56.25cqw) * .45); width: 100cqw; height: 56.25cqw; pointer-events: none; }
+/* The scene keeps the screen's 16:9 at any stage size (the TV is 960 x 540): a taller stage shows night around it.
+   Its background is a 64 x 36 picture of the castle inlined here (400 bytes): the first frame is the castle, never
+   flat night, while the real pictures decode (they cover it whole). */
+.home-scene, .home-litwrap { position: absolute; left: 0; top: calc((100% - 56.25cqw) * .45); width: 100cqw; height: 56.25cqw; pointer-events: none; }
+.home-scene { background: #0b1322 url("data:image/webp;base64,UklGRogBAABXRUJQVlA4IHwBAADwCgCdASpAACQAPtFYpEyoJSOiMBgJWQAaCWUAx+r1Nd2f6RfXVJvr73mz45Ma0dwIHfwam9NogrkGD7FvGD6GCs1ePaKNWsDz/TCwV8/7M/ecFgXUCQZ2t5P1oe6x6UgA/vhorykIffjU8hQuJOc3UcMEKHJUJuw7BngYt+X1KG50BJ5YFw+pRhIgJw90FHLntMI9o3Ie6f+Fn7l8gMtuMfHu/8dryUkqSiUx+uv3vkxiI9q5o0sUNFeF3EwYXb7n27Dq4+lfab84h5GMAsI3saYvk+5OxHL4m8nvar003Tehmzz+FU3EKDX8lKd6drQjiUYv5lgebUbsyYKuiaI6AExXQJvUvQJs3jqPmr8l5gmJ9Ae35ObS8FXbL2eL/F2k6A6N5pQCQdTHuaSGAJhmpEI/0cUZSvnMLFyD8i3q4t7FAddaJSm4CNloG5jqpO/FwdjfPxeRQw3/7ZhvPlwaulkm5aTWI2Jt2lKDVJxbNC1tPtd7yxRywdcAAA==") center / 100% 100% no-repeat; }
+.screen-home.no-castle .home-scene { background-image: none; }
 .home-layer { position: absolute; left: calc(-16cqw / 9.6); top: 0; width: calc(992cqw / 9.6); height: 56.25cqw;
   transition: transform calc(var(--k) * 680ms) cubic-bezier(.25, .46, .2, 1); }
 .home-scene.is-moving .home-layer { will-change: transform; }        /* only while the focus moves (home.js drops it) */
@@ -24,7 +30,11 @@
 .home-fg-l { left: 0; top: calc(43.5cqw / 9.6); width: calc(346cqw / 9.6); height: calc(496.5cqw / 9.6); }
 .home-fg-r { left: calc(897.5cqw / 9.6); top: calc(244.5cqw / 9.6); width: calc(94.5cqw / 9.6); height: calc(265cqw / 9.6); }
 /* Until a plane is decoded it is not shown (no half-drawn backdrop); the planes appear together (home.js). */
-.home-scene:not(.is-ready) .home-layer { visibility: hidden; }
+.home-scene:not(.is-ready) .home-layer, .home-scene:not(.is-ready) .home-fallback { visibility: hidden; }
+/* Until then the chrome waits too (home.js .is-waiting, 1.5 s at most), then comes in with the castle (.is-reveal: one
+   short fade, opacity only). */
+.screen-home.is-waiting :is(.home-clock, .home-crest, .home-bar, .home-dock, .home-hint, .home-arena) { opacity: 0 !important; transition: none !important; }
+.screen-home.is-reveal :is(.home-clock, .home-crest, .home-bar, .home-dock, .home-hint, .home-arena) { transition: opacity calc(var(--k) * 400ms) var(--ease-fade) !important; }
 /* A plane failed to load: the single picture (assets/castle.jpg) instead, still, no parallax; then the night gradient. */
 .home-fallback { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 50% 45%; display: block; }
 .screen-home.no-castle .home-scene { background: radial-gradient(ellipse at 50% 30%, #122744, #050a14 70%); }
@@ -36,6 +46,8 @@
 .home-lit.on { visibility: visible; }
 .home-lit-band { position: absolute; top: 0; height: 100%; overflow: hidden; opacity: 0; }
 .home-lit-band img { position: absolute; top: 0; height: 100%; width: calc(517.5cqw / 9.6); }
+/* The low-RAM TV: the same layer over the night fade (home.js), in screen coordinates (the planes' 16 px margin off). */
+.home-litwrap .home-lit { left: calc(157cqw / 9.6); }
 
 /* The mist: barely there, between the castle and the pines. One layer exactly the width of the screen (mist.png is
    960 x 130, soft). Still at rest; the Nox fly-by pushes it aside (home.js, one transform + opacity wave). */
@@ -89,7 +101,7 @@
    --ease-breath); the shadow (a pre-rendered picture, logo-shadow.webp) and the reflection only change opacity and
    transform. The press, the owl's landing and the "move" mode ride the same lift. focus.css's .home-app press and
    land rules are taken over here (the box itself stays still). */
-.home-app { --lift: .62cqw; position: relative; flex: none; height: 3.6cqw; }
+.home-app { --lift: .625cqw; position: relative; flex: none; height: 3.6cqw; }   /* 6 CSS px: 12 whole device px at DPR 2 */
 .screen-home .home-app.is-focus.is-press { transform: none; }
 .screen-home .home-app.is-land { animation: none; }
 .home-lift { position: absolute; inset: 0; transform: none; transition: transform calc(var(--k) * var(--t-focus)) var(--ease-breath); }
@@ -98,31 +110,48 @@
 .home-app.is-land .home-lift { animation: home-land calc(var(--k) * var(--t-land)) var(--ease-settle); }
 @keyframes home-land { 0%, 100% { transform: translateY(calc(var(--lift) * -1)) scale(1.24); } 45% { transform: translateY(calc(var(--lift) * -.86)) scale(1.234); } }
 .home-app.lifted .home-lift { transform: translateY(calc(var(--lift) * -2.2)) scale(1.24); }
-.home-app-shadow { position: absolute; left: -6%; right: -6%; top: 82%; height: 46%; opacity: 0; pointer-events: none;
+/* The shadow is cast on the stone below the lifted logo, not glued to its edge: a quarter of its height lower. */
+.home-app-shadow { position: absolute; left: -6%; right: -6%; top: 95%; height: 46%; opacity: 0; pointer-events: none;
   background: url("../../assets/scene/logo-shadow.webp") center / 100% 100% no-repeat; transition: opacity calc(var(--k) * var(--t-focus)) var(--ease-fade); }
-.home-app.is-focus .home-app-shadow { opacity: .75; }
+.home-app.is-focus .home-app-shadow { opacity: .6; }
 /* The reflection: the logo's own mask, flipped, gold fading downwards (the gradient, not a filter), faint. At rest it
-   is not there (opacity 0); in focus it sinks as the logo rises (a mirror). */
-.home-app-reflect { position: absolute; inset: 0; opacity: 0; pointer-events: none; transform-origin: 50% 50%;
+   is not there (opacity 0); in focus it sinks as the logo rises (a mirror). The water (.home-app-water) carries the
+   movement; the masked pictures inside it stay still, so their masks are drawn once into its layer, never per frame. */
+.home-app-water { position: absolute; inset: 0; opacity: 0; pointer-events: none; transform-origin: 50% 50%;
   transform: translateY(calc(100% + .25cqw)) scale(1, -1);
-  -webkit-mask: var(--m) center / contain no-repeat; mask: var(--m) center / contain no-repeat;
-  background: linear-gradient(to top, #f3d27ab3 0%, #c08f3540 34%, #c08f3500 64%);
   transition: opacity calc(var(--k) * var(--t-focus)) var(--ease-fade), transform calc(var(--k) * var(--t-focus)) var(--ease-breath); }
-.home-app-reflect.luma { mask-mode: luminance; }
-.home-app.is-focus .home-app-reflect { opacity: .24; transform: translateY(calc(124% + .25cqw + var(--lift) * .5)) scale(1.24, -1.24); }
+.home-app.is-focus .home-app-water { opacity: .24; transform: translateY(calc(124% + .25cqw + var(--lift) * .5)) scale(1.24, -1.24); }
+.home-app-reflect, .home-app-ripple { position: absolute; inset: 0; -webkit-mask: var(--m) center / contain no-repeat; mask: var(--m) center / contain no-repeat; }
+.home-app-reflect { background: linear-gradient(to top, #f3d27ab3 0%, #c08f3540 34%, #c08f3500 64%); }
+.home-app-reflect.luma, .home-app-ripple.luma { mask-mode: luminance; }
+/* A filled logo (a tile, a disc, a solid letter: home.js TILE_LOGOS) would mirror as a second, dimmer tile: its
+   reflection is only the top 40 % of the mirror, fading from .24 to nothing, broken by a thin band shifted 1.5 px
+   sideways (.home-app-ripple: the same mask, offset; only the band is painted, at .6 of the reflection). */
+.home-app-reflect.tile { background: linear-gradient(to top, #f3d27a 0%, #d9ac55a6 9%, #d9ac5500 9%, #d9ac5500 13%, #c08f3580 13%, #c08f3500 40%); }
+.home-app-ripple { -webkit-mask-position: calc(50% + .16cqw) center; mask-position: calc(50% + .16cqw) center;
+  background: linear-gradient(to top, #0000 9%, #e6bd6a99 9%, #d9ac5580 13%, #0000 13%); }
+/* The low-RAM TV: a focus move animates whole layers only (the lift, the water, the shadow, the owl). The logo's
+   engraved layers switch to gold at once under the lift (a per-layer cross-fade there means one masked render pass
+   per layer per frame on that GPU). */
+.screen-home.lite .home-app .app-logo i, .screen-home.lite .home-app .app-logo .l-base::after { transition: none; }
 /* Other logos: an even white (the same ivory, no moonlit rim), so only the focused one is gold. */
 .home-app:not(.is-focus) .app-logo .l-rimL { opacity: 0; }
 .home-app:not(.is-focus) .app-logo .l-base { opacity: .8; }
 /* Reduced motion (the setting, or the system's when followed): the focus is a plain 200 ms change, no land dip. */
-html:not([data-motion="auto"]) .home-lift, html:not([data-motion="auto"]) .home-app-shadow, html:not([data-motion="auto"]) .home-app-reflect { transition-duration: calc(var(--k) * 200ms); }
+html:not([data-motion="auto"]) :is(.home-lift, .home-app-shadow, .home-app-water) { transition-duration: calc(var(--k) * 200ms); }
 html:not([data-motion="auto"]) .home-app.is-land .home-lift { animation: none; }
 @media (prefers-reduced-motion: reduce) {
-  html:not([data-motion-system="ignore"]) .home-lift, html:not([data-motion-system="ignore"]) .home-app-shadow, html:not([data-motion-system="ignore"]) .home-app-reflect { transition-duration: calc(var(--k) * 200ms); }
+  html:not([data-motion-system="ignore"]) :is(.home-lift, .home-app-shadow, .home-app-water) { transition-duration: calc(var(--k) * 200ms); }
   html:not([data-motion-system="ignore"]) .home-layer { transition: none; }
 }
 .home-empty { font-size: var(--t-body); opacity: .7; }
-/* An app the TV does not have (a package missing, a port the TV lacks): faded until the Remembrall removes it. */
-.home-app.is-absent .app-logo { opacity: .4; }
+/* An app the TV does not have (a package missing, a port the TV lacks): muted until the Remembrall removes it. The
+   logo stays opaque (the backdrop never shows through it): a flat warm grey, no rim, no gold, a lighter grey in focus
+   (the lift and the owl say where the focus is). Its reflection is not there. */
+.home-app.is-absent .app-logo .l-base { background-color: #77746d; opacity: 1; }
+.home-app.is-absent.is-focus .app-logo .l-base { background-color: #9a968c; }
+.home-app.is-absent .app-logo .l-base::after, .home-app.is-absent .app-logo .l-rimL, .home-app.is-absent .app-logo .l-ext, .home-app.is-absent .app-logo .l-shine { opacity: 0; }
+.home-app.is-absent .home-app-water { display: none; }
 /* House crest, under the clock, sealed in wax. */
 .home-crest { position: absolute; top: calc(var(--safe-y) + 9.7cqw); left: calc(var(--safe-x) + .2cqw); display: flex; align-items: center; gap: .8cqw; opacity: 0; transform: translateY(.4cqw); transition: opacity calc(var(--k) * 500ms), transform calc(var(--k) * 500ms); }
 .home-crest.show { opacity: 1; transform: none; }
@@ -147,18 +176,23 @@ html:not([data-motion="auto"]) .home-app.is-land .home-lift { animation: none; }
 .home-hint b { font-family: var(--display); font-size: .85em; opacity: .7; margin-right: .4cqw; }
 
 /* Lumos: the castle's windows light up in a wave from left to right (home.js), then the backdrop dims, the logo turns
-   to molten gold and the launch card comes up. No disc, no veil of light over the scene: the light is in the windows. */
-.home-dim { position: absolute; inset: 0; background: var(--night); opacity: 0; pointer-events: none; transition: opacity calc(var(--k) * 520ms) var(--ease-fade); z-index: 20; }
-.home-dim.on { opacity: .82; }
+   to molten gold and the launch card comes up. No disc, no veil of light over the scene: the light is in the windows.
+   The screen-sized overlays (dim, launch card, plate, veil, disc) are not painted at all while unused (visibility
+   hidden once their fade is over): never a screen-sized layer at rest. */
+.home-dim { position: absolute; inset: 0; background: var(--night); opacity: 0; pointer-events: none; z-index: 20; visibility: hidden;
+  transition: opacity calc(var(--k) * 520ms) var(--ease-fade), visibility 0s calc(var(--k) * 520ms); }
+.home-dim.on { opacity: .82; visibility: visible; transition: opacity calc(var(--k) * 520ms) var(--ease-fade), visibility 0s; }
 /* The boot's point of light (boot only). */
-.home-disc { position: absolute; left: 0; top: 0; width: 24cqw; height: 24cqw; margin: -12cqw 0 0 -12cqw; border-radius: 50%; pointer-events: none; z-index: 45; opacity: 0;
+.home-disc { position: absolute; left: 0; top: 0; width: 24cqw; height: 24cqw; margin: -12cqw 0 0 -12cqw; border-radius: 50%; pointer-events: none; z-index: 45; opacity: 0; display: none;
   background: radial-gradient(closest-side, #fff6e080 0%, #ffe7b35a 22%, #ffb45733 48%, #ff9d3a12 70%, #ff8c2a00 100%); }
+.screen-home.booting .home-disc { display: block; }
 /* Anticipation: before the light rises, the logo "charges" (its shine sweeps twice, a little faster than at rest). */
 .app-logo.charging .l-shine { opacity: 1; }
 .app-logo.charging .l-shine::before { animation: logo-shine calc(var(--k) * 460ms) cubic-bezier(.4, 0, .3, 1) 2; }
 .home-launch { position: absolute; inset: 0; z-index: 50; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1.6cqw;
-  background: radial-gradient(ellipse at 50% 45%, #0f1a30, var(--night) 70%); opacity: 0; pointer-events: none; transition: opacity calc(var(--k) * 560ms) var(--ease-fade); }
-.home-launch.show { opacity: 1; }
+  background: radial-gradient(ellipse at 50% 45%, #0f1a30, var(--night) 70%); opacity: 0; pointer-events: none; visibility: hidden;
+  transition: opacity calc(var(--k) * 560ms) var(--ease-fade), visibility 0s calc(var(--k) * 560ms); }
+.home-launch.show { opacity: 1; visibility: visible; transition: opacity calc(var(--k) * 560ms) var(--ease-fade), visibility 0s; }
 .home-launch-logo { width: 22cqw; height: 8cqw; }
 .home-launch-banner { width: 22cqw; aspect-ratio: 16 / 9; object-fit: cover; border-radius: .4cqw; box-shadow: 0 .6cqw 1.6cqw #000c; display: none; }
 .home-launch.has-banner .home-launch-banner { display: block; }
@@ -167,11 +201,13 @@ html:not([data-motion="auto"]) .home-app.is-land .home-lift { animation: none; }
 .home-launch-sub { font-family: var(--body); font-size: var(--t-body); color: var(--moon); opacity: .8; }
 /* Photosensitivity and reduced motion: no disc, the card fades in 200 ms. */
 html:not([data-motion="auto"]) .home-disc { display: none; }
-html:not([data-motion="auto"]) .home-launch { transition-duration: calc(var(--k) * 200ms); }
+html:not([data-motion="auto"]) .home-launch { transition-duration: calc(var(--k) * 200ms), 0s; }
+html:not([data-motion="auto"]) .home-launch:not(.show) { transition-delay: 0s, calc(var(--k) * 200ms); }
 
 /* Boot-up: a night veil over everything, the light opens (disc), the veil lifts, the windows light up (a gentle wave),
    the clock writes itself, the dock rises, the owl arrives. The veil appears at once (no transition) and lifts in 600 ms. */
-.home-veil { position: absolute; inset: 0; background: var(--night); opacity: 0; pointer-events: none; z-index: 42; }
+.home-veil { position: absolute; inset: 0; background: var(--night); opacity: 0; pointer-events: none; z-index: 42; display: none; }
+.screen-home.booting .home-veil, .screen-home.boot-open .home-veil { display: block; }
 .screen-home.booting:not(.boot-open) .home-veil { opacity: 1; }
 .screen-home.boot-open .home-veil { transition: opacity calc(var(--k) * 600ms) var(--ease-fade); }
 .screen-home.booting .home-clock, .screen-home.booting .home-bar, .screen-home.booting .home-crest { opacity: 0; }
@@ -193,13 +229,14 @@ html:not([data-motion="auto"]) .home-launch { transition-duration: calc(var(--k)
 
 /* Nox entrance: the fly-by (home.js flyBy). Harry on his broom (rider.webp, the owner's own picture, mirrored so he
    flies left to right), 17 cqw wide, above the owl's head (home.js sets the top in px). home.js drives the crossing
-   (translateX −22 → 132 cqw, 1600 ms), the per-app extinction and Hedwig taking off. Here: the bob and the lean, the
-   golden trail (a pre-rendered soft streak pinned behind the bristles: it stretches as he gathers speed and fades as
-   he leaves), the mist wake rolling off the broom. Every part is hidden at rest (the layer is not painted). */
+   (translateX −22 → 132 cqw, 1600 ms), the motes, the per-app extinction and Hedwig taking off. Here: the bob and the
+   lean, the mist wake rolling off the broom. .fly shows and promotes the layers while they are still off-screen;
+   .go, two frames later, runs them. Every part is hidden at rest (the layer is not painted). */
 .home-rider { position: absolute; left: 0; top: 40%; width: 17cqw; height: calc(17cqw * 216 / 399); pointer-events: none; transform: translateX(-22cqw); visibility: hidden; }
 .home-rider.fly { visibility: visible; will-change: transform; }
 .home-rider-bob { position: absolute; inset: 0; transform: rotate(-3deg); transform-origin: 50% 62%; }
-.home-rider.fly .home-rider-bob { animation: home-rider-bob calc(var(--k) * 1600ms) cubic-bezier(.45, 0, .55, 1); }
+.home-rider.fly .home-rider-bob { will-change: transform; }
+.home-rider.go .home-rider-bob { animation: home-rider-bob calc(var(--k) * 1600ms) cubic-bezier(.45, 0, .55, 1); }
 .home-rider-img { display: block; width: 100%; height: 100%; transform: scaleX(-1); }
 @keyframes home-rider-bob {
   0% { transform: translateY(.45cqw) rotate(-4.5deg); }
@@ -207,29 +244,32 @@ html:not([data-motion="auto"]) .home-launch { transition-duration: calc(var(--k)
   62% { transform: translateY(.22cqw) rotate(-3.6deg); }
   100% { transform: translateY(-.25cqw) rotate(-2deg); }
 }
-.home-rider-trail, .home-rider-wake { position: absolute; display: block; opacity: 0; pointer-events: none; }
-.home-rider-trail { right: 84%; top: calc(66% - 1.5625cqw); width: 31.25cqw; height: 3.125cqw; transform-origin: 100% 50%; }
-.home-rider.fly .home-rider-trail { animation: home-trail calc(var(--k) * 1600ms) linear both; }
-@keyframes home-trail {
-  0% { opacity: 0; transform: scaleX(.2); }
-  16% { opacity: .7; transform: scaleX(.5); }
-  42% { opacity: .75; transform: scaleX(.85); }
-  74% { opacity: .55; transform: scaleX(.85); }
-  100% { opacity: 0; transform: scaleX(.65); }
-}
+.home-rider-wake { position: absolute; display: block; opacity: 0; pointer-events: none; }
 .home-rider-wake { right: 66%; top: 60%; width: calc(160cqw / 9.6); height: calc(36cqw / 9.6); transform-origin: 100% 50%; }
-.home-rider.fly .home-rider-wake { animation: home-wake calc(var(--k) * 1600ms) cubic-bezier(.3, 0, .4, 1) both; }
+.home-rider.fly .home-rider-wake { will-change: transform, opacity; }
+.home-rider.go .home-rider-wake { animation: home-wake calc(var(--k) * 1600ms) cubic-bezier(.3, 0, .4, 1) both; }
 @keyframes home-wake {
   0% { opacity: 0; transform: translateX(0) scale(.6); }
   24% { opacity: .5; transform: translateX(-1cqw) scale(.9); }
   66% { opacity: .38; transform: translateX(-3cqw) scale(1.15, 1.3); }
   100% { opacity: 0; transform: translateX(-5.5cqw) scale(1.3, 1.5); }
 }
+/* The motes behind the bristles: hard points of warm white (2.5 to 3 CSS px, a solid disc: no glow, no blur), placed at
+   fixed points of his path by home.js (transform) and faded by it (opacity, 320 ms each). Not painted at rest. */
+.home-motes { position: absolute; left: 0; top: 0; width: 0; height: 0; pointer-events: none; visibility: hidden; }
+.screen-home.nox-fly .home-motes { visibility: visible; }
+.home-mote { position: absolute; left: 0; top: 0; width: .31cqw; height: .31cqw; margin: -.155cqw 0 0 -.155cqw; border-radius: 50%; background: #f4ecd8; opacity: 0; }
+.home-mote:nth-child(3n + 2) { width: .25cqw; height: .25cqw; margin: -.125cqw 0 0 -.125cqw; }
 /* An app goes out when his nose passes it: a 120 ms cross-fade and a 1.2 cqw sink (the box moves; the lift inside keeps its focus). */
 .home-app.is-out { opacity: 0; transform: translateY(1.2cqw); transition: opacity calc(var(--k) * 120ms) var(--ease-fade), transform calc(var(--k) * 120ms) var(--ease-fade); }
-/* While he crosses, the crest, the hint and the bar withdraw; the dock itself waits for the apps. */
+/* While he crosses, the crest, the hint and the bar withdraw; the dock itself waits for the apps. On the low-RAM TV
+   the dock goes out as one while he is over it (one layer instead of one per app). */
 .screen-home.nox-fly .home-crest, .screen-home.nox-fly .home-hint, .screen-home.nox-fly .home-bar { opacity: 0 !important; transition-duration: calc(var(--k) * 600ms); }
-html:not([data-motion="auto"]) .home-rider { display: none; }
+.screen-home.lite.nox-fly .home-dock { opacity: 0; transition: opacity calc(var(--k) * 500ms) var(--ease-fade) calc(var(--k) * 450ms); }
+html:not([data-motion="auto"]) .home-rider, html:not([data-motion="auto"]) .home-motes { display: none; }
+/* A Howler over the Parapet (home.js howl): the dock, its reflections and the owl step back while the card is up. */
+.screen-home.howling .home-dock, .screen-home.howling .home-arena { opacity: 0 !important; transition: opacity calc(var(--k) * 300ms) var(--ease-fade) !important; }
+.screen-home .home-arena { transition: opacity calc(var(--k) * 300ms) var(--ease-fade); }
 
 /* Ambiance vivante (config.ambiance 'vivante', off by default, never with reduced motion): the only loops allowed at
    rest. The lake's window reflections shimmer (two small pictures, 360 x 56 CSS px, inside the castle plane, opacity
@@ -250,10 +290,10 @@ html:not([data-motion="auto"]) .home-rider { display: none; }
 .screen-home.amb-paused .home-shimmer, .screen-home.amb-paused .home-drift i { animation-play-state: paused; }
 
 /* "Nox?" plate */
-.home-plate { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%) scale(.96); z-index: 52; opacity: 0; pointer-events: none;
+.home-plate { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%) scale(.96); z-index: 52; opacity: 0; pointer-events: none; visibility: hidden;
   padding: 2cqw 3.2cqw; text-align: center; display: grid; gap: 1cqw; background: var(--stone); border: .1cqw solid var(--gold-dark); border-radius: .3cqw;
-  box-shadow: 0 1cqw 2cqw #000c; transition: opacity calc(var(--k) * 200ms), transform calc(var(--k) * 200ms); }
-.home-plate.show { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  box-shadow: 0 1cqw 2cqw #000c; transition: opacity calc(var(--k) * 200ms), transform calc(var(--k) * 200ms), visibility 0s calc(var(--k) * 200ms); }
+.home-plate.show { opacity: 1; transform: translate(-50%, -50%) scale(1); visibility: visible; transition: opacity calc(var(--k) * 200ms), transform calc(var(--k) * 200ms), visibility 0s; }
 .home-plate-title { font-size: var(--t-label); }
 .home-plate-sub { font-family: var(--body); font-size: var(--t-body); color: var(--moon); }
 .home-plate-opts { display: flex; gap: 2cqw; justify-content: center; margin-top: .6cqw; }
