@@ -10,12 +10,12 @@
 //      (no B → E pickup, the ascending fourth in anacrusis that opens the films' theme);
 //   3. the forbidden cells, in absolute pitches AND at every transposition, in the sequence of consecutive
 //      intervals: E–G–F#–E (+3 −1 −2), B–A–F# preceded by a fifth (+7 −2 −3), and the +5 +3 −1 variant;
-//   4. the background music file: app/assets/music/ambiance.ogg present and under 3 MB, no other ambiance.* left,
+//   4. the background music file: app/assets/music/ambiance.ogg present and under 24 MB, no other ambiance.* left,
 //      probed first, probed with preload 'metadata', and never decoded whole (no decodeAudioData in sound.js);
-//   5. the levels (round 4, "the music is too low against the effects"): the music's gain chain (MASTER_DB + FILE_DB)
-//      is no lower than −16 dB and never above 0, the cues' CUE_PEAK_DB is no higher than −30, and, when ffmpeg is on
-//      the PATH, the file's first 12 s are no more than 6 dB quieter (RMS) than the whole file (the previous file
-//      opened 15 dB under its body, which is what the owner heard first). Without ffmpeg that last check is skipped.
+//   5. the levels (round 4, "the music is too low against the effects"): the file's el.volume (FILE_DB) is between
+//      −6 and 0 dB, the cues' CUE_PEAK_DB is no higher than −30, and, when ffmpeg is on the PATH, the file's first 12 s
+//      and its whole level are printed. The opening is not a failure: the owner's recording is shipped as it is, not
+//      levelled, and it opens well under its average (docs/MUSIC.md).
 // Everything is re-readable: the melody is written note by note in sound.js.
 import { readFileSync, statSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
@@ -78,15 +78,15 @@ for (const cell of ABS) {
   }
 }
 
-// ---- 4. the background music file (round 4: the 28 MB mp3 became a ≈ 2.8 MB Ogg Opus) ------------------------
+// ---- 4. the background music file (the owner's recording in Ogg Opus at 80 kbit/s, 19 MB) ---------------------
 // The file is shipped in the APK: it must stay small, it must be the first format probed, the probe must read the
-// header only, and the music must be streamed by an <audio> (a decoded 9-minute buffer would weigh ≈ 200 MB).
+// header only, and the music must be streamed by an <audio> (a decoded 30-minute buffer would weigh ≈ 1.3 GB).
 const musicDir = resolve(here, '..', 'app', 'assets', 'music');
 const ogg = resolve(musicDir, 'ambiance.ogg');
 let oggSize = -1;
 try { oggSize = statSync(ogg).size; } catch (e) { /* missing */ }
 check(oggSize > 0, `app/assets/music/ambiance.ogg is missing`);
-check(oggSize < 3_000_000, `ambiance.ogg weighs ${oggSize} bytes, the budget is 3 MB`);
+check(oggSize < 24_000_000, `ambiance.ogg weighs ${oggSize} bytes, the budget is 24 MB`);
 const filesBlock = text.slice(text.indexOf('const MUSIC_FILES = ['), text.indexOf('];', text.indexOf('const MUSIC_FILES = [')));
 check(/^\s*\{\s*src:\s*'assets\/music\/ambiance\.ogg'/m.test(filesBlock.split('\n')[1] || ''), 'MUSIC_FILES must probe assets/music/ambiance.ogg first');
 check(text.includes("el.preload = 'metadata'"), "the probe must use preload = 'metadata' (never download the whole file to probe it)");
@@ -100,8 +100,8 @@ for (const big of ['ambiance.mp3', 'ambiance.m4a', 'ambiance.wav', 'ambiance.fla
 const dbConst = (name) => { const m = text.match(new RegExp('^const ' + name + ' = (-?[0-9]+(?:[.][0-9]+)?);', 'm')); return m ? Number(m[1]) : NaN; };
 const masterDb = dbConst('MASTER_DB'), fileDb = dbConst('FILE_DB'), cueDb = dbConst('CUE_PEAK_DB');
 check(Number.isFinite(masterDb) && Number.isFinite(fileDb) && Number.isFinite(cueDb), 'MASTER_DB, FILE_DB and CUE_PEAK_DB must be plain numeric constants in sound.js');
-check(masterDb + fileDb >= -16, `music gain chain MASTER_DB + FILE_DB = ${masterDb + fileDb} dB: below −16 dB the music sits far under TV level again`);
-check(masterDb + fileDb <= 0, `music gain chain MASTER_DB + FILE_DB = ${masterDb + fileDb} dB: above 0 dB the file would clip`);
+check(fileDb >= -6, `FILE_DB = ${fileDb} dB: el.volume is the file's whole level, below −6 dB it sits far under TV level again`);
+check(fileDb <= 0, `FILE_DB = ${fileDb} dB: el.volume cannot go above 1`);
 check(cueDb <= -30, `CUE_PEAK_DB = ${cueDb}: above −30 dBFS the cues jump out over the music`);
 let opening = 'skipped (no ffmpeg on the PATH)';
 const rmsOf = (args) => {
@@ -114,7 +114,6 @@ if (oggSize > 0) {
   const head = rmsOf(['-t', '12']), whole = rmsOf([]);
   if (head !== null && whole !== null) {
     opening = `first 12 s ${head.toFixed(1)} dBFS RMS, whole file ${whole.toFixed(1)} dBFS RMS`;
-    check(head >= whole - 6, `ambiance.ogg opens ${(whole - head).toFixed(1)} dB under its own average (${opening}): level its opening`);
   }
 }
 

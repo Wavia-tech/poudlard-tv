@@ -26,7 +26,7 @@ Since November 2026 the repository also carries, on the maintainer's explicit de
 - the four house crest pictures (`app/assets/crest-*.webp`), cut out from published artwork owned by Warner Bros.;
 - the broom rider of the Nox fly-by (`app/assets/rider.webp`), Harry on his broom cut out from a photo supplied by the maintainer, a character and image owned by Warner Bros.;
 - the streaming apps' logos (`app/assets/logos.js`), trademarks of their owners;
-- a background music file (`app/assets/music/ambiance.ogg`, Ogg Opus, under 3 MB, re-encoded from the maintainer's own file), a recording whose rights belong to its author. It replaces the earlier 28 MB `ambiance.mp3`.
+- a background music file (`app/assets/music/ambiance.ogg`, Ogg Opus, 19 MB, re-encoded from the maintainer's own recording, from 29:45 to its end), a recording whose rights belong to its author.
 
 None of it is covered by the MIT license, none of it is claimed as original, and any rights holder may ask for its removal: open an issue or write to the maintainer and the file will be taken out of the repository. Anyone who forks or redistributes this repository does so under their own responsibility for these files. On a real TV the launcher can also use the icon each app provides to the system itself.
 

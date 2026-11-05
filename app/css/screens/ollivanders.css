@@ -1,98 +1,77 @@
-/* Ollivanders: the reference image under a cinematic treatment made only of still layers: a warm grade from the
-   lamp's side and a cool one from the night's, a vignette, a lower band with a hairline under the help strip, and the
-   selection (a veil over the whole shop except the chosen box or suitcase, plus a thin gold line drawn on its outline). No glow, no blur,
-   no blend mode, no layer wider than the screen, no loop: at rest nothing moves. A move of the choice is a cross-fade
-   of two static SVG layers (opacity); the arrival is one lean of the camera (transform); the caption's rule draws
-   itself from the centre (scaleX). */
-.screen-library { background: #030508; }
-.olv-scene { position: absolute; inset: 0; transform: scale(1); transform-origin: 50% 56%;
-  transition: transform calc(var(--k) * 900ms) cubic-bezier(.33, 0, .2, 1); }
-.olv-scene.lean { transform: scale(1.02); }
-.olv-scene.lean.is-press { transform: scale(1.028); transition-duration: calc(var(--k) * var(--t-press-in)); }
-.olv-bg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: fill; display: block; opacity: 0; transition: opacity calc(var(--k) * 700ms) var(--ease-fade); }
-.screen-library.is-in .olv-bg { opacity: 1; }
-.screen-library.no-image .olv-bg { display: none; }
+/* Ollivanders: at rest, one opaque picture (his image, with soft scrims for the caption and the help line baked in), the
+   chosen sprite with its baked shadow, the text. Nothing else over the picture: no veil, no outline, no grade, no vignette, no
+   filter, no blend mode, no loop. The choice is transform and opacity only, on the one curve for what arrives
+   (--ease-arrive): the old sprite settles while the new one rises, and a new key retargets from where they are. */
+.screen-library { background: #030508; contain: layout style; }
+.olv-scene { position: absolute; inset: 0; }
+.olv-bg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: fill; display: block; }
+.screen-library.no-image .olv-bg, .screen-library.no-image .olv-item { display: none; }
 .screen-library.no-image::before { content: ""; position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 30%, #2a1a0c, var(--night) 70%); }
 
-/* Arrival through the dive (router.js): the screen layer itself fades in, so the image, the grade, the selection and
-   the vignette are at their light already (no fade under a fade); the letterbox, label and lean follow is-in. */
-.screen-library.is-dive .olv-bg { opacity: 1; transition: none; }
-.screen-library.is-dive .olv-grade, .screen-library.is-dive .olv-sel, .screen-library.is-dive .olv-vignette { transition: none; }
-.screen-library.is-dive .olv-grade-warm { opacity: .16; }
-.screen-library.is-dive .olv-grade-cool { opacity: .34; }
-.screen-library.is-dive .olv-sel { opacity: 1; }
-.screen-library.is-dive .olv-vignette { opacity: .78; }
+/* A film's sprite: baked at its risen size and placed where it stands risen (image pixels as %, whole device pixels at
+   1080p), so that the settled focus is its pixels, 1:1 on the screen's. At rest it is drawn at --rest-s, --rest-y lower, which
+   is exactly its place in the picture, and invisible; always its own layer, so that a move raises nothing new on the GPU.
+   It fades out only once it has landed (the curve holds its opacity, then lets go), and in as it starts to rise. No transition
+   here has a delay or a zero duration: the compositor runs them whole, while a delayed one wakes the main thread at every
+   frame of its delay. */
+.olv-item { position: absolute; display: block; opacity: 0; will-change: transform, opacity; z-index: 1; pointer-events: none;
+  transform: translateY(var(--rest-y)) scale(var(--rest-s));
+  transition: transform calc(var(--k) * var(--t-settle)) var(--ease-arrive), opacity calc(var(--k) * 260ms) cubic-bezier(.7, 0, .85, .5); }
+.olv-item.is-focus { opacity: 1; transform: translateY(0) scale(1); z-index: 2;
+  transition: transform calc(var(--k) * var(--t-settle)) var(--ease-arrive), opacity calc(var(--k) * 140ms) cubic-bezier(.2, .6, .3, 1); }
+/* OK pressed: it gives way under the finger, at once, and comes back when released. */
+.olv-item.is-focus.is-press { transform: translateY(calc(var(--rest-y) * .5)) scale(calc((1 + var(--rest-s)) / 2)); transition-duration: calc(var(--k) * var(--t-press-in)); }
 
-/* Colour grade, two still layers at low opacity inside the scene (they lean with it). Warm: the lamp's amber
-   reaching across the counter from the left. Cool: the night's blue in the far corners and under the ceiling. */
-.olv-grade { position: absolute; inset: 0; pointer-events: none; opacity: 0; transition: opacity calc(var(--k) * 1200ms) var(--ease-fade); }
-.olv-grade-warm { background: radial-gradient(ellipse 60% 78% at 12% 52%, #ffb457 0%, #ff9a3a00 70%); }
-.olv-grade-cool { background: radial-gradient(ellipse 110% 95% at 88% 50%, #0b1a2e00 35%, #0b1a2e 100%), linear-gradient(180deg, #08142a 0%, #08142a00 28%); }
-.screen-library.is-in .olv-grade-warm { opacity: .16; }
-.screen-library.is-in .olv-grade-cool { opacity: .34; }
+/* What does not travel with the picture in a pan (router.js, .pan-fade): two groups, not one, so that fading them needs no
+   render surface the size of the screen. */
+.olv-captions, .olv-help { position: absolute; left: 0; right: 0; z-index: 6; pointer-events: none; }
+.olv-captions { top: 0; }
+.olv-help { bottom: 0; height: 4cqw; }
+/* "OK long : ...": the help line's place, only after a moment on a film (ollivanders.js dwell). */
+.keyhint.olv-long { opacity: 0; transition: opacity calc(var(--k) * 300ms) linear; }
+.keyhint.olv-long.is-on { opacity: .75; }
 
-/* The selection: two SVG layers the size of the scene (viewBox = the image's pixels, stretched like the image).
-   Each holds a veil (the frame minus the chosen box) and the box's outline. Only one is visible; a move redraws the
-   hidden one and swaps their opacity. The chosen box keeps its full light; the rest of the shop drops clearly, so the
-   choice reads from across the room without a single glowing pixel. */
-.olv-sel { position: absolute; inset: 0; pointer-events: none; opacity: 0; transition: opacity calc(var(--k) * 900ms) var(--ease-fade); }
-.screen-library.is-in .olv-sel { opacity: 1; }
-.olv-sel-layer { position: absolute; inset: 0; width: 100%; height: 100%; display: block; overflow: visible; opacity: 0;
-  transition: opacity calc(var(--k) * 340ms) var(--ease-fade); }
-.olv-sel-layer.is-on { opacity: 1; }
-.olv-veil { fill: #04060c; fill-opacity: .62; }
-/* The frame: a crisp gold hairline exactly on the box (1.5 CSS px whatever the screen, vector-effect in the JS),
-   over a slightly wider dark line that detaches it from the wood. A line, not a light. */
-.olv-frame-under { fill: none; stroke: #050302; stroke-opacity: .55; stroke-width: 3.5px; stroke-linejoin: miter; }
-.olv-frame { fill: none; stroke: #e3c47c; stroke-opacity: .95; stroke-width: 1.5px; stroke-linejoin: miter; }
+/* The caption, a museum label over the shelves: the film first, the app under it, quietly. One title per film and one
+   sub-line per distinct text, all typeset at mount, each its own small layer: a move changes nothing but opacities. The titles
+   do not overlap: the old one is gone in 90 ms; the new one holds at 0 for 70 ms (the curve, not a delay, see above) and comes
+   up over 180 ms with its 5 px rise. A sub-line that does not change stays where it is. */
+.olv-captions { --cap-top: 5.1cqw; }
+.screen-library[data-window="fb"] .olv-captions { --cap-top: 5.9cqw; }   /* under the lamp, which keeps its light */
+.olv-title, .olv-sub { position: absolute; left: 50%; max-width: 90cqw; white-space: nowrap; color: var(--ivory); will-change: transform, opacity; opacity: 0; text-align: center; }
+.olv-title { top: var(--cap-top); font-family: var(--fell); font-size: calc(var(--text-scale) * 3.2cqw); line-height: 1.15; letter-spacing: .005em;
+  text-shadow: 0 0 .6cqw #000a, 0 .06cqw .22cqw #000c; transform: translate(-50%, .28cqw);
+  transition: opacity calc(var(--k) * 90ms) linear, transform calc(var(--k) * 90ms) linear; }
+.olv-title.is-on { opacity: 1; transform: translate(-50%, 0);
+  transition: opacity calc(var(--k) * 250ms) linear(0 0%, 0 28%, 1 100%), transform calc(var(--k) * var(--t-settle)) var(--ease-arrive); }
+.olv-sub { top: calc(var(--cap-top) + var(--text-scale) * 4cqw); font-family: var(--body); font-size: calc(var(--text-scale) * 1.7cqw); line-height: 1.3; text-shadow: 0 0 .5cqw #000b;
+  transform: translate(-50%, 0); transition: opacity calc(var(--k) * 90ms) linear; }
+.olv-sub.is-on { opacity: .75; transition: opacity calc(var(--k) * 250ms) linear(0 0%, 0 28%, 1 100%); }
+/* In the Beasts' window the sub-line sits on the lamp's reflection, which his picture keeps: a little more ink and a closer halo. */
+.screen-library[data-window="fb"] .olv-sub { text-shadow: 0 0 .35cqw #000e, 0 0 .9cqw #000c; }
+.screen-library[data-window="fb"] .olv-sub.is-on { opacity: .92; }
 
-/* Vignette: one radial layer over the scene (it does not lean, so the frame stays still while the camera moves). */
-.olv-vignette { position: absolute; inset: 0; pointer-events: none; opacity: 0; transition: opacity calc(var(--k) * 1200ms) var(--ease-fade);
-  background: radial-gradient(ellipse 76% 68% at 50% 46%, #03050800 48%, #030508 108%); }
-.screen-library.is-in .olv-vignette { opacity: .78; }
-
-/* The lower band: it slides up from the bottom edge, a hairline of gold on its top edge (one 1 px line at low
-   opacity, not a glow), and the help strip sits inside it, as a film's subtitle would. No upper band: the shop's
-   picture runs to the top edge of the screen (a black strip there read as letterboxing on a 16:9 TV). */
-.olv-band { position: absolute; left: 0; right: 0; height: 4.2cqw; background: #030508; z-index: 5; pointer-events: none;
-  transition: transform calc(var(--k) * 1100ms) var(--ease-scene); }
-.olv-band::after { content: ""; position: absolute; left: 0; right: 0; height: 1px; background: var(--gold); opacity: .18; }
-.olv-band-bottom { bottom: 0; transform: translateY(100%); }
-.olv-band-bottom::after { top: 0; }
-.screen-library.is-in .olv-band { transform: translateY(0); }
-/* The key hint, centred in the lower band at the smallest size allowed (--t-hint, readable at 3 m), quieter than the
-   label (.5): the caption stays the brightest thing on the lower third. */
-.keyhint.olv-hint { z-index: 6; bottom: .95cqw; line-height: 1.3; opacity: .5; font-size: var(--t-hint); letter-spacing: var(--track-wide); color: var(--moon); gap: 2.4cqw; }
-.keyhint.olv-hint b { color: var(--gold); opacity: .7; font-weight: 500; }
-
-/* Caption, set like a museum label near the top edge, above the boxes (the wands start at 30% of the height, the
-   suitcases lower): it never crosses a box or its gold frame. The title in the wizard's hand, the label's gold rule,
-   a small-capitals line below in the engraved face. The cool grade already darkens this strip. */
-.olv-caption { position: absolute; left: 50%; top: 5.6cqw; z-index: 6; max-width: 90cqw; transform: translateX(-50%); text-align: center; white-space: nowrap; color: var(--ivory);
-  text-shadow: 0 .08cqw .2cqw #000d; opacity: 0; transition: opacity calc(var(--k) * 900ms) var(--ease-fade) calc(var(--k) * 300ms); }
-.screen-library.is-in .olv-caption { opacity: 1; }
-.olv-caption-title { font-family: var(--fell); font-size: var(--t-label); line-height: 1.15; letter-spacing: .01em; }
-/* The rule: one gold line, 1 px, 60% of the title's width (set in px by ollivanders.js), that draws itself from the
-   centre (scaleX 0 -> 1, 300 ms after a short breath). It retracts at once when the choice moves. */
-.olv-line { display: block; height: 1px; width: 10cqw; margin: .55cqw auto 0; background: var(--gold); transform-origin: 50% 50%; transform: scaleX(0); opacity: .8;
-  transition: transform calc(var(--k) * 300ms) cubic-bezier(.33, 0, .2, 1) calc(var(--k) * 140ms); }
-.olv-line.is-drawn { transform: scaleX(1); }
-.olv-caption-sub { font-family: var(--display); font-size: var(--t-hint); line-height: 1.3; letter-spacing: var(--track-wide); text-transform: uppercase; color: var(--gold-light); opacity: .78; margin-top: .55cqw; }
-.olv-caption.is-write .olv-caption-title { animation: olv-write calc(var(--k) * 380ms) cubic-bezier(.33, 0, .2, 1) both; }
-.olv-caption.is-write .olv-caption-sub { animation: olv-write calc(var(--k) * 380ms) cubic-bezier(.33, 0, .2, 1) calc(var(--k) * 70ms) both; }
-@keyframes olv-write { from { opacity: 0; transform: translateY(.35cqw); } }
-
-/* Lumos: everything else darkens, then the launch card. */
+/* Lumos: everything else darkens, then the launch card (empty until then: no full-screen layer at rest). */
+.olv-dim:empty { display: none; }
 .olv-dim { position: absolute; inset: 0; z-index: 50; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1.2cqw;
   background: radial-gradient(ellipse at 50% 45%, #1a1208, #030508 70%); opacity: 0; pointer-events: none; transition: opacity calc(var(--k) * 300ms); }
 .olv-dim.show { opacity: 1; }
 .olv-launch-logo { width: 20cqw; height: 7cqw; }
 .olv-launch-title { font-family: var(--fell); font-size: var(--t-title); color: var(--ivory); }
-.olv-launch-sub { font-size: var(--t-body); }
+.olv-launch-sub { font-family: var(--body); font-size: var(--t-body); color: var(--ivory); opacity: .75; }
 .screen-library.is-launch .olv-scene { transition: opacity calc(var(--k) * 150ms); opacity: .35; }
-.screen-library.is-launch .olv-caption { transition-delay: 0s; transition-duration: calc(var(--k) * 150ms); opacity: 0; }
-/* Up or Back to the Parapet (ollivanders.js onLeave): the label and the help strip go at once, the shop stays lit
-   while the router readies the Parapet for the undive. */
-.screen-library.is-leaving .olv-caption, .screen-library.is-leaving .olv-hint { transition: opacity calc(var(--k) * 160ms) var(--ease-fade); opacity: 0; }
-html:not([data-motion="auto"]) .olv-sel-layer, html:not([data-motion="auto"]) .olv-line, html:not([data-motion="auto"]) .olv-band { transition-duration: calc(var(--k) * 200ms); transition-delay: 0s; }
-html:not([data-motion="auto"]) .olv-scene.lean { transform: scale(1); }
+.screen-library.is-launch .olv-captions, .screen-library.is-launch .olv-help { transition: opacity calc(var(--k) * 150ms); opacity: 0; }
+/* Without motion (the Economy setting, or the system's): a cross-fade in place. The sprite keeps its risen place, so that it
+   only fades. */
+html:not([data-motion="auto"]) .olv-item, html:not([data-motion="auto"]) .olv-item.is-focus, html:not([data-motion="auto"]) .olv-item.is-focus.is-press { transform: none; transition: opacity calc(var(--k) * 200ms) linear; }
+html:not([data-motion="auto"]) .olv-title, html:not([data-motion="auto"]) .olv-title.is-on { transform: translate(-50%, 0); transition: opacity calc(var(--k) * 200ms) linear; }
+/* The apps of a film (OK): a row of logos in the sub-line's place. The chosen one lifts and comes up to full light, nothing around it. */
+.screen-library .olv-captions.is-picking .olv-sub.is-on { opacity: 0; transition: opacity calc(var(--k) * 120ms) linear; }
+.olv-pick { position: absolute; left: 50%; top: calc(var(--cap-top) + var(--text-scale) * 3.9cqw); display: flex; align-items: center; gap: 3.2cqw; transform: translate(-50%, .5cqw); opacity: 0; visibility: hidden;
+  transition: opacity calc(var(--k) * 160ms) linear, transform calc(var(--k) * var(--t-settle)) var(--ease-arrive), visibility 0s calc(var(--k) * 160ms); }
+.olv-pick.is-open { opacity: 1; visibility: visible; transform: translate(-50%, 0); transition-delay: 0s; }
+.olv-pick-app { flex: none; opacity: .5; will-change: transform, opacity; transition: transform calc(var(--k) * var(--t-settle)) var(--ease-arrive), opacity calc(var(--k) * var(--t-settle)) var(--ease-arrive); }
+.olv-pick-app.is-absent { opacity: .24; }
+.olv-pick-app.is-focus { opacity: 1; transform: translateY(-.2cqw) scale(1.16); }
+.olv-pick-app.is-focus.is-absent { opacity: .55; }
+.olv-pick-label { position: absolute; left: 50%; top: 100%; margin-top: .7cqw; transform: translateX(-50%); white-space: nowrap; color: var(--ivory); font-family: var(--body); font-size: calc(var(--text-scale) * 1.5cqw); line-height: 1.3; text-shadow: 0 0 .4cqw #000e, 0 0 1cqw #000c; }
+html:not([data-motion="auto"]) .olv-sub, html:not([data-motion="auto"]) .olv-sub.is-on { transition: opacity calc(var(--k) * 200ms) linear; }

@@ -63,7 +63,7 @@ final class Apps {
     private static final Pattern PKG = Pattern.compile("^[a-zA-Z][\\w]*(\\.[a-zA-Z][\\w]*)+$");
     /** Hosts allowed for openUrl: exact copy of URL_HOSTS in platform.js. Keep both lists identical. */
     static final Set<String> URL_HOSTS = new HashSet<>(Arrays.asList(
-            "www.max.com", "play.max.com", "www.netflix.com", "www.primevideo.com", "www.disneyplus.com", "www.youtube.com",
+            "www.max.com", "play.max.com", "play.hbomax.com", "app.primevideo.com", "www.netflix.com", "www.primevideo.com", "www.disneyplus.com", "www.youtube.com",
             "canalplus.com", "www.canalplus.com"));
     /**
      * The apps that own each allow-listed site, TV build first: openUrl hands the link to the first one installed
@@ -75,10 +75,13 @@ final class Apps {
         String[] max = { "com.wbd.stream", "com.hbo.hbonow" };
         LINK_APPS.put("www.max.com", max);
         LINK_APPS.put("play.max.com", max);
+        LINK_APPS.put("play.hbomax.com", max);
         String[] canal = { "com.canal.android.canal", "com.canal.android.canalplus" };
         LINK_APPS.put("canalplus.com", canal);
         LINK_APPS.put("www.canalplus.com", canal);
-        LINK_APPS.put("www.primevideo.com", new String[] { "com.amazon.amazonvideo.livingroom", "com.amazon.avod.thirdpartyclient" });
+        String[] prime = { "com.amazon.amazonvideo.livingroom", "com.amazon.avod.thirdpartyclient" };
+        LINK_APPS.put("www.primevideo.com", prime);
+        LINK_APPS.put("app.primevideo.com", prime);
         LINK_APPS.put("www.disneyplus.com", new String[] { "com.disney.disneyplus" });
         LINK_APPS.put("www.youtube.com", new String[] { "com.google.android.youtube.tv", "com.google.android.youtube" });
     }

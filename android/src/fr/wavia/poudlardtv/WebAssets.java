@@ -109,10 +109,13 @@ final class WebAssets {
     }
 
     /**
-     * Audio and video with byte ranges (206 Partial Content): the media player reads the 28 MB music file in small
+     * Audio and video with byte ranges (206 Partial Content): the media player reads the 19 MB music file in small
      * pieces and can loop or seek without the whole file going through memory. Only possible for an asset stored
      * uncompressed (build.sh adds assets with `jar -0`), whose length openFd() gives; otherwise null and the caller
      * serves the whole file.
+     *
+     * The stream handed back starts at byte 0 of the asset, whatever the Range says: the WebView itself skips `start`
+     * bytes of it when the request has a Range, then reads on. The headers still describe the range asked for.
      */
     private WebResourceResponse media(String path, String mime, Map<String, String> requestHeaders) {
         long length;
@@ -157,13 +160,9 @@ final class WebAssets {
         }
         InputStream in;
         try {
+            // Not skipped here (see above). Measured on the TV: a stream already at `start` answered bytes=1000-2023
+            // with 24 bytes, <audio> failed, and the synthesised waltz played instead.
             in = assets.open(ASSET_DIR + "/" + path, AssetManager.ACCESS_RANDOM);
-            long skipped = 0;
-            while (skipped < start) {
-                long k = in.skip(start - skipped);
-                if (k <= 0) break;
-                skipped += k;
-            }
         } catch (IOException e) {
             return null;
         }
@@ -173,10 +172,10 @@ final class WebAssets {
         h.put("Content-Length", String.valueOf(end - start + 1));
         if (partial) h.put("Content-Range", "bytes " + start + "-" + end + "/" + length);
         return new WebResourceResponse(mime, null, partial ? 206 : 200, partial ? "Partial Content" : "OK", h,
-                new Bounded(in, end - start + 1));
+                new Bounded(in, end + 1));
     }
 
-    /** An InputStream that stops after `left` bytes (the end of the requested range). */
+    /** An InputStream that stops after `left` bytes: from the top of the asset, the last byte of the requested range + 1. */
     private static final class Bounded extends java.io.FilterInputStream {
         private long left;
 

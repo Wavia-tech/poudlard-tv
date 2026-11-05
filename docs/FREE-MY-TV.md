@@ -176,7 +176,7 @@ What we keep of the idea, in a reversible version. The home chooser is the one e
   `LEANBACK_LAUNCHER`) to come back. Uninstalling the APK puts everything back. Since Android 10 the home is a role
   (`RoleManager` HOME): the system reassigns it when the component disappears; the app cannot hand the role to
   another app itself, so on a TV that still has two homes (a third-party launcher next to an enabled Google TV
-  launcher) the system may ask once which one to use. To be confirmed by the second device test (the "Test status"
+  launcher) the system may ask once which one to use. To be confirmed on a device (the "Test status"
   box in `android/README.md`).
 - Free My TV's `stockHome()` (list the system HOME activities, exclude itself and `FallbackHome`, do not guess
   when there are two candidates) is taken over in `HomeMode.originalHome()`, now as the **fallback** when no

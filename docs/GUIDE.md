@@ -43,12 +43,12 @@ One rule for every image: **no larger than it is shown on screen**. A TV has a f
 
 | Asset | Used for | Format | Where to find it, how to prepare it |
 |---|---|---|---|
-| The home backdrop | The Parapet | 16:9, at least 1920 px wide, JPEG or WebP | A generated image (the repository documents the method in `tools/README.md`) or an illustration you hold the rights to. Choose a calm lower third: the apps sit there. No photo from the films. |
-| The owl poses | Hedwig | Cut-out PNGs, transparent background, 600 px tall | Five poses are enough: perched, wings up, wings down, gliding, landing. Generated on a plain black background then cut out (`tools/cutout_owl.py`). All three-quarter views, facing the same side. |
-| The shop window | Ollivanders | 16:9, 1672×941 or the same ratio | A shop-window image with one box per film. The selection areas are polygons measured on the image (`app/js/screens/ollivanders.js`, constant `BOXES`). |
+| The home backdrop | The Parapet | `app/assets/castle.jpg`, JPEG, exactly 1920 × 1080 | A generated image (the repository documents the method in `tools/README.md`) or an illustration you hold the rights to. Choose a calm lower third: the apps sit there. No photo from the films. The Parapet does not show this file (only when a layer fails to load): `tools/parapet_scene.py` cuts it into the layers it draws, with outlines traced by hand for this one picture. **A new backdrop means tracing those again** (`ENV`, `SPIRES`, `SKY_THREADS`, `STILL`, `MOON`), and redoing the lit windows (`tools/README.md`). |
+| The owl poses | Hedwig | One picture, `app/assets/owl-sheet.webp`, made from cut-out PNGs | Seven poses, in this order: perched, looking, asleep, wings up, wings down, gliding, landing. Generated on a plain black background, cut out, packed, then graded for the night: `tools/cutout_owl.py`, then `--sheet`, then `--grade`. All three-quarter views, facing the same side. The page reads nothing else. |
+| The shop window | Ollivanders | Exactly 1920 × 1080 (`LIBRARY` and the traced sprites are in those pixels) | A shop-window image with one box per film. Each box becomes a sprite cut out of the image (`tools/shop_sprites.py`, where the silhouettes are traced). |
 | The film links | Ollivanders | One web address per title | On your streaming service's site, the film's page (or its search). For Netflix: `netflix.com/title/<number>`; for Canal+: the film's page on `canalplus.com`. Check on JustWatch first where each title is available in your country, and pick an app that is installed on your TV. Only the hosts on the whitelist in `app/js/platform.js` (identical in `Apps.java`) are accepted. |
 | The app logos | The Parapet, the Map | Monochrome SVGs | The repository carries the maintainer's set (`app/assets/logos.js`, versioned at his request). To use your own, `tools/README.md` explains how to assemble the file; it overwrites the versioned one, so do not commit it or redistribute it. |
-| The background music | The whole interface | Ogg Opus, under 3 MB | The repository ships `app/assets/music/ambiance.ogg`. To use a file you own instead, put it in its place (conversion command in `docs/MUSIC.md`). Without any file, the synthesized celesta waltz does the job. |
+| The background music | The whole interface | Ogg Opus, 24 MB at most | The repository ships `app/assets/music/ambiance.ogg`. To use a file you own instead, put it in its place (conversion command in `docs/MUSIC.md`). Without any file, the synthesized celesta waltz does the job. |
 
 ## 4. The home: the Parapet
 
@@ -58,13 +58,13 @@ What makes the difference in daily use, and what gets tuned first:
 
 - **A fade rather than a strip.** The apps do not sit on a banner: the night rises gently from the bottom of the image and they settle on it.
 - **The spread.** Eight apps at most, always all visible, evenly spaced. Never any scrolling.
-- **A single focus.** Only one thing is alive at a time: the focused app goes from engraved ivory to raised gold, a candle lights up beneath it, the owl lands on it. No frame, no glass panel.
-- **Visual silence.** No name under the icons, no permanent loop: when nobody touches the remote, nothing moves. On a TV an endless animation is not free: on the first device test, an idle Parapet kept more than one processor core busy and stuttered. Motion is for answering a key press (the owl's flight, the light on the chosen app), then everything settles.
+- **A single focus.** Only one thing is alive at a time: the focused app lifts and comes up to full ivory with a soft shadow, the owl flies over it. No frame, no glass panel, no gold.
+- **Visual silence.** No name under the icons, one permanent loop only: when nobody touches the remote, the clouds drift behind the castle, on the compositor, a few pixels a second, and nothing else moves. On a TV an endless animation is not free: on the first device test, an idle Parapet kept more than one processor core busy and stuttered. Motion is for answering a key press (the owl's flight, the light on the chosen app), then everything settles.
 - **The TV's size.** A 1080p TV usually lays the page out at 960 × 540 CSS pixels with a pixel ratio of 2. Look at every screen at that size (the browser's device emulation does it) as well as at 1920 × 1080: names must not be cut, buttons must stay inside their frame.
 
 **Prompt to paste** (fill in the brackets):
 
-> My backdrop is `tv-assets/chateau.jpg`, my owl poses are in `tv-assets/chouette/`. Install them in `app/assets/` under the expected names (`castle.jpg`, `owl-perch.png`, `owl-up.png`, `owl-down.png`, `owl-glide.png`, `owl-land.png`). My parapet, only apps installed on my TV: [Netflix, Prime Video, Disney+, YouTube, france.tv, Arte, Molotov, PlayStation 5]. My house: [Gryffindor]. Relaunch the mock-up at 960 × 540 with a pixel ratio of 2, and show me the home with each app in focus. Do not change the animation durations without asking me.
+> My backdrop is `tv-assets/chateau.jpg` (1920 × 1080), my owl poses are in `tv-assets/chouette/`. Put the backdrop at `app/assets/castle.jpg`, trace its castle again on zoomed crops in `tools/parapet_scene.py` (`ENV`, `SPIRES`, `SKY_THREADS`, `STILL`, `MOON`) and run it; at rest the Parapet must look like my picture. Cut out my poses with `tools/cutout_owl.py`, pack them with `--sheet` into `app/assets/owl-sheet.webp` in the order perch, look, sleep, up, down, glide, land, then run `--grade` once. My parapet, only apps installed on my TV: [Netflix, Prime Video, Disney+, YouTube, france.tv, Arte, Molotov, PlayStation 5]. My house: [Gryffindor]. Relaunch the mock-up at 960 × 540 with a pixel ratio of 2, and show me the home with each app in focus. Do not change the animation durations without asking me.
 
 Then look at the screen and correct in plain language: "the owl is too big", "move the icons down", "the fade hides the castle". One request at a time.
 
@@ -72,14 +72,14 @@ Then look at the screen and correct in plain language: "the owl is too big", "mo
 
 The films are not a list: they are a shop window. One box per film, from the plainest to the most elaborate, and OK opens the film in the app that owns it.
 
-1. Prepare the shop-window image (see Assets) and put it in `app/assets/ollivanders.webp`.
+1. Prepare the shop-window image (see Assets) and put it in `tools/shop-refs/ollivanders.webp`.
 2. Note down the link of each film.
 3. Paste the prompt:
 
-> Here is my shop window `app/assets/ollivanders.webp` and the links of my films (title | app | link):
+> Here is my shop window `tools/shop-refs/ollivanders.webp` and the links of my films (title | app | link):
 > - [Philosopher's Stone | Canal+ | https://www.canalplus.com/…]
 > - […]
-> Measure the area of each box on the image and update `BOXES` in `app/js/screens/ollivanders.js`; put the links in `LIBRARY` (`app/js/config.js`). The selected box must be obvious from the sofa, at 960 × 540 on the TV as well as on the computer: the chosen box clearly marked, the rest of the window dimmed, no glow and no beam. A film whose app is not installed says so instead of naming that app. Show me each box selected.
+> Trace each box on zoomed crops of the image, update `WANDS` in `tools/shop_sprites.py` and run it; put the links in `LIBRARY` (`app/js/config.js`). The chosen box must be obvious from the sofa, at 960 × 540 on the TV as well as on the computer: it rises on its place, the rest of the window keeps its light, no veil, no outline, no glow and no beam. A film whose app is not installed says so instead of naming that app. Show me each box selected.
 
 ## 6. Settings and first launch
 
@@ -109,7 +109,7 @@ Plain mode is there for the others: the family, the guest, the evening when the 
 
 ## 7. Sounds
 
-The interface cues are a synthesized celesta voice, nine short phrases (move, descend, back, Lumos, Nox, wake, error, tick, confirm), all original. The background music is a file, `app/assets/music/ambiance.ogg` (versioned at the maintainer's request, under 3 MB): on the TV it starts by itself with the Parapet, and it sits loud enough not to be drowned by the cues. An original celesta waltz takes over when no file can be played. The Sound key at the top right mutes everything at once. To use music of your own: `docs/MUSIC.md`.
+The interface cues are a synthesized celesta voice, nine short phrases (move, descend, back, Lumos, Nox, wake, error, tick, confirm), all original. The background music is a file, `app/assets/music/ambiance.ogg` (versioned at the maintainer's request, 19 MB): on the TV it starts by itself with the Parapet, and it sits loud enough not to be drowned by the cues. An original celesta waltz takes over when no file can be played. The Sound key at the top right mutes everything at once. To use music of your own: `docs/MUSIC.md`.
 
 What we do not do in the code: reuse the films' music, even modified. An arrangement is still a derivative work.
 

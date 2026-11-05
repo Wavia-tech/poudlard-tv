@@ -1,6 +1,8 @@
 // Launcher configuration: app catalog, Library collections, settings, validated local storage.
 // No data ever leaves the device. Everything read from storage goes through `sanitize()`.
 
+import { SPRITES } from '../assets/shop/sprites.js';
+
 // House colours: the same four tokens as base.css (html[data-house]); kept here for the previews drawn before a choice.
 export const HOUSES = {
   gryffondor: { name: 'Gryffondor', wax: '#7a1f1f', glow: '#ffb457', ink: '#3a1810', night: '#140a0c' },
@@ -21,7 +23,7 @@ export const CATALOG = [
   { id: 'prime', name: 'Prime Video', cat: 'video', pkg: 'com.amazon.amazonvideo.livingroom' },
   { id: 'disney', name: 'Disney+', cat: 'video', pkg: 'com.disney.disneyplus' },
   { id: 'canal', name: 'Canal+', cat: 'video', pkg: 'com.canal.android.canal' },
-  { id: 'max', name: 'Max', cat: 'video', pkg: 'com.wbd.stream', deeplink: 'https://play.max.com/{id}' },
+  { id: 'max', name: 'HBO Max', cat: 'video', pkg: 'com.wbd.stream', deeplink: 'https://play.max.com/{id}' },
   { id: 'appletv', name: 'Apple TV', cat: 'video', pkg: 'com.apple.atve.androidtv.appletv' },
   { id: 'paramount', name: 'Paramount+', cat: 'video', pkg: 'com.cbs.ott' },
   { id: 'youtube', name: 'YouTube', cat: 'video', pkg: 'com.google.android.youtube.tv' },
@@ -43,49 +45,40 @@ export const CATALOG = [
 ];
 const IDS = new Set(CATALOG.map((a) => a.id));
 const PASSAGE_RE = /^in\d{1,2}$/;                 // a real HDMI port of the TV may go beyond the four of the mock-up
-const isKnownId = (id) => IDS.has(id) || /^c_\d{1,6}$/.test(id) || PASSAGE_RE.test(id);
 export const DOCK_MAX = 8;
 export const PASSAGES_MAX = 12;
 // Ids of the passages before config version 4 (named consoles): kept so an old parapet keeps its HDMI entries.
 const OLD_PASSAGES = { ps5: 'in1', ps4: 'in2', xbox: 'in3', switch: 'in4' };
 
-// Library collections, each shown as a shop window (ollivanders.js). `scene`: the generated backdrop, its size in
-// pixels and one selection polygon per film (top-left, top-right, bottom-right, bottom-left, image pixels);
+// Library collections, each shown as a shop window (ollivanders.js). `scene`: the opaque picture, its size in pixels and
+// one sprite per film, in the films' order, cut out of the picture by tools/shop_sprites.py (assets/shop/sprites.js);
 // `app`: the app that owns the title; `url`: the film's page (host allow-list in platform.js), never typed on screen.
+// French catalogue checked on JustWatch on 5 November 2026: all eleven films are on HBO Max and Prime Video, none on Netflix France. `urls`: one
+// link per app, the real page of the film. Never list an app whose catalogue lacks the film: ollivanders.js treats every key of
+// `urls` as an app that can open it, and such a link lands on the app's home.
 export const LIBRARY = [
   {
     // `url`: the film's page on Max (links supplied by the owner). Only the hosts in URL_HOSTS are accepted by platform.js.
     id: 'hp', title: 'Harry Potter', background: 'library',
-    scene: { image: 'assets/ollivanders.webp', w: 1920, h: 1080, boxes: [
-      // Traced on the image's wood frames, base included (outline drawn in gold on the chosen box: keep them exact).
-      [[412, 326], [553, 326], [484, 982], [341, 982]], [[566, 326], [698, 326], [656, 982], [506, 982]], [[716, 326], [848, 326], [816, 982], [666, 982]], [[866, 326], [998, 326], [990, 982], [844, 982]],
-      [[1016, 326], [1148, 326], [1166, 982], [1016, 982]], [[1162, 326], [1298, 326], [1341, 982], [1191, 982]], [[1312, 326], [1453, 326], [1513, 982], [1356, 982]], [[1466, 326], [1599, 326], [1682, 982], [1524, 982]],
-    ] },
+    scene: { image: 'assets/ollivanders.webp', w: 1920, h: 1080, sprites: SPRITES.hp },
     items: [
-      { n: 1, title: "À l'école des sorciers", year: 2001, symbol: 'stone', color: '#7a2328', app: 'max', content: 'hp1', url: "https://www.max.com/fr/fr/search?q=Harry+Potter+à+l'école+des+sorciers", urls: { max: "https://www.max.com/fr/fr/search?q=Harry+Potter+à+l'école+des+sorciers", canal: 'https://www.canalplus.com/cinema/harry-potter-a-l-ecole-des-sorciers/h/40438941_50889' } },
-      { n: 2, title: 'La Chambre des secrets', year: 2002, symbol: 'serpent', color: '#25492c', app: 'max', content: 'hp2', url: 'https://www.max.com/fr/fr/search?q=Harry+Potter+et+la+Chambre+des+secrets', urls: { max: 'https://www.max.com/fr/fr/search?q=Harry+Potter+et+la+Chambre+des+secrets', canal: 'https://www.canalplus.com/cinema/harry-potter-et-la-chambre-des-secrets/h/40439261_50889' } },
-      { n: 3, title: "Le Prisonnier d'Azkaban", year: 2004, symbol: 'timeturner', color: '#4a2f5c', app: 'max', content: 'hp3', url: "https://www.max.com/fr/fr/search?q=Harry+Potter+et+le+Prisonnier+d'Azkaban", urls: { max: "https://www.max.com/fr/fr/search?q=Harry+Potter+et+le+Prisonnier+d'Azkaban", canal: 'https://www.canalplus.com/cinema/harry-potter-et-le-prisonnier-d-azkaban/h/40439243_50889' } },
-      { n: 4, title: 'La Coupe de feu', year: 2005, symbol: 'goblet', color: '#8a4f1c', app: 'max', content: 'hp4', url: 'https://www.max.com/fr/fr/search?q=Harry+Potter+et+la+Coupe+de+feu', urls: { max: 'https://www.max.com/fr/fr/search?q=Harry+Potter+et+la+Coupe+de+feu', canal: 'https://www.canalplus.com/cinema/harry-potter-et-la-coupe-de-feu/h/40439245_50889' } },
-      { n: 5, title: "L'Ordre du Phénix", year: 2007, symbol: 'phoenix', color: '#1f3d6b', app: 'max', content: 'hp5', url: "https://www.max.com/fr/fr/search?q=Harry+Potter+et+l'Ordre+du+Phénix", urls: { max: "https://www.max.com/fr/fr/search?q=Harry+Potter+et+l'Ordre+du+Phénix", canal: 'https://www.canalplus.com/cinema/harry-potter-et-l-ordre-du-phenix/h/40442021_50889' } },
-      { n: 6, title: 'Le Prince de sang-mêlé', year: 2009, symbol: 'vial', color: '#3d4a26', app: 'max', content: 'hp6', url: 'https://www.max.com/fr/fr/search?q=Harry+Potter+et+le+Prince+de+sang-mêlé', urls: { max: 'https://www.max.com/fr/fr/search?q=Harry+Potter+et+le+Prince+de+sang-mêlé', canal: 'https://www.canalplus.com/cinema/harry-potter-et-le-prince-de-sang-mele/h/40444270_50889' } },
-      { n: 7, title: 'Les Reliques de la Mort, 1re partie', year: 2010, symbol: 'locket', color: '#5c1f3a', app: 'max', content: 'hp7', url: 'https://www.max.com/fr/fr/search?q=Harry+Potter+et+les+Reliques+de+la+Mort+Partie+1', urls: { max: 'https://www.max.com/fr/fr/search?q=Harry+Potter+et+les+Reliques+de+la+Mort+Partie+1', canal: 'https://www.canalplus.com/cinema/harry-potter-et-les-reliques-de-la-mort-partie-1/h/40439244_50889' } },
-      { n: 8, title: 'Les Reliques de la Mort, 2e partie', year: 2011, symbol: 'wand', color: '#2b2b45', app: 'max', content: 'hp8', url: 'https://www.max.com/fr/fr/search?q=Harry+Potter+et+les+Reliques+de+la+Mort+Partie+2', urls: { max: 'https://www.max.com/fr/fr/search?q=Harry+Potter+et+les+Reliques+de+la+Mort+Partie+2', canal: 'https://www.canalplus.com/cinema/harry-potter-et-les-reliques-de-la-mort-partie-2/h/40439242_50889' } },
+      { n: 1, title: "À l'école des sorciers", year: 2001, symbol: 'stone', color: '#7a2328', app: 'prime', content: 'hp1', url: 'https://app.primevideo.com/detail?gti=amzn1.dv.gti.88ae477d-8574-3fc1-b27b-e2b723d68d7b', urls: { prime: 'https://app.primevideo.com/detail?gti=amzn1.dv.gti.88ae477d-8574-3fc1-b27b-e2b723d68d7b', max: 'https://play.hbomax.com/show/4b990c5d-38ab-4daf-8092-2617cbc6d062', canal: 'https://www.canalplus.com/cinema/harry-potter-a-l-ecole-des-sorciers/h/40438941_50889' } },
+      { n: 2, title: 'La Chambre des secrets', year: 2002, symbol: 'serpent', color: '#25492c', app: 'prime', content: 'hp2', url: 'https://app.primevideo.com/detail?gti=amzn1.dv.gti.cca9f676-f728-62fb-c3ed-910fb3c49262', urls: { prime: 'https://app.primevideo.com/detail?gti=amzn1.dv.gti.cca9f676-f728-62fb-c3ed-910fb3c49262', max: 'https://play.hbomax.com/show/48674b82-9076-4080-a40c-379efad5eb89', canal: 'https://www.canalplus.com/cinema/harry-potter-et-la-chambre-des-secrets/h/40439261_50889' } },
+      { n: 3, title: "Le Prisonnier d'Azkaban", year: 2004, symbol: 'timeturner', color: '#4a2f5c', app: 'prime', content: 'hp3', url: 'https://app.primevideo.com/detail?gti=amzn1.dv.gti.98c1b69a-4e7d-47cd-a79c-bf9dd59f5410', urls: { prime: 'https://app.primevideo.com/detail?gti=amzn1.dv.gti.98c1b69a-4e7d-47cd-a79c-bf9dd59f5410', max: 'https://play.hbomax.com/show/73553a76-1658-45f6-9e26-1b9c4443b0d6', canal: 'https://www.canalplus.com/cinema/harry-potter-et-le-prisonnier-d-azkaban/h/40439243_50889' } },
+      { n: 4, title: 'La Coupe de feu', year: 2005, symbol: 'goblet', color: '#8a4f1c', app: 'prime', content: 'hp4', url: 'https://app.primevideo.com/detail?gti=amzn1.dv.gti.fea9f6a0-7a85-db41-4db7-9fae0275f74b', urls: { prime: 'https://app.primevideo.com/detail?gti=amzn1.dv.gti.fea9f6a0-7a85-db41-4db7-9fae0275f74b', max: 'https://play.hbomax.com/show/d2e9ff29-e71d-4eae-9a4b-7cd0e00236ea', canal: 'https://www.canalplus.com/cinema/harry-potter-et-la-coupe-de-feu/h/40439245_50889' } },
+      { n: 5, title: "L'Ordre du Phénix", year: 2007, symbol: 'phoenix', color: '#1f3d6b', app: 'prime', content: 'hp5', url: 'https://app.primevideo.com/detail?gti=amzn1.dv.gti.a0a9f68b-222e-8332-81bc-52300b2adbf7', urls: { prime: 'https://app.primevideo.com/detail?gti=amzn1.dv.gti.a0a9f68b-222e-8332-81bc-52300b2adbf7', max: 'https://play.hbomax.com/show/25768909-39b8-4cb2-a39f-e059460f7add', canal: 'https://www.canalplus.com/cinema/harry-potter-et-l-ordre-du-phenix/h/40442021_50889' } },
+      { n: 6, title: 'Le Prince de sang-mêlé', year: 2009, symbol: 'vial', color: '#3d4a26', app: 'prime', content: 'hp6', url: 'https://app.primevideo.com/detail?gti=amzn1.dv.gti.e629f1db-f32d-4e2c-b7dd-bf440af2802b', urls: { prime: 'https://app.primevideo.com/detail?gti=amzn1.dv.gti.e629f1db-f32d-4e2c-b7dd-bf440af2802b', max: 'https://play.hbomax.com/show/cba1d85a-5ef4-4ba3-b537-1d24554fe85c', canal: 'https://www.canalplus.com/cinema/harry-potter-et-le-prince-de-sang-mele/h/40444270_50889' } },
+      { n: 7, title: 'Les Reliques de la Mort, 1re partie', year: 2010, symbol: 'locket', color: '#5c1f3a', app: 'prime', content: 'hp7', url: 'https://app.primevideo.com/detail?gti=amzn1.dv.gti.86c06623-8b49-43e1-81d1-c0337e467f51', urls: { prime: 'https://app.primevideo.com/detail?gti=amzn1.dv.gti.86c06623-8b49-43e1-81d1-c0337e467f51', max: 'https://play.hbomax.com/show/2c394a2d-7d1d-481d-a420-76ee1bee01a7', canal: 'https://www.canalplus.com/cinema/harry-potter-et-les-reliques-de-la-mort-partie-1/h/40439244_50889' } },
+      { n: 8, title: 'Les Reliques de la Mort, 2e partie', year: 2011, symbol: 'wand', color: '#2b2b45', app: 'prime', content: 'hp8', url: 'https://app.primevideo.com/detail?gti=amzn1.dv.gti.534a160f-f33c-43c3-81a7-14925fb031bb', urls: { prime: 'https://app.primevideo.com/detail?gti=amzn1.dv.gti.534a160f-f33c-43c3-81a7-14925fb031bb', max: 'https://play.hbomax.com/show/1890c8c5-2f40-4140-a363-064428201826', canal: 'https://www.canalplus.com/cinema/harry-potter-et-les-reliques-de-la-mort-partie-2/h/40439242_50889' } },
     ],
   },
   {
-    id: 'fb', title: 'Les Animaux fantastiques', background: 'newyork',   // `urls`: Max, Netflix (FR catalogue) and Canal+ pages, one link per app
-    scene: { image: 'assets/beasts.webp', w: 1920, h: 1080, boxes: [
-      // Each suitcase with its handle, plus an 11 px margin: a vitrine's frame around it, never across the leather.
-      [[75, 461], [671, 461], [671, 949], [75, 949]], [[694, 463], [1251, 463], [1251, 941], [694, 941]], [[1273, 469], [1849, 469], [1849, 952], [1273, 952]],
-    ] },
+    id: 'fb', title: 'Les Animaux fantastiques', background: 'newyork',
+    scene: { image: 'assets/beasts.webp', w: 1920, h: 1080, sprites: SPRITES.fb },
     items: [
-      // French catalogue (November 2026): the first two films are on Max, only the third is on Netflix France, so the
-      // first two carry no Netflix link. Never list an app whose catalogue lacks the film: ollivanders.js treats every
-      // key of `urls` as an app that can open it, and the caption would send the viewer to a missing title.
-      // `urls`: one link per app, so the Remembrall can switch ("Ouvrir avec Netflix" / "… Max").
-      { n: 1, title: 'Les Animaux fantastiques', year: 2016, symbol: 'suitcase', color: '#1d3b4a', app: 'max', content: 'fb1', url: 'https://www.max.com/fr/fr/search?q=Les+Animaux+fantastiques', urls: { max: 'https://www.max.com/fr/fr/search?q=Les+Animaux+fantastiques', canal: 'https://www.canalplus.com/cinema/les-animaux-fantastiques/h/40442388_50889' } },
-      { n: 2, title: 'Les Crimes de Grindelwald', year: 2018, symbol: 'skull', color: '#2a2a2a', app: 'max', content: 'fb2', url: 'https://www.max.com/fr/fr/search?q=Les+Crimes+de+Grindelwald', urls: { max: 'https://www.max.com/fr/fr/search?q=Les+Crimes+de+Grindelwald', canal: 'https://www.canalplus.com/cinema/les-animaux-fantastiques-les-crimes-de-grindelwald/h/40439354_50889' } },
-      { n: 3, title: 'Les Secrets de Dumbledore', year: 2022, symbol: 'phoenix', color: '#3d2f1a', app: 'netflix', content: 'fb3', url: 'https://www.netflix.com/title/81516447', urls: { netflix: 'https://www.netflix.com/title/81516447', max: 'https://www.max.com/fr/fr/search?q=Les+Secrets+de+Dumbledore' , canal: 'https://www.canalplus.com/cinema/les-animaux-fantastiques-les-secrets-de-dumbledore/h/41125749_50889' } },
+      { n: 1, title: 'Les Animaux fantastiques', year: 2016, symbol: 'suitcase', color: '#1d3b4a', app: 'prime', content: 'fb1', url: 'https://app.primevideo.com/detail?gti=amzn1.dv.gti.d97677f3-dc40-4984-a7fc-75100d4b36a0', urls: { prime: 'https://app.primevideo.com/detail?gti=amzn1.dv.gti.d97677f3-dc40-4984-a7fc-75100d4b36a0', max: 'https://play.hbomax.com/show/d627b35d-31a0-4e62-af14-6ec2fd8fdaef', canal: 'https://www.canalplus.com/cinema/les-animaux-fantastiques/h/40442388_50889' } },
+      { n: 2, title: 'Les Crimes de Grindelwald', year: 2018, symbol: 'skull', color: '#2a2a2a', app: 'prime', content: 'fb2', url: 'https://app.primevideo.com/detail?gti=amzn1.dv.gti.82b58679-ad89-a2bb-2614-d9992077426f', urls: { prime: 'https://app.primevideo.com/detail?gti=amzn1.dv.gti.82b58679-ad89-a2bb-2614-d9992077426f', max: 'https://play.hbomax.com/show/8c884d7f-cf56-469d-ab2f-38129155757f', canal: 'https://www.canalplus.com/cinema/les-animaux-fantastiques-les-crimes-de-grindelwald/h/40439354_50889' } },
+      { n: 3, title: 'Les Secrets de Dumbledore', year: 2022, symbol: 'phoenix', color: '#3d2f1a', app: 'prime', content: 'fb3', url: 'https://app.primevideo.com/detail?gti=amzn1.dv.gti.510cb435-9898-4e80-b3da-018fe0e2814a', urls: { prime: 'https://app.primevideo.com/detail?gti=amzn1.dv.gti.510cb435-9898-4e80-b3da-018fe0e2814a', max: 'https://play.hbomax.com/show/3cfe3099-e685-40fe-b858-a5013692e030', canal: 'https://www.canalplus.com/cinema/les-animaux-fantastiques-les-secrets-de-dumbledore/h/41125749_50889' } },
     ],
   },
 ];
@@ -107,7 +100,7 @@ export const DEFAULT_CONFIG = Object.freeze({
   musicNox: 'pause',            // during Nox (sleep): 'pause' the music | 'continue' it
   motion: 'auto',               // 'auto' | 'reduit' | 'economie'
   motionChosen: false,          // true once the person set "Mouvement" in the Room of Requirement: never migrated again
-  ambiance: 'calme',            // the Parapet at rest: 'calme' (nothing moves) | 'vivante' (one slow mist drift and the window reflections shimmering on the lake; off whenever isReduced())
+  ambiance: 'calme',            // the Parapet at rest: 'calme' (only the clouds move) | 'vivante' (one slow mist drift and the window reflections shimmering on the lake; off whenever isReduced())
   sky: 'auto',                  // the Parapet's sky: 'auto' (dusk, night, deep night, dawn by the hour) | 'nuit' (always a clear night)
   motionSystem: 'follow',       // 'follow' the system's reduced-motion flag | 'ignore' it
   text: 'normal',               // 'normal' | 'grand' (every type token × 1.25)

@@ -59,8 +59,9 @@ mkdir -p "$OUT/assets/web" "$OUT/gen" "$OUT/classes" "$OUT/res"
 [ -f "$WEB_SRC/index.html" ] || { echo "Mock-up not found: $WEB_SRC/index.html" >&2; exit 1; }
 DEST="$(pwd)/$OUT/assets/web"
 # Left out: documentation (*.md), the claude.ai artifact page (artifact.html), the example logos (logos.example.js,
-# never loaded by the page), tools and scripts (tools/, *.py, *.ps1, *.sh, __pycache__), editor and OS litter.
-( cd "$WEB_SRC" && find . -type f ! -name '*.md' ! -name 'artifact.html' ! -name 'logos.example.js' \
+# never loaded by the page), the scene's reference notes (scene.json, windows.json: no page fetches them, home.js holds hand
+# copies of the numbers it needs), tools and scripts (tools/, *.py, *.ps1, *.sh, __pycache__), editor and OS litter.
+( cd "$WEB_SRC" && find . -type f ! -name '*.md' ! -name 'artifact.html' ! -name 'logos.example.js' ! -path './assets/scene/*.json' \
     ! -name '.DS_Store' ! -name 'Thumbs.db' ! -name '.gitkeep' ! -name '*.py' ! -name '*.pyc' ! -name '*.ps1' ! -name '*.sh' \
     ! -path './tools/*' ! -path '*/__pycache__/*' ! -path '*/node_modules/*' ! -path '*/.git/*' -print0 \
   | while IFS= read -r -d '' f; do mkdir -p "$DEST/$(dirname "$f")"; cp "$f" "$DEST/$f"; done )
@@ -95,7 +96,7 @@ fi
 
 # ---------------------------------------------------------------- 2. resources
 "$BT/aapt2" compile --dir res -o "$OUT/res.zip"
-"$BT/aapt2" link -o "$OUT/base.apk" -I "$AJ" --manifest AndroidManifest.xml --java "$OUT/gen" "$OUT/res.zip" \
+"$BT/aapt2" link ${POUDLARD_DEBUG:+--debug-mode} -o "$OUT/base.apk" -I "$AJ" --manifest AndroidManifest.xml --java "$OUT/gen" "$OUT/res.zip" \
   --min-sdk-version "$MIN_SDK" --target-sdk-version "$TARGET_SDK"
 # Assets do NOT go through `aapt2 link -A`: on Windows, aapt2 stores paths with backslashes and the TV can no
 # longer find the files (known bug, which Free My TV patches afterwards with a FixAssets.java). We add them
@@ -142,4 +143,6 @@ else
   echo "(aapt missing: check by hand with \"aapt dump permissions $APK\" or apkanalyzer)" >&2
 fi
 echo "OK: $APK ($(du -h "$APK" | cut -f1)), no permissions."
+# POUDLARD_DEBUG=1 is for measuring on a TV (README, Debugging): run-as, the configuration and the page's DevTools open. Never published.
+[ -z "${POUDLARD_DEBUG:-}" ] || echo "WARNING: POUDLARD_DEBUG is set, this APK is DEBUGGABLE. Rebuild without it before any release." >&2
 echo "Install: adb connect <tv-ip>:5555 && adb install -r $APK"

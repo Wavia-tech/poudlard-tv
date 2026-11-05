@@ -1,15 +1,15 @@
 /* Beuglante (Howler): a red envelope that slides up from the bottom, shakes four times, delivers a message in IM Fell and burns out.
-   The only bright red thing in the interface. Motion: transform and opacity only, on arrival and departure; nothing
-   runs while it waits. The message is never cut: it wraps on as many lines as it needs. */
+   The only bright red thing in the interface. Motion: the shared curve, transform and opacity only, on arrival (beuglante.js,
+   an animation towards its place) and departure; nothing runs while it waits. The message is never cut: it wraps on as
+   many lines as it needs. */
 
 .beuglante { position: absolute; left: 50%; bottom: 6cqw; z-index: 70; width: 52cqw; max-width: calc(100cqw - 2 * var(--safe-x)); pointer-events: none;
-  transform: translate(-50%, 140%); opacity: 1;
-  transition: transform calc(var(--k) * 450ms) cubic-bezier(.2, .8, .2, 1), opacity calc(var(--k) * 700ms) ease; }
-.beuglante.is-in { transform: translate(-50%, 0); }
-.beuglante.is-burn { opacity: 0; transform: translate(-50%, -2.6cqw); transition-timing-function: ease-in, ease; }
+  transform: translate(-50%, 0); opacity: 1; will-change: transform, opacity;
+  transition: transform calc(var(--k) * 500ms) var(--ease-arrive), opacity calc(var(--k) * 500ms) linear; }
+.beuglante.is-burn { opacity: 0; transform: translate(-50%, -2.6cqw); }
 
 /* The envelope: wax red, straight edges, dark flap and seal. The shake lives on this layer (rotate only). */
-.beuglante-env { position: relative; padding: 2.4cqw 1.3cqw 1.3cqw; background: #B5121B; border-radius: .35cqw; transform-origin: 50% 100%;
+.beuglante-env { will-change: transform; position: relative; padding: 2.4cqw 1.3cqw 1.3cqw; background: #B5121B; border-radius: .35cqw; transform-origin: 50% 100%;
   box-shadow: inset 0 .1cqw 0 #ff5a5a66, inset 0 -.12cqw 0 #5a0608, 0 1.2cqw 2.4cqw #000c; }
 .beuglante.is-shake .beuglante-env { animation: beuglante-shake calc(var(--k) * 640ms) ease-in-out 1; }
 @keyframes beuglante-shake {
@@ -40,13 +40,11 @@
 .beuglante-act i { font-style: normal; font-size: var(--t-hint); opacity: .6; margin-left: 1.4cqw; }
 
 /* Reduced motion: 200 ms fade, no rise, no shake. */
-.beuglante.is-reduced { transform: translate(-50%, 0); opacity: 0; transition: opacity calc(var(--k) * 200ms) ease; }
-.beuglante.is-reduced.is-in { opacity: 1; }
+.beuglante.is-reduced { transition: opacity calc(var(--k) * 200ms) ease; }
 .beuglante.is-reduced.is-burn { opacity: 0; transform: translate(-50%, 0); }
 .beuglante.is-reduced .beuglante-env { animation: none; }
 @media (prefers-reduced-motion: reduce) {
-  .beuglante { transition: opacity calc(var(--k) * 200ms) ease; transform: translate(-50%, 0); opacity: 0; }
-  .beuglante.is-in { opacity: 1; }
+  .beuglante { transition: opacity calc(var(--k) * 200ms) ease; }
   .beuglante.is-burn { transform: translate(-50%, 0); }
   .beuglante .beuglante-env { animation: none; }
 }

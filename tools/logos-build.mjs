@@ -1,7 +1,8 @@
-// Bundles an `app/assets/logos.js` file (private use, ignored by Git) from a folder of white SVGs.
+// Bundles an `app/assets/logos.js` file from a folder of white SVGs. The repository versions that file at the maintainer's
+// request (DISCLAIMER.md): this replaces it, and carries over the optical table kept by hand at its end.
 //
 // Usage: node tools/logos-build.mjs <svg-folder> [luma-ids]
-//        node tools/logos-build.mjs ./my-logos canal,max,tf1,m6
+//        node tools/logos-build.mjs ./my-logos canal,m6
 //
 //   <svg-folder> : one <id>.svg file per app, the id being the one from CATALOG in app/js/config.js
 //                  (netflix.svg, prime.svg, …). White SVG (fill="#ffffff") on a transparent background.
@@ -10,9 +11,9 @@
 //
 // The file is written to `app/assets/logos.js`, resolved from this script's location: the command works
 // from any current directory, and under bash, PowerShell or cmd (no exotic quoting).
-// The public repo distributes no logo (trademarks, see DISCLAIMER.md): this script only serves to
+// The logos are third-party trademarks (DISCLAIMER.md): this script only serves to
 // rebuild your own, at home, from sources whose terms of use you respect.
-import { readdirSync, readFileSync, writeFileSync, statSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, writeFileSync, statSync } from 'node:fs';
 import { basename, join, resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -53,7 +54,10 @@ for (const f of readdirSync(dirAbs).filter((f) => f.toLowerCase().endsWith('.svg
 const count = Object.keys(out).length;
 if (!count) { console.error(`No .svg file in ${dirAbs}`); process.exit(1); }
 
-const header = '// App logos: PRIVATE file, ignored by Git, produced by tools/logos-build.mjs.\n'
-  + '// Do not redistribute (trademarks). Format: LOGOS[id] = { src: data URI of the white SVG, ratio: width / height, luma: mask by luminance }.\n';
-writeFileSync(target, header + 'export const LOGOS = ' + JSON.stringify(out, null, 1) + ';\n');
+const header = "// App logos, produced by tools/logos-build.mjs: third-party trademarks, versioned at the maintainer's request (DISCLAIMER.md).\n"
+  + '// Format: LOGOS[id] = { src: data URI of the white SVG, ratio: width / height, luma: mask by luminance, scale: optical scale, below }.\n';
+// The optical scale (`scale`) is measured by hand on the screen, not derived from the SVG: the table at the end of the file stays.
+const old = existsSync(target) ? readFileSync(target, 'utf8') : '';
+const at = old.indexOf('// Optical scale');
+writeFileSync(target, header + 'export const LOGOS = ' + JSON.stringify(out, null, 1) + ';\n' + (at >= 0 ? '\n' + old.slice(at) : ''));
 console.log(`${count} logo(s) written to ${target}`);

@@ -7,7 +7,7 @@ Two ways to use Poudlard TV:
 
 The TV port follows the method of [Free My TV](https://github.com/simbasjungles/free-my-tv) (build without Gradle, install over ADB, launch apps through Leanback intents, list installed apps, HDMI inputs, safety net), which has proven itself on Chromecast with Google TV and on Android TV sets. What we keep and what we leave out, point by point: `docs/FREE-MY-TV.md`. The main difference: Poudlard TV never disables the original home (Google TV's, the manufacturer's or a third-party launcher) and does not use an internal adb client (which would require the network permission).
 
-> **Tested on a device.** The APK first ran on a real TV on 3 November 2026 (Android TV 11, 1080p, 1.3 GB of RAM, Free My TV as the home). What that test found, and what version 0.3 changes, is summarised in the README's status box and in `CHANGELOG.md`; a second test on the TV is still to be done (paused while the TV is in everyday use). The steps below describe version 0.3.
+> **Tested on a device.** The APK first ran on a real TV on 3 November 2026 (Android TV 11, 1080p, 1.3 GB of RAM, Free My TV as the home). What that test found, and what version 0.3 changes, is summarised in the README's status box and in `CHANGELOG.md`; the rounds measured on the TV since, and what still fails there, are in the test-status box of `android/README.md`. The steps below describe version 0.3.
 
 ---
 
@@ -51,7 +51,7 @@ The repository carries the maintainer's app logos (`app/assets/logos.js`, versio
 
 ### Background music
 
-The home screen plays `app/assets/music/ambiance.ogg`, the music file versioned at the maintainer's request (Ogg Opus, under 3 MB), with an original celesta waltz as the fallback (Settings → Owl and sounds → Background music: Auto / Celesta / None). A desktop browser may wait for the first key press before playing it (its autoplay policy); the TV does not. To use your own file instead: `docs/MUSIC.md`.
+The home screen plays `app/assets/music/ambiance.ogg`, the music file versioned at the maintainer's request (Ogg Opus, 19 MB), with an original celesta waltz as the fallback (Settings → Owl and sounds → Background music: Auto / Celesta / None). A desktop browser may wait for the first key press before playing it (its autoplay policy); the TV does not. To use your own file instead: `docs/MUSIC.md`.
 
 ### Fonts
 

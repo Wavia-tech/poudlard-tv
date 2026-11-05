@@ -15,7 +15,7 @@
 import { CATALOG, HOUSES, DOCK_MAX, getConfig, updateConfig, allApps, appById, isReduced } from '../config.js';
 import { Platform } from '../platform.js';
 import { mountCrest } from '../crests.js';
-import { HOME_HINT } from './settings.js';
+import { HOME_HINT, ARROWS_ALL, timeK } from './settings.js';
 
 // Pre-ticked on a brand-new TV: the first six of this list that the TV has, in this order.
 const PRESET = ['netflix', 'prime', 'disney', 'youtube', 'max', 'francetv', 'arte', 'molotov', 'm6', 'tf1', 'appletv'];
@@ -66,6 +66,7 @@ function originalHomePkg() {
 // Crests: the pictures (or the drawn achievement of crests.js when a picture is missing).
 const shield = (card, id) => mountCrest(card, id, 'sort-shield-svg');
 const CHECK = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 13l5 5L20 6"/></svg>';
+const ARRIVE = 'cubic-bezier(.32,.72,0,1)';   // --ease-arrive (base.css), for the Web Animations below
 
 const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
 const clamp = (v, lo, hi) => Math.min(Math.max(v, lo), hi);
@@ -106,7 +107,7 @@ export default {
           <div class="sort-sheet"></div>
           <div class="sort-foot"><div class="sort-link"><span>Rester en mode classique</span></div></div>
         </div>
-        <div class="keyhint"><span><b>◀▶▲▼</b><em>Choisir</em></span><span><b>OK</b><em></em></span><span><b>Retour</b><em>Page précédente</em></span></div>
+        <div class="keyhint"><span><b>${ARROWS_ALL}</b><em>Choisir</em></span><span><b>OK</b><em></em></span><span><b>Retour</b><em>Page précédente</em></span></div>
       </div>`;
     this.paintSeal();
     this.page = this.only ? clamp(Number(ctx.params.page) || 0, 0, LAST) : 0;
@@ -137,7 +138,7 @@ export default {
     this.offer = [...mine.map((a) => ({ id: a.id, name: a.name })), ...others.map((a) => ({ id: a.id, name: a.name }))].slice(0, OFFER_MAX);
   },
 
-  k() { return Number(getComputedStyle(this.root).getPropertyValue('--k')) || 1; },
+  k() { return timeK(); },
   // `hold`: reading delay (a message that must stay legible), never shortened in reduced motion.
   later(fn, ms, hold) { const t = setTimeout(fn, ((this.reduced && !hold) ? Math.min(ms, 200) : ms) * this.k()); this.timers.push(t); return t; },
 
@@ -147,7 +148,7 @@ export default {
     const h = this.d.house ? HOUSES[this.d.house] : null;
     seal.style.setProperty('--wax', h ? h.wax : '#7a1f1f');
     seal.querySelector('span').textContent = h ? h.name[0] : 'P';
-    if (press) { seal.classList.remove('is-press'); void seal.offsetWidth; seal.classList.add('is-press'); }
+    if (press) this.pressSeal(seal, 'rotate(8deg)');
   },
 
   // ---- Rendering a page -------------------------------------------------------------------------------------
@@ -165,7 +166,9 @@ export default {
     if (!this.only) this.grid.push([{ el: link, ok: () => this.stayClassic() }]);
     this.setFocus(this.r, this.c);
     this.fit();
-    sheet.classList.remove('is-turn'); void sheet.offsetWidth; sheet.classList.add('is-turn');
+    if (sheet.animate) sheet.animate(this.reduced
+      ? [{ opacity: 0 }, { opacity: 1 }]
+      : [{ transform: 'translateX(1.6cqw) rotateY(-6deg)', opacity: 0 }, { transform: 'none', opacity: 1 }], { duration: (this.reduced ? 200 : 420) * this.k(), easing: ARRIVE, fill: 'backwards' });
     this.updateHint();
   },
   // Keeps the page inside the sheet: two steps of tighter spacing if the content runs past the sheet's bottom.
@@ -223,7 +226,7 @@ export default {
     const h = HOUSES[id]; const w = this.root.querySelector('.sort-wax'); if (!h || !w) return;
     const seal = w.querySelector('.sort-wax-seal');
     seal.style.setProperty('--wax', h.wax);
-    seal.classList.remove('is-press'); void seal.offsetWidth; seal.classList.add('is-press');
+    this.pressSeal(seal, 'none');
     const t = w.querySelector('.sort-wax-text');
     t.textContent = this.d.house === id ? `Cire de ${h.name}, votre maison.` : `Cire de ${h.name}.`;
     this.writeIn(t);
@@ -425,7 +428,21 @@ export default {
   },
 
   // ---- Signatures -------------------------------------------------------------------------------------------
-  writeIn(node) { if (!node) return; node.classList.remove('sort-write'); void node.offsetWidth; node.classList.add('sort-write'); },
+  // Played with Web Animations: restarting one needs no forced layout.
+  writeIn(node) {
+    if (!node || !node.animate) return;
+    if (node._write) node._write.cancel();
+    node._write = node.animate(this.reduced
+      ? [{ opacity: 0 }, { opacity: 1 }]
+      : [{ opacity: 0, transform: 'translateX(-.4cqw)' }, { opacity: 1, transform: 'none' }], { duration: (this.reduced ? 200 : 300) * this.k(), easing: ARRIVE });
+  },
+  pressSeal(seal, end) {
+    if (!seal.animate) return;
+    if (seal._press) seal._press.cancel();
+    seal._press = seal.animate(this.reduced
+      ? [{ opacity: 0 }, { opacity: 1 }]
+      : [{ transform: `${end === 'none' ? '' : end} scale(1.3)` }, { transform: `${end === 'none' ? '' : end} scale(1)` }], { duration: 200 * this.k(), easing: ARRIVE });
+  },
   // Stop: small sideways refusal, composited with the focus transform (the letter does not straighten, the crest does not drop).
   nudge(node) {
     if (this.reduced || !node) return;

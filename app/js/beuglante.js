@@ -13,20 +13,21 @@
 // - The message is shown whole, on as many lines as it needs (never truncated): the TV's own sentence (Platform's
 //   `error`, e.g. "Netflix n'est pas installée sur cette télé.") is read as it comes. The lifetime grows with its
 //   length (reading time), and with an action it stays a little longer still.
-// - Motion: transform and opacity only, once on arrival; nothing runs while it waits. With isReduced(): 200 ms fade,
-//   no shaking, no slide-up.
+// - Motion: the shared curve, transform and opacity only, once on arrival; nothing runs while it waits. With isReduced():
+//   200 ms fade, no shaking, no slide-up.
 
 import { Input } from './input.js';
 import { Router } from './router.js';
 import { isReduced } from './config.js';
 
+const ARRIVE = 'cubic-bezier(.32,.72,0,1)';   // --ease-arrive (base.css)
 const SLIDE_MS = 450;     // slide up from the bottom
 const SHAKE_MS = 640;     // four shakes (±1.5°)
 const LIFE_MS = 4000;     // shortest lifetime before burning up
 const LIFE_MAX_MS = 11000;
 const READ_MS = 60;       // per character of the message (reading from the couch)
 const ACTION_MS = 2500;   // extra time when an action is offered (read, then decide)
-const BURN_MS = 700;      // burn-up fade (opacity + slight rise)
+const BURN_MS = 500;      // burn-up fade (opacity + slight rise)
 const REDUCED_FADE_MS = 200;
 
 let current = null;       // the Howler on display, if any
@@ -90,9 +91,11 @@ export function beuglante(host, { message, action } = {}) {
   const el = build(message, act);
   if (reduced) el.classList.add('is-reduced');
   host.appendChild(el);
-  // Forces the first style computation in the "before" state (off screen, or opacity 0): without this read,
-  // the is-in class set in the rAF would be the first computed style and the slide would not play.
-  void el.offsetWidth;
+  // In its place from the start; the arrival is an animation towards it, which needs nothing read from the page.
+  const arrival = el.animate ? el.animate(
+    reduced ? [{ opacity: 0 }, { opacity: 1 }] : [{ transform: 'translate(-50%, 140%)' }, { transform: 'translate(-50%, 0)' }],
+    { duration: (reduced ? REDUCED_FADE_MS : SLIDE_MS) * k, easing: reduced ? 'ease' : ARRIVE },
+  ) : null;
 
   const timers = [];
   const later = (fn, ms) => timers.push(setTimeout(fn, ms * k));
@@ -108,7 +111,8 @@ export function beuglante(host, { message, action } = {}) {
       if (current === handle) current = null;
       if (tookInput) { tookInput = false; Router.refocus(); }
       // Burn-up: opacity + slight rise, then removal from the DOM.
-      el.classList.remove('is-in', 'is-shake');
+      if (arrival) arrival.cancel();
+      el.classList.remove('is-shake');
       el.classList.add('is-burn');
       setTimeout(() => el.remove(), (reduced ? REDUCED_FADE_MS : BURN_MS) * k);
     },
@@ -131,12 +135,8 @@ export function beuglante(host, { message, action } = {}) {
   }
 
   // Choreography: slide up from the bottom, shake, live, burn.
-  requestAnimationFrame(() => {
-    if (closed) return;
-    el.classList.add('is-in');
-    if (!reduced) later(() => el.classList.add('is-shake'), SLIDE_MS);
-    later(() => el.classList.remove('is-shake'), SLIDE_MS + SHAKE_MS);
-  });
+  if (!reduced) later(() => el.classList.add('is-shake'), SLIDE_MS);
+  later(() => el.classList.remove('is-shake'), SLIDE_MS + SHAKE_MS);
   const text = String(message || '');
   later(() => handle.close(), Math.min(LIFE_MAX_MS, Math.max(LIFE_MS, 1500 + text.length * READ_MS) + (act ? ACTION_MS : 0)));
 

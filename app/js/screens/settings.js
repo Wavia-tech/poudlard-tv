@@ -3,6 +3,12 @@
 // of the parapet that recomposes live. Every change is saved immediately (updateConfig) and its new value written
 // in quill; a parapet row also keeps a pressed wax seal. Two levels, never more.
 // Holding Back for 2 s brings up classic mode from here too (the blueprint's reversibility rule).
+//
+// Motion: the shared curve, transform and opacity only. One mark per page goes from line to line (.set-mark on the left,
+// .set-focus on the right): a key moves its transform and paints nothing, and no layout is read for a move (the lines'
+// positions are measured once, when a section is laid out). The sections stay laid out once built: going from one to the
+// next shows a sheet that is already there, and only when the keys stop (the mark never waits for it). Opening the room: the key's
+// task only makes the empty room, and the rest comes a piece per frame, under the move (mount).
 import { HOUSES, DOCK_MAX, getConfig, updateConfig, resetConfig, allApps, appById, isReduced } from '../config.js';
 import { Platform } from '../platform.js';
 import { LOGOS } from '../../assets/logos.js';
@@ -30,14 +36,11 @@ const OWL = [['vive', 'Vive'], ['calme', 'Calme'], ['absente', 'Absente']];
 const YESNO = [[true, 'Oui'], [false, 'Non']];
 const MOTION = [['auto', 'Auto'], ['reduit', 'Réduit'], ['economie', 'Économie']];
 const SKY = [['auto', 'Selon l’heure'], ['nuit', 'Nuit claire']];
-// Living ambience (config.ambiance): the only thing allowed to move on the Parapet at rest, off by default.
+// Living ambience (config.ambiance): the lake and its mist moving on the Parapet at rest, off by default.
 const AMBIANCE = [['calme', 'Non'], ['vivante', 'Oui']];
-// On a TV that says it is short of memory (Bridge.device().lowRam: the owner's 1.3 GB set) the Parapet is drawn flat
-// (home.js .lite) and the ambience never starts there (syncAmbiance needs the three planes): the note says so.
-const AMBIANCE_NOTE = (v) => (v !== 'vivante' ? 'Au repos, rien ne bouge : le lac attend une touche.'
+const AMBIANCE_NOTE = (v) => (v !== 'vivante' ? 'Au repos, le lac reste immobile : il attend une touche.'
   : isReduced() ? 'Le mouvement est réduit : le lac reste immobile tant qu’il l’est.'
-    : Platform.device().lowRam ? 'Éteinte sur cette télé, trop juste en mémoire : le lac reste immobile.'
-      : 'La brume dérive et les reflets frémissent sur le lac. Un peu plus de calcul.');
+    : 'La brume dérive et les reflets frémissent sur le lac. Un peu plus de calcul.');
 const FOLLOW = [['follow', 'Oui'], ['ignore', 'Non']];
 const TEXT = [['normal', 'Normale'], ['grand', 'Grande']];
 // Background music (sound.js): 'auto' = personal file (assets/music/ambiance.ogg, .mp3 or .m4a, not in the repo,
@@ -46,7 +49,7 @@ const TEXT = [['normal', 'Normale'], ['grand', 'Grande']];
 const MUSIC = [['fichier', 'Ambiance Poudlard'], ['celesta', 'Célesta'], ['auto', 'Auto'], ['aucune', 'Aucune']];
 const MUSIC_NOX = [['pause', 'Se tait'], ['continue', 'Continue']];
 const MUSIC_NOTE = { fichier: 'L’ambiance du château, en boucle, en fond. Si elle manque, la valse de célesta prend le relais.', auto: 'L’ambiance du château si elle est là, sinon la valse de célesta.', celesta: 'Une valse lente de célesta, harpe et cordes, composée pour le parapet. Jamais un thème des films.', aucune: 'Les clochettes seulement, sans musique.' };
-const MOTION_NOTE = { auto: 'Vol de la chouette, fondus et lumières : tout ce qui bouge quand on appuie.', reduit: 'Fondus de 200 ms, rien de plus. Aussi forcé par le système si demandé.', economie: 'Le strict nécessaire, pour une télé qui rame : moins d’effets, aucune particule.' };
+const MOTION_NOTE = { auto: 'Vol de la chouette, fondus, lumières, nuages derrière le château.', reduit: 'Fondus de 200 ms, rien de plus, pas de nuages. Aussi forcé par le système si demandé.', economie: 'Le strict nécessaire, pour une télé qui rame : moins d’effets, aucune particule, pas de nuages.' };
 const IDLE = [[90, '1,5 min'], [180, '3 min'], [300, '5 min'], [600, '10 min'], [0, 'Jamais']];
 const VERSION = 'Maquette 0.3 · novembre 2026';   // equals android:versionName (AndroidManifest.xml); CHANGELOG.md
 // Android's marketing version from the API level the bridge reports (Build.VERSION.SDK_INT): 30 is Android 11.
@@ -72,7 +75,7 @@ export const TV_ONLY = 'Sur la télé seulement.';
 // The arrow keys of the key hints, drawn as tiny inline SVG triangles. The embedded fonts have no ◀ ▶ ▲ ▼ glyph:
 // each one made the browser look for a system fallback font in the middle of the screen's first layout (on the
 // desktop it loaded Segoe UI Symbol, Georgia, Times New Roman: about 150 ms of a 4× throttled CPU, once). Shared
-// with the Map and classic mode. Sized in em, coloured by currentColor (the gold of .keyhint b).
+// with the Map and classic mode. Sized in em, coloured by currentColor (that of .keyhint b).
 const tri = (deg) => `<svg viewBox="0 0 10 10" width=".62em" height=".62em" aria-hidden="true" style="fill:currentColor;vertical-align:.02em;transform:rotate(${deg}deg)"><path d="M2 1.2 9 5 2 8.8Z"/></svg>`;
 export const ARROW = { left: tri(180), right: tri(0), up: tri(-90), down: tri(90) };
 export const ARROWS_LR = `${ARROW.left} ${ARROW.right}`;
@@ -93,6 +96,35 @@ export function fontsReady(faces, ms) {
   if (!document.fonts || !document.fonts.load) return Promise.resolve();
   return Promise.race([Promise.all(faces.map((f) => document.fonts.load(f).catch(() => null))), new Promise((r) => setTimeout(r, ms))]);
 }
+// The first time a glyph of a face is met at a size, its outline and metrics are loaded on the main thread; set in text,
+// that is about 50 ms for fifteen short names on a 4× throttled CPU, and the browser drops them again once nothing uses
+// that face: opening the Map shaped its text for about 100 ms, every time. So the screens' faces stay in use with all
+// their letters: one hidden line wearing the screen's own class, one per idle moment after start-up, none of it in a
+// key's task. "Taille du texte" follows, since the classes do.
+const KEPT_TEXT = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789éèêàâçôîùû+-.,:;'’·«»?";
+// 'a>b': a line of class b inside one of class a, for a class that takes its font from its parent.
+const KEPT_FACES = [
+  'olv-title', 'olv-sub', 'home-time', 'home-date', 'map-name', 'map-sub', 'map-formula', 'map-row-title', 'map-parapet-title', 'keyhint',
+  'set-title engraved', 'set-rub', 'set-rtitle', 'set-rsub', 'set-row', 'set-row>set-row-label', 'set-row>set-row-value', 'set-note', 'set-app-name', 'set-btn', 'set-pv-label', 'set-house-letter',
+  'cls-time', 'cls-date', 'cls-row-title', 'cls-name', 'cls-last brass', 'rpt-title', 'rpt-line', 'beuglante-msg',
+];
+const idle = (fn) => { if (typeof requestIdleCallback === 'function') requestIdleCallback(fn, { timeout: 1500 }); else setTimeout(fn, 50); };
+function keepFaces() {
+  const stage = document.getElementById('stage');
+  if (!stage) return;
+  const host = el('div', 'kept-faces');
+  host.setAttribute('aria-hidden', 'true');
+  stage.appendChild(host);
+  let n = 0;
+  const next = () => {
+    let line = host;
+    for (const cls of KEPT_FACES[n++].split('>')) line = line.appendChild(el('div', cls));
+    line.innerHTML = `<b>${KEPT_TEXT}</b>${KEPT_TEXT}`;
+    if (n < KEPT_FACES.length) idle(next);
+  };
+  idle(next);
+}
+if (typeof window !== 'undefined' && typeof document !== 'undefined') setTimeout(keepFaces, 4000);
 // Resolves after `n` animation frames (or after `ms` if the page is hidden and frames do not come).
 export function frames(n, ms) {
   return new Promise((resolve) => {
@@ -104,6 +136,11 @@ export function frames(n, ms) {
 // The faces the Room of Requirement writes with.
 const SET_FACES = ['1em "IM Fell English"', 'italic 1em "IM Fell English"', '1em "EB Garamond"', 'italic 500 1em "EB Garamond"', '1em Cinzel'];
 const SAND_MS = 320;          // the sand falls through the hourglass before the list recomposes
+const TURN_MS = 110;          // the right page follows the left one when the keys stop for this long
+const ARRIVE = 'cubic-bezier(.32,.72,0,1)';   // --ease-arrive (base.css), for the Web Animations below
+const MASKS_PER_FRAME = 4;    // a mask's SVG document is parsed on the main thread: a few per frame, once a section shows
+const SETTLE_MS = 320;        // --t-settle (base.css)
+const WARM_QUIET_MS = 450;    // no section is built this soon after a key
 
 // Hourglass: full = on the parapet, empty = in the Map. The bottom sand "falls" (scaleY) when the app is set down.
 const HOURGLASS = '<svg class="set-glass" viewBox="0 0 24 32" aria-hidden="true">'
@@ -121,13 +158,23 @@ const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls)
 export default {
   root: null, ctx: null, rub: 0, level: 'left', row: 0, items: [], axis: 'v', timers: [], reduced: false,
   resetStep: 0, listOff: 0, scrollList: null, sealed: null, busy: false, lastPerch: null, homeAsk: false, onHomeEvent: null, built: false,
+  sheets: null,          // the sections built so far, laid out and put away: { id: { id, flow, mark, items, axis, start, H, flowH, measured, masks } }
+  cur: null,             // the sheet in view
+  turnTimer: 0,          // the right page is about to follow the left one
+  focusEl: null,         // the line that wears .is-focus
+  pvSig: '',             // what the preview's owl was last placed for
 
   async mount(root, ctx) {
     this.root = root; this.ctx = ctx; this.timers = [];
     this.rub = 0; this.level = 'left'; this.row = 0; this.resetStep = 0; this.listOff = 0; this.scrollList = null;
     this.sealed = new Set(); this.busy = false; this.lastPerch = null; this.homeAsk = false; this.built = false; this.items = [];
-    // The TV answers the HOME role request later (system dialog): the row repaints without a key press.
-    this.onHomeEvent = () => { if (this.root && this.built && RUBRIQUES[this.rub].id === 'home' && !this.homeAsk) this.renderRight('Touche Home'); };
+    this.sheets = {}; this.cur = null; this.turnTimer = 0; this.focusEl = null; this.pvSig = ''; this.lastKey = 0;
+    // The TV answers the HOME role request later (system dialog): the row repaints without a key press, or is built again when it shows.
+    this.onHomeEvent = () => {
+      if (!this.root || !this.built) return;
+      if (RUBRIQUES[this.rub].id === 'home' && !this.homeAsk) this.renderRight('Touche Home');
+      else if (this.sheets.home) this.sheets.home.stale = true;
+    };
     document.addEventListener('poudlard:home', this.onHomeEvent);
     this.reduced = isReduced();
     root.classList.toggle('is-reduced', this.reduced);
@@ -139,15 +186,17 @@ export default {
         <div class="set-book">
           <div class="set-page set-left parchment">
             <div class="set-title engraved">Salle sur Demande</div>
-            <ul class="set-rubs"></ul>
+            <ul class="set-rubs"><li class="set-mark"></li></ul>
             <div class="set-folio"></div>
           </div>
           <div class="set-spine"></div>
           <div class="set-page set-right parchment">
-            <div class="set-rtitle"></div>
-            <div class="set-rsub"></div>
-            <div class="set-body"></div>
-            <div class="set-msg"></div>
+            <div class="set-sheet">
+              <div class="set-rtitle"></div>
+              <div class="set-rsub"></div>
+              <div class="set-body"></div>
+              <div class="set-msg"></div>
+            </div>
             <div class="set-preview">
               <div class="set-pv-label"></div>
               <div class="set-pv-stone">
@@ -167,25 +216,28 @@ export default {
     if (getConfig().sounds) ctx.fx.initAudio();
     // The writing comes once its fonts are there (a few milliseconds from the APK), while the pages open: one
     // layout in the right fonts, no synchronous layout in mount(). Keys stay with the router until then.
-    await fontsReady(SET_FACES, 600);
+    await Promise.all([ctx.slice(), fontsReady(SET_FACES, 600)]);
     if (this.root !== root) return;
     root.querySelector('.set-folio').textContent = 'Registre des réglages';
     this.renderRubs();
     this.updateHint();
-    // The right page one frame later: the room's first layout is cut in two halves (each page's text to shape),
-    // so no single frame holds it all while the pages swing open.
-    await frames(1, 60);
+    // Then a piece per frame: the room's first layout is cut up (each page's text to shape), so no single frame holds it all while the
+    // pages swing open.
+    await ctx.slice();
     if (this.root !== root) return;
-    this.renderRight(undefined, true);
+    this.showRub();
+    await ctx.slice();
+    if (this.root !== root) return;
     this.renderPreview();
     this.built = true;
+    this.warmSheets();
   },
 
   unmount() {
     this.timers.forEach(clearTimeout); this.timers = [];
     if (this.onHomeEvent) document.removeEventListener('poudlard:home', this.onHomeEvent);
     this.onHomeEvent = null;
-    this.items = []; this.root = null; this.scrollList = null;
+    this.items = []; this.root = null; this.scrollList = null; this.sheets = null; this.cur = null; this.focusEl = null;
   },
 
   // Test bench time multiplier (×3 slow motion).
@@ -194,22 +246,21 @@ export default {
   later(fn, ms, hold) { const t = setTimeout(fn, ((this.reduced && !hold) ? Math.min(ms, 200) : ms) * this.k()); this.timers.push(t); return t; },
 
   // ---- Left page --------------------------------------------------------------------------------------------
+  // The section's mark (.set-mark: a slip of lighter paper, quiet while the focus is on the other page) goes from line to line
+  // by its transform; a line's height is a token of settings.css, so nothing is measured.
   renderRubs() {
     const ul = this.root.querySelector('.set-rubs');
-    ul.textContent = '';
+    const mark = ul.querySelector('.set-mark');
     RUBRIQUES.forEach((r) => {
       const li = el('li', 'set-rub');
       li.appendChild(el('span', 'set-rub-label', r.label));
-      li.appendChild(el('i', 'set-quill'));           // the quill stroke under the focused line
-      ul.appendChild(li);
+      ul.insertBefore(li, mark);
     });
     this.syncRubs();
   },
   syncRubs() {
-    this.root.querySelectorAll('.set-rub').forEach((li, n) => {
-      li.classList.toggle('is-focus', this.level === 'left' && n === this.rub);
-      li.classList.toggle('is-active', n === this.rub);
-    });
+    this.root.querySelector('.set-mark').style.transform = `translateY(calc(${this.rub} * var(--rub-h)))`;
+    this.root.querySelector('.set-left').classList.toggle('is-away', this.level !== 'left');
   },
   rubEl() { return this.root.querySelectorAll('.set-rub')[this.rub]; },
 
@@ -221,44 +272,174 @@ export default {
     this.syncFocus();
   },
 
+  // A key on the left page: the mark moves at once; the right page goes, and comes back with the section when the keys
+  // stop. That part is the only work of any size, and it is out of the key's task.
+  moveRub(n) {
+    if (this.homeAsk && this.sheets.home) this.sheets.home.stale = true;   // the question stays behind: it is built again when it shows
+    this.rub = n; this.resetStep = 0; this.homeAsk = false;
+    this.syncRubs();
+    this.root.querySelector('.set-sheet').classList.add('is-turning');
+    clearTimeout(this.turnTimer);
+    this.turnTimer = this.later(() => this.showRub(), TURN_MS, true);
+  },
+  // Entering the section before its timer has run.
+  flushRub() { if (this.turnTimer) this.showRub(); },
+
+  // Shows the section in place of the last one: its sheet if it was built, and it is built now otherwise.
+  showRub() {
+    clearTimeout(this.turnTimer); this.turnTimer = 0;
+    const r = RUBRIQUES[this.rub];
+    this.root.querySelector('.set-rtitle').textContent = r.title;
+    this.root.querySelector('.set-rsub').textContent = r.sub;
+    const msg = this.root.querySelector('.set-msg'); if (msg) msg.textContent = '';
+    this.root.querySelector('.set-right').dataset.rub = r.id;     // long sections (TV screens, About) give the preview's room to their text
+    this.root.querySelector('.set-body').dataset.rub = r.id;
+    this.listOff = 0;
+    let sheet = this.sheets[r.id];
+    if (!sheet || sheet.stale || (r.id === 'dock' && sheet.sig !== this.dockSig())) { if (sheet) sheet.flow.remove(); sheet = this.buildSheet(r); }
+    else sheet.items.forEach((it) => { if (it.paint) it.paint(); });   // a row's value may depend on another section's
+    this.useSheet(sheet);
+    this.root.querySelector('.set-sheet').classList.remove('is-turning');
+  },
+
+  // After the room has opened: the other sections are built and laid out, one per idle moment and none while the keys are
+  // going, then measured, given their logos and put away (settings.css .is-away: no style, no layout, no layer, and all of it kept for
+  // when they come back). The next key finds each of them whole, and a section's move has only one class to change.
+  warmSheets() {
+    const root = this.root;
+    const idle = (fn) => { if (typeof requestIdleCallback === 'function') requestIdleCallback(fn, { timeout: 1500 }); else setTimeout(fn, 60); };
+    // Waits for the keys to have stopped, then for an idle moment.
+    const whenQuiet = (fn) => {
+      if (this.root !== root) return;
+      if (performance.now() - this.lastKey < WARM_QUIET_MS) { this.later(() => whenQuiet(fn), WARM_QUIET_MS, true); return; }
+      idle(() => { if (this.root === root) fn(); });
+    };
+    const next = () => {
+      const r = RUBRIQUES.find((x) => x.id !== 'home' && !this.sheets[x.id]);
+      if (!r) return;
+      const sheet = this.buildSheet(r);
+      sheet.flow.classList.add('is-warming');
+      // Its style and layout in the next frame, the layout read after that, clean by then; its logos a few per frame.
+      frames(2, 120).then(() => whenQuiet(() => {
+        this.measure(sheet);
+        const masks = () => {
+          sheet.masks.splice(0, MASKS_PER_FRAME).forEach(([m, src]) => this.setMask(m, src));
+          if (sheet.masks.length) { frames(1, 60).then(() => whenQuiet(masks)); return; }
+          sheet.flow.classList.remove('is-warming');
+          if (this.cur !== sheet) sheet.flow.classList.add('is-away');
+          whenQuiet(next);
+        };
+        masks();
+      }));
+    };
+    this.after(1200, () => whenQuiet(next));
+  },
+  after(ms, fn) { const root = this.root; this.later(() => { if (this.root === root) fn(); }, ms, true); },
+
   // ---- Right page -------------------------------------------------------------------------------------------
   // Each section renders navigable "items": { id, el, key(action) → true (consumed) | 'exit' (back to the sections) | false }.
   // `axis`: 'v' (up/down) or 'h' (left/right). The single focus is set by syncFocus().
-  // `keep`: item id to restore the focus on; `fresh`: we are arriving on the section (title, subtitle
-  // and first line are written in quill one after another). A re-render after a change does not write the title.
-  renderRight(keep, fresh) {
-    const r = RUBRIQUES[this.rub];
-    const title = this.root.querySelector('.set-rtitle'), sub = this.root.querySelector('.set-rsub');
-    title.textContent = r.title;
-    sub.textContent = r.sub;
-    const msg = this.root.querySelector('.set-msg'); if (msg) msg.textContent = '';
-    const body = this.root.querySelector('.set-body');
-    body.textContent = '';
-    body.dataset.rub = r.id;
-    this.root.querySelector('.set-right').dataset.rub = r.id;     // long sections (TV screens, About) give the preview's room to their text
-    // Every section is laid in a sliding sheet (.set-flow): when it is taller than the page, the sheet slides
-    // (transform) to keep the focused line in view, never a scrollbar, never a line hidden under the preview.
+  // A section is laid in a sliding sheet (.set-flow): when it is taller than the page, the sheet slides (transform) to
+  // keep the focused line in view, never a scrollbar, never a line hidden under the preview.
+  buildSheet(r) {
     const flow = el('div', 'set-flow');
-    body.appendChild(flow);
-    if (fresh) this.listOff = 0;
-    flow.style.transform = `translateY(${this.listOff}px)`;
-    this.scrollList = flow;
-    this.items = []; this.axis = 'v';
+    this.root.querySelector('.set-body').appendChild(flow);
+    const sheet = { id: r.id, flow, mark: null, items: [], axis: 'v', start: 0, H: 0, flowH: 0, measured: false, masks: [], sig: r.id === 'dock' ? this.dockSig() : '' };
+    this.building = sheet;
     const spec = this['rub_' + r.id](flow);
-    this.items = spec.items; this.axis = spec.axis || 'v';
+    this.building = null;
+    sheet.items = spec.items; sheet.axis = spec.axis || 'v'; sheet.start = typeof spec.start === 'number' ? spec.start : 0;
+    sheet.mark = el('i', 'set-focus');
+    flow.appendChild(sheet.mark);
+    this.sheets[r.id] = sheet;
+    return sheet;
+  },
+  dockSig() { const c = getConfig(); return JSON.stringify([c.dock, c.hidden]); },
+  useSheet(sheet, keep) {
+    this.cur = sheet;
+    Object.values(this.sheets).forEach((x) => x.flow.classList.toggle('is-away', x !== sheet));
+    sheet.flow.classList.remove('is-warming');
+    sheet.flow.style.transform = `translateY(${this.listOff}px)`;
+    this.scrollList = sheet.flow;
+    this.items = sheet.items; this.axis = sheet.axis;
     // Restore the focus on an id (after a parapet change), otherwise on the requested position.
-    let idx = typeof spec.start === 'number' ? spec.start : 0;
+    let idx = sheet.start;
     if (keep != null) { const f = this.items.findIndex((it) => it.id === keep); if (f >= 0) idx = f; }
     this.row = Math.min(Math.max(0, idx), Math.max(0, this.items.length - 1));
     this.syncFocus();
-    this.keepVisible(true);
-    if (fresh) { this.writeIn(title, 0); this.writeIn(sub, 1); this.writeIn(flow.firstElementChild, 2); }
+    const root = this.root;
+    this.flushMasks(sheet);
+    if (!sheet.measured) frames(2, 120).then(() => { if (this.root === root && this.cur === sheet) { this.measure(sheet); this.syncFocus(); this.keepVisible(true); } });
+    else this.keepVisible(true);
+  },
+  // A section changed: it is built again, in place.
+  renderRight(keep) {
+    const r = RUBRIQUES[this.rub];
+    const msg = this.root.querySelector('.set-msg'); if (msg) msg.textContent = '';
+    const old = this.sheets[r.id];
+    const sheet = this.buildSheet(r);
+    if (old) old.flow.remove();
+    this.useSheet(sheet, keep);
+  },
+  // The lines' places in their sheet, read once, the layout being clean by then; a move only uses them.
+  measure(sheet) {
+    if (sheet.measured || !sheet.flow.isConnected) return;
+    sheet.measured = true;
+    const flow = sheet.flow, body = flow.parentElement;
+    sheet.H = body.clientHeight; sheet.flowH = flow.scrollHeight;
+    sheet.pad = Math.round(body.clientWidth * 0.01);
+    let h0 = 0;
+    sheet.items.forEach((it) => {
+      let top = 0; for (let n = it.el; n && n !== flow; n = n.offsetParent) top += n.offsetTop;
+      it.top = top; it.h = it.el.offsetHeight;
+      it.bottom = top + it.h;
+      if (it.note) it.bottom = Math.max(it.bottom, it.note.offsetTop + it.note.offsetHeight);   // a line's note is read with it
+      if (!h0 && (it.el.classList.contains('set-row') || it.el.classList.contains('set-app'))) h0 = it.h;
+    });
+    sheet.h0 = h0;
+    if (h0) sheet.mark.style.height = `${h0}px`;
+  },
+  // What was measured may no longer hold: read again once the page is laid out, the other sections when they show.
+  remeasure() {
+    Object.values(this.sheets).forEach((x) => { x.measured = false; });
+    const root = this.root, sheet = this.cur;
+    sheet.waiting = true;                                           // the key that brought us here does not read the layout for it
+    frames(2, 120).then(() => {
+      sheet.waiting = false;
+      if (this.root !== root || this.cur !== sheet) return;
+      this.measure(sheet);
+      this.placeFocus();
+      this.keepVisible();
+    });
   },
   syncFocus() {
-    this.items.forEach((it, n) => it.el.classList.toggle('is-focus', this.level === 'right' && n === this.row));
+    const it = this.level === 'right' ? this.items[this.row] : null;
+    const next = it ? it.el : null;
+    if (this.focusEl !== next) {
+      if (this.focusEl) this.focusEl.classList.remove('is-focus');
+      if (next) next.classList.add('is-focus');
+      this.focusEl = next;
+    }
     this.syncRubs();
     this.updateHint();
+    this.placeFocus();
     this.placePreviewOwl();
+  },
+  // The mark on the right page: what the lifted row stands on, on the rows and the parapet list (a button or a seal
+  // carries its own focus). Only its transform moves; it fades in where the focus lands from the left page.
+  placeFocus() {
+    const sheet = this.cur; if (!sheet || !sheet.mark) return;
+    const it = this.level === 'right' ? this.items[this.row] : null;
+    if (sheet.waiting) return;
+    if (it && !sheet.measured) this.measure(sheet);
+    const on = Boolean(it && sheet.h0 && (it.el.classList.contains('set-row') || it.el.classList.contains('set-app')));
+    if (on) {
+      const was = sheet.mark.classList.contains('is-on');
+      if (!was) sheet.mark.style.transition = 'none';
+      sheet.mark.style.transform = `translateY(${it.top}px) scaleY(${(it.h / sheet.h0).toFixed(3)})`;
+      if (!was) { const m = sheet.mark; frames(2, 100).then(() => { m.style.transition = ''; }); }
+    }
+    sheet.mark.classList.toggle('is-on', on);
   },
 
   // "label ... value" row with a wax seal that presses on every change.
@@ -273,13 +454,14 @@ export default {
     parent.appendChild(row);
     let note = null;
     if (noteFn) { note = el('div', 'set-note'); parent.appendChild(note); }
+    let lastValue = null, lastNote = null;
     const idx = () => Math.max(0, options.findIndex((o) => o[0] === get()));
     const paint = () => {
       const i = idx();
-      value.textContent = options[i][1];
+      if (options[i][1] !== lastValue) { lastValue = options[i][1]; value.textContent = lastValue; }
       left.classList.toggle('is-off', i === 0);
       right.classList.toggle('is-off', i === options.length - 1);
-      if (note) note.textContent = noteFn(options[i][0]);
+      if (note) { const t = noteFn(options[i][0]); if (t !== lastNote) { lastNote = t; note.textContent = t; } }
     };
     paint();
     const change = (i) => {
@@ -288,9 +470,10 @@ export default {
       this.writeIn(value); if (note) this.writeIn(note);
       this.ctx.fx.chime(1319, 0.03);
       this.placePreviewOwl();                       // the preview reacts (owl absent, etc.)
+      this.remeasure();                             // its note may now take another line, "Taille du texte" moves everything
     };
     return {
-      id: label, el: row, paint,
+      id: label, el: row, paint, note,
       key: (a) => {
         const i = idx();
         if (a === 'left') { if (i === 0) return 'exit'; change(i - 1); return true; }
@@ -317,10 +500,22 @@ export default {
     if (!L) { box.classList.add('is-text'); box.textContent = (appById(id) || { name: '?' }).name.slice(0, 2); box.style.width = h * 1.6 + 'cqw'; return box; }
     box.style.width = Math.min(h * 2.6, h * L.ratio) + 'cqw';
     const m = el('i');
-    m.style.setProperty('--m', `url("${L.src}")`);
     if (L.luma) m.classList.add('luma');
     box.appendChild(m);
+    if (this.building) this.building.masks.push([m, L.src]); else this.setMask(m, L.src);
     return box;
+  },
+
+  setMask(m, src) { m.style.webkitMaskImage = `url("${src}")`; m.classList.add('is-set'); },
+  // A sheet's logos get their pictures once it shows, a few per frame.
+  flushMasks(sheet) {
+    const root = this.root;
+    const step = () => {
+      if (this.root !== root || this.cur !== sheet || !sheet.masks.length) return;
+      sheet.masks.splice(0, MASKS_PER_FRAME).forEach(([m, src]) => this.setMask(m, src));
+      if (sheet.masks.length) requestAnimationFrame(step);
+    };
+    if (sheet.masks.length) requestAnimationFrame(step);
   },
 
   // ---- Section: Home key (Free My TV's "Home Screen" row) -----------------------------------------------------
@@ -359,7 +554,7 @@ export default {
     const row = this.enumRow(body, 'Touche Home', HOME_MODES, () => this.homePending || (mode === 'original' ? 'original' : 'poudlard'), (v) => {
       if (v === 'original') { this.homeAsk = true; this.renderRight(); return; }
       this.takeHome();
-    }, (v) => (mock ? HOME_NOTE_MOCK : this.homePending ? 'La télé décide : lisez le message en bas de page.' : v === 'poudlard' ? 'Poudlard répond à la touche Home.' : 'L’accueil d’origine répond à la touche Home. OK ou la flèche droite pour la rendre à Poudlard.'));
+    }, (v) => (mock ? HOME_NOTE_MOCK : this.homePending ? 'La télé décide : lisez le message en bas de page.' : v === 'poudlard' ? 'Poudlard répond à la touche Home.' : 'L’accueil d’origine répond à la touche Home. OK ou la flèche gauche pour la rendre à Poudlard.'));
     if (mock) {
       row.el.classList.add('is-off');
       const nudge = () => { this.nudge(row.el); this.say(HOME_NOTE_MOCK); return true; };
@@ -424,11 +619,10 @@ export default {
       row.appendChild(this.inkLogo(a.id, 1.5));
       row.appendChild(el('span', 'set-app-name', a.name));
       // Tag: "absente" (the TV does not have it), "cachée" (ink faded to 35%); a hand-added app (V4) also carries "perso".
-      row.appendChild(el('span', 'set-app-hidden', [absent(a) ? 'absente' : a.hidden ? 'cachée' : '', a.custom ? 'perso' : ''].filter(Boolean).join(' · ')));
+      const tag = [absent(a) ? 'absente' : a.hidden ? 'cachée' : '', a.custom ? 'perso' : ''].filter(Boolean).join(' · ');
+      if (tag) row.appendChild(el('span', 'set-app-hidden', tag));
       const g = el('span', 'set-app-glass'); g.innerHTML = HOURGLASS; row.appendChild(g);
-      const seal = el('i', 'set-rowseal wax-seal');
-      if (this.sealed.has(a.id)) seal.classList.add('is-sealed');                   // kept seals survive the re-render
-      row.appendChild(seal);
+      if (this.sealed.has(a.id)) row.appendChild(el('i', 'set-rowseal wax-seal is-sealed'));   // kept seals survive the re-render
       return row;
     };
     onDock.forEach((a, n) => { const row = mk(a, n); list.appendChild(row); items.push({ id: a.id, el: row, key: (k) => this.dockKey(a.id, k, row) }); });
@@ -452,7 +646,7 @@ export default {
       const adding = pos < 0;
       row.classList.toggle('is-on', adding);
       this.sealed.add(id);
-      this.press(row.querySelector('.set-rowseal'));
+      this.press(this.sealOf(row));
       if (adding) this.ctx.fx.chime(1568, 0.03); else this.ctx.fx.whoosh();
       updateConfig({ dock: adding ? [...c.dock, id] : c.dock.filter((x) => x !== id) });
       this.renderPreview();
@@ -468,7 +662,7 @@ export default {
       this.sealed.add(id);
       this.renderRight(id);
       const r = this.items[this.row] && this.items[this.row].el;
-      if (r) { this.press(r.querySelector('.set-rowseal')); this.writeIn(r.querySelector('.set-app-hidden')); this.writeIn(r.querySelector('.set-app-name')); }
+      if (r) { this.press(this.sealOf(r)); this.writeIn(r.querySelector('.set-app-hidden')); this.writeIn(r.querySelector('.set-app-name')); }
       this.ctx.fx.chime(wasHidden ? 1319 : 880, 0.03);
       return true;
     }
@@ -480,25 +674,57 @@ export default {
       [dock[pos], dock[to]] = [dock[to], dock[pos]];
       updateConfig({ dock });
       this.sealed.add(id);
-      this.flipRebuild(id);
-      const r = this.items[this.row].el;
-      this.press(r.querySelector('.set-rowseal')); this.writeIn(r.querySelector('.set-app-rank'));
+      this.swapRows(pos, to);
+      this.cur.sig = this.dockSig();
+      this.press(this.sealOf(row)); this.writeIn(row.querySelector('.set-app-rank'));
       this.ctx.fx.chime(1175, 0.025);
       return true;
     }
     return false;
   },
-  // FLIP: measure, rebuild, then each moved row slides from its old position (transform only).
+  // Its seal, drawn the first time it is pressed.
+  sealOf(row) {
+    let seal = row.querySelector('.set-rowseal');
+    if (!seal) { seal = el('i', 'set-rowseal wax-seal'); row.appendChild(seal); }
+    return seal;
+  },
+  // Two neighbours of the parapet change places: no rebuild, nothing measured. The rows are of one height: they swap their
+  // places in the list and their ranks, and slide there from where they were (transform). The preview does the same.
+  swapRows(a, b) {
+    const hi = Math.min(a, b), lo = Math.max(a, b);
+    const upper = this.items[hi], lower = this.items[lo];
+    lower.el.after(upper.el);
+    this.items[hi] = lower; this.items[lo] = upper;
+    const rankU = upper.el.querySelector('.set-app-rank'), rankL = lower.el.querySelector('.set-app-rank');
+    rankU.textContent = String(lo + 1); rankL.textContent = String(hi + 1);
+    const dy = upper.top === undefined ? 0 : lower.top - upper.top;
+    if (upper.top !== undefined) { const t = upper.top; upper.top = lower.top; lower.top = t; upper.bottom = upper.top + upper.h; lower.bottom = lower.top + lower.h; }
+    this.row = b;
+    if (dy && !this.reduced) {
+      const k = this.k(), o = { duration: SETTLE_MS * k, easing: ARRIVE, composite: 'add' };
+      upper.el.animate([{ transform: `translateY(${-dy}px)` }, { transform: 'translateY(0)' }], o);
+      lower.el.animate([{ transform: `translateY(${dy}px)` }, { transform: 'translateY(0)' }], o);
+    }
+    const slots = this.root.querySelectorAll('.set-pv-app');
+    if (slots[hi] && slots[lo]) { slots[lo].after(slots[hi]); this.pvSig = ''; this.pvMeasure = null; }
+    this.placeFocus();
+    this.keepVisible();
+    this.placePreviewOwl();
+  },
+  // A place in the list changed: the section is built again, and each moved row slides from where it was (transform only).
   flipRebuild(id) {
-    const before = new Map(this.items.map((it) => [it.id, it.el.offsetTop]));
+    const before = new Map(this.items.map((it) => [it.id, it.top]));
     this.renderRight(id);
     this.renderPreview();
-    this.keepVisible();
     if (this.reduced) return;
+    const sheet = this.cur;
+    this.measure(sheet);
+    this.placeFocus();
+    this.keepVisible();
     this.items.forEach((it) => {
       const was = before.get(it.id);
-      if (was == null || was === it.el.offsetTop) return;
-      it.el.animate([{ transform: `translateY(${was - it.el.offsetTop}px)` }, { transform: 'translateY(0)' }], { duration: 300 * this.k(), easing: 'cubic-bezier(.3,.7,.2,1)', composite: 'add' });
+      if (was == null || was === it.top) return;
+      it.el.animate([{ transform: `translateY(${was - it.top}px)` }, { transform: 'translateY(0)' }], { duration: SETTLE_MS * this.k(), easing: ARRIVE, composite: 'add' });
     });
   },
   // Ephemeral message written in quill, placed at the bottom of the page (outside the sliding list: always visible).
@@ -537,6 +763,7 @@ export default {
         key: (a) => {
           if (a !== 'ok') return false;
           updateConfig({ house: id });                 // main.js tints --wax and --house-glow via onConfigChange
+          this.cur.start = ids.indexOf(id);
           wrap.querySelectorAll('.set-house').forEach((x) => { x.classList.toggle('is-on', x === card); x.querySelector('.set-house-state').textContent = x === card ? 'Votre maison' : ''; });
           this.press(seal); this.writeIn(card.querySelector('.set-house-state'));
           this.ctx.fx.chime(1046, 0.035);
@@ -639,6 +866,8 @@ export default {
       resetConfig();
       this.resetStep = 0; this.sealed.clear();
       this.ctx.fx.whoosh();
+      Object.values(this.sheets).forEach((x) => { if (x !== this.cur) x.flow.remove(); });
+      this.sheets = { [this.cur.id]: this.cur };
       this.renderRight('Réinitialiser'); this.renderPreview();
       this.say('Registre effacé. La Lettre d’admission reviendra au prochain allumage.');
     });
@@ -659,6 +888,7 @@ export default {
     // The counter lives here too: the preview is always visible, even once the list has slid.
     const n = dock.length;
     this.root.querySelector('.set-pv-label').textContent = `Le Parapet, en direct · ${n ? `${n} ${n > 1 ? 'applis' : 'appli'} sur ${DOCK_MAX}` : 'aucune appli'}`;
+    this.pvSig = ''; this.pvMeasure = null;
     row.classList.toggle('is-few', n > 0 && n <= 3);              // 1 to 3 apps: packed closer, as on the Parapet
     if (!n) { row.appendChild(el('span', 'set-pv-empty', 'Le parapet est vide')); this.placePreviewOwl(); return; }
     dock.forEach((id) => {
@@ -667,7 +897,7 @@ export default {
       if (L) {
         const box = logoBox(L, 3.6 * PV_SCALE, 12 * PV_SCALE);  // the Parapet's own logo box, scaled
         slot.style.width = box.w.toFixed(2) + 'cqw'; slot.style.height = box.h.toFixed(2) + 'cqw';
-        const logo = el('div', 'app-logo ivory-logo' + (L.luma ? ' luma' : ''));
+        const logo = el('div', 'app-logo' + (L.luma ? ' luma' : ''));
         logo.style.setProperty('--m', `url("${L.src}")`);
         // One masked layer, not the parapet's five (relief offsets of 0.1 cqw do not show at this size): each masked
         // layer paints its SVG logo on the main thread, and thirty of them made the room's first paint ~2× longer.
@@ -682,28 +912,37 @@ export default {
     this.placePreviewOwl();
   },
   // The miniature owl perches above the focused app if it is on the parapet; otherwise it stays on its
-  // last perch. The logo only turns gold (and lifts) for a parapet app that is actually in focus.
+  // last perch. The logo only lifts for a parapet app that is actually in focus.
+  // Nothing happens unless that changes; the logos' places are read once, in an animation frame, when the row is drawn.
   placePreviewOwl() {
     const root = this.root; if (!root) return;
     const owl = root.querySelector('.set-pv-owl'); if (!owl) return;
     const c = getConfig();
-    owl.classList.toggle('is-gone', c.owl === 'absente' || !c.dock.length);
+    const gone = c.owl === 'absente' || !c.dock.length;
     const cur = this.level === 'right' && RUBRIQUES[this.rub].id === 'dock' && this.items[this.row] ? this.items[this.row].id : null;
     const onDock = Boolean(cur && c.dock.includes(cur));
     const id = onDock ? cur : (this.lastPerch && c.dock.includes(this.lastPerch) ? this.lastPerch : c.dock[0]);
+    const sig = `${gone}|${onDock}|${id}`;
+    if (sig === this.pvSig) return;
+    this.pvSig = sig;
+    owl.classList.toggle('is-gone', gone);
     requestAnimationFrame(() => {
       if (!this.root) return;
-      const slot = this.root.querySelector(`.set-pv-app[data-id="${CSS.escape(String(id || ''))}"]`);
-      this.root.querySelectorAll('.set-pv-app').forEach((s) => s.classList.toggle('is-lit', onDock && s === slot));
-      if (!slot) return;
+      const slots = this.root.querySelectorAll('.set-pv-app');
+      if (!this.pvMeasure) {
+        const row = slots.length ? slots[0].parentElement : null;
+        this.pvMeasure = { w: owl.offsetWidth, h: owl.offsetHeight, cq: this.root.clientWidth, top: row ? row.offsetTop : 0, slots: new Map() };
+        slots.forEach((s) => this.pvMeasure.slots.set(s.dataset.id, { x: row.offsetLeft + s.offsetLeft + s.offsetWidth / 2, top: s.offsetTop, h: s.offsetHeight }));
+      }
+      slots.forEach((s) => s.classList.toggle('is-lit', onDock && s.dataset.id === id));
+      const m = this.pvMeasure, p = m.slots.get(id);
+      if (!p) return;
       this.lastPerch = id;
       // Perched on the logo's top edge, as on the Parapet: the row and the owl share the strip's coordinates.
-      const row = slot.parentElement;
-      const cx = row.offsetLeft + slot.offsetLeft + slot.offsetWidth / 2;
-      // A lit logo is lifted (settings.css: translateY(-.32cqw) scale(1.24), offsets ignore transforms): she rides it.
-      const lift = onDock && !this.reduced ? slot.offsetHeight * 0.12 + this.root.clientWidth * 0.0032 : 0;
-      const top = row.offsetTop + slot.offsetTop - lift - owl.offsetHeight + slot.offsetHeight * 0.06;
-      owl.style.transform = `translate(${Math.round(cx - owl.offsetWidth / 2)}px, ${Math.max(0, Math.round(top))}px)`;   // never cut by the strip's top
+      // A lit logo is lifted (settings.css: translateY(-.32cqw) scale(1.14), offsets ignore transforms): she rides it.
+      const lift = onDock && !this.reduced ? p.h * 0.07 + m.cq * 0.0032 : 0;
+      const top = m.top + p.top - lift - m.h + p.h * 0.06;
+      owl.style.transform = `translate(${Math.round(p.x - m.w / 2)}px, ${Math.max(0, Math.round(top))}px)`;   // never cut by the strip's top
     });
   },
 
@@ -718,63 +957,58 @@ export default {
     const k = this.k();
     node._write = this.reduced
       ? node.animate([{ offset: 0, opacity: 0 }], { duration: 200 * k, easing: 'ease', fill: 'backwards' })
-      : node.animate([{ offset: 0, opacity: 0, transform: 'translateX(-.6cqw)' }], { duration: 260 * k, delay: i * 90 * k, easing: 'ease-out', fill: 'backwards' });
+      : node.animate([{ offset: 0, opacity: 0, transform: 'translateX(-.6cqw)' }], { duration: SETTLE_MS * k, delay: i * 90 * k, easing: ARRIVE, fill: 'backwards' });
   },
   press(seal) {
     if (!seal) return;
     seal.classList.add('is-sealed');
-    seal.classList.remove('is-press'); void seal.offsetWidth; seal.classList.add('is-press');
+    if (seal._press) seal._press.cancel();
+    const end = seal.classList.contains('set-house-seal') ? 'scale(1.06)' : 'none';
+    seal._press = this.reduced
+      ? seal.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 200 * this.k() })
+      : seal.animate([{ transform: 'scale(1.3)', opacity: 0 }, { opacity: 1, offset: 0.35 }, { transform: end, opacity: 1 }], { duration: 200 * this.k(), easing: ARRIVE });
   },
 
   // ---- Key hint at the bottom of the screen -----------------------------------------------------------------
+  // Written only when it changes: rewriting the same words would lay the strip out and paint it again at every move.
   updateHint() {
     const h = this.root.querySelector('.keyhint'); if (!h) return;
     const spans = h.querySelectorAll('span');
     const [a, b, c, d] = h.querySelectorAll('em');
+    const put = (node, text) => { if (node.textContent !== text) node.textContent = text; };
     // A key whose hint would repeat another one (Left does what Back does) is left out, never written twice.
-    const show = (span, on) => { span.style.display = on ? '' : 'none'; };
+    const show = (span, on) => { const v = on ? '' : 'none'; if (span.style.display !== v) span.style.display = v; };
     show(spans[0], true);
-    if (this.level === 'left') { a.textContent = 'Rubrique'; b.textContent = 'Entrer'; show(spans[2], false); d.textContent = 'Quitter'; return; }
+    if (this.level === 'left') { put(a, 'Rubrique'); put(b, 'Entrer'); show(spans[2], false); put(d, 'Quitter'); return; }
     const id = RUBRIQUES[this.rub].id;
-    a.textContent = 'Ligne';
+    put(a, 'Ligne');
     if (this.axis === 'h') show(spans[0], false);                 // nothing to say for up and down: left out, never "Nothing"
-    b.textContent = id === 'dock' ? 'Poser · Retirer' : id === 'house' ? 'Choisir' : id === 'tv' ? 'Ouvrir' : (id === 'classic' || id === 'about') ? 'Valider' : 'Changer';
+    put(b, id === 'dock' ? 'Poser · Retirer' : id === 'house' ? 'Choisir' : id === 'tv' ? 'Ouvrir' : (id === 'classic' || id === 'about') ? 'Valider' : 'Changer');
     // Third key: what Left / Right do here. A list of buttons (TV screens, About) only goes back with Left, as Back does.
     show(spans[2], !(id === 'tv' || id === 'about'));
-    c.textContent = id === 'dock' ? 'Rang' : this.axis === 'h' ? 'Choisir' : 'Valeur';
-    d.textContent = 'Rubriques';
+    put(c, id === 'dock' ? 'Rang' : this.axis === 'h' ? 'Choisir' : 'Valeur');
+    put(d, 'Rubriques');
   },
 
-  // Slide the parapet list to keep the focused row visible (transform, no scroll).
+  // Slide the list to keep the focused row visible (transform, no scroll), with the places measured once (measure()).
   // The message band, at the bottom of the page, is reserved: a focused row is never beneath it.
-  // Every section uses it (the eleven TV screens, the parapet list, the long notes of "À propos"). `instant`: no slide
-  // (a re-render). The offsets are read relative to the sliding sheet, so the slide in progress does not matter.
-  // Nothing is measured when nothing can slide (the sections' level, sheet at the top): opening the room and moving
-  // between sections never force a synchronous layout (at mount it cost about 250 ms of a 4× throttled CPU).
-  // `instant` is only passed by renderRight(), whose sheet is a fresh element: a transform written before its first
-  // style computation has nothing to transition from, so no style flush is needed to skip the slide.
+  // Every section uses it (the eleven TV screens, the parapet list, the long notes of "À propos"). `instant`: no slide.
   keepVisible(instant) {
-    const list = this.scrollList; if (!list || !list.isConnected) return;
-    const focused = this.level === 'right' && this.items[this.row];
-    if (!focused && (this.listOff === 0 || !this.items[this.row])) {
-      this.listOff = 0;
-      list.style.transform = 'translateY(0px)';
+    const list = this.scrollList, sheet = this.cur; if (!list || !sheet || !list.isConnected || sheet.waiting) return;
+    const it = this.level === 'right' ? this.items[this.row] : null;
+    if (!it) {
+      if (this.listOff !== 0 || !this.items[this.row]) { this.listOff = 0; list.style.transform = 'translateY(0px)'; }
       return;
     }
+    if (!sheet.measured) this.measure(sheet);
     void instant;
-    const body = list.parentElement; const msg = this.root.querySelector('.set-msg');
-    const H = body.clientHeight - (msg && msg.textContent ? msg.offsetHeight : 0);
-    const maxOff = Math.min(0, H - list.scrollHeight);              // never slide further than the last line
+    const msg = this.root.querySelector('.set-msg');
+    const H = sheet.H - (msg && msg.textContent ? msg.offsetHeight : 0);
+    const maxOff = Math.min(0, H - sheet.flowH);                    // never slide further than the last line
     let off = this.listOff;
-    const it = this.items[this.row];
-    if (it && this.level === 'right') {
-      const r = it.el;
-      let top = 0; for (let n = r; n && n !== list; n = n.offsetParent) top += n.offsetTop;   // offset inside the sheet
-      const bottom = top + r.offsetHeight;
-      const pad = Math.round(body.clientWidth * 0.01);
-      if (bottom + off > H - pad) off = H - pad - bottom; else if (top + off < pad) off = pad - top;
-    } else if (!it) off = 0;
+    if (it.bottom + off > H - sheet.pad) off = H - sheet.pad - it.bottom; else if (it.top + off < sheet.pad) off = sheet.pad - it.top;
     off = Math.round(Math.max(Math.min(0, off), maxOff));
+    if (off === this.listOff) return;
     this.listOff = off;
     list.style.transform = `translateY(${off}px)`;
   },
@@ -789,23 +1023,28 @@ export default {
   // ---- Keys -------------------------------------------------------------------------------------------------
   onKey(action, ctx) {
     void ctx;
+    this.lastKey = performance.now();
     if (action === 'okdown') { const it = this.level === 'right' && this.items[this.row]; if (it && it.el && !this.busy) it.el.classList.add('is-press'); return true; }
     { const it = this.items[this.row]; if (it && it.el) it.el.classList.remove('is-press'); }
     if (this.busy) return true;                                   // the sand is falling: 320 ms without keys
-    if (action === 'longback') { this.ctx.router.go('home', { askClassic: true }, 'fade'); return true; }   // the Parapet asks "Nox ?" (never a silent switch)
-    if (action === 'home') { this.leave(); return true; }
+    if (action === 'longback') {                                  // the Parapet asks "Nox ?" (never a silent switch); classic mode has its grid
+      if (getConfig().mode === 'classique') this.ctx.router.replace('classic', {}, 'fade');
+      else this.ctx.router.go('home', { askClassic: true }, 'fade');
+      return true;
+    }
+    if (action === 'home') { this.ctx.fx.whoosh(); return false; }   // the router goes to the mode's home, the stack cleared
     if (action === 'menu') { if (this.level === 'right') this.toLeft(); else this.leave(); return true; }
 
     if (this.level === 'left') {
       if (action === 'up' || action === 'down') {
         const n = this.rub + (action === 'up' ? -1 : 1);
         if (n < 0 || n >= RUBRIQUES.length) { this.nudge(this.rubEl()); return true; }
-        this.rub = n; this.resetStep = 0; this.homeAsk = false; this.listOff = 0; this.scrollList = null;
-        this.renderRight(undefined, true);
+        this.moveRub(n);
         this.ctx.fx.chime(988, 0.02);
         return true;
       }
       if (action === 'right' || action === 'ok') {
+        this.flushRub();
         if (!this.items.length) return true;
         this.level = 'right'; this.syncFocus(); this.keepVisible();
         return true;

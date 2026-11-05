@@ -50,21 +50,22 @@ app/
   js/config.js          app catalog, collections, settings, hand-added apps, strict validation of stored data
   js/platform.js        the ONLY door to the outside (launch an app, switch an input, open a title, list installed apps)
   js/input.js           D-pad: actions, long presses, queue during Lumos
-  js/router.js          one screen at a time, fade / up / down / iris transitions, the dive into a lit window and back (dive / undive)
+  js/router.js          one screen at a time, fade / up / down / iris transitions, one vertical camera move (pan-down / pan-up) to neighbours mounted ahead
   js/fx.js              the single scene clock, Lumos, sound cues and background music (through sound.js)
   js/sound.js           celesta synthesized in Web Audio (original cues, fallback waltz) + player for the music file
-  js/owl.js             Hedwig: one sprite sheet, poses chosen according to flight progress
+  js/owl.js             Hedwig: one sprite sheet, one layer per pose, a flight that can be interrupted
   js/monogram.js        fallback logo: the initial in a circle, same format as LOGOS
   js/crests.js          house crests: the crest pictures when present, original pen strokes otherwise
   js/rappeltout.js      shared context menu
   js/beuglante.js       shared error message
   js/screens/<screen>.js one file per screen: { mount, unmount, onKey }
-  assets/               locally generated images (castle, mist, parchment, owl, Ollivanders and Beasts windows, rider)
+  assets/               locally generated images (castle and its layers, parchment, owl, Ollivanders and Beasts windows, rider)
+  assets/shop/          the sprites of the shop windows, cut out of their pictures (tools/shop_sprites.py)
   assets/fonts/         Cinzel, Cinzel Decorative, EB Garamond, IM Fell English, with their OFL licence
   assets/logos.js       the app logos, versioned at the maintainer's request (third-party, DISCLAIMER.md)
   assets/crest-*.webp   the four house crest pictures, versioned at the maintainer's request (third-party, DISCLAIMER.md)
   assets/music/         ambiance.ogg, the background music, versioned at the maintainer's request (see docs/MUSIC.md)
-tools/                  static server, logo bundling, originality test for the waltz, owl cut-out, how the backdrops were generated
+tools/                  static server, logo bundling, originality test for the waltz, owl cut-out, the Parapet's layers (parapet_scene.py), the shop's sprites (shop_sprites.py), how the backdrops were generated
 android/                Android TV port (plain Java, no Gradle): WebView + window.Android bridge
 ```
 
@@ -76,10 +77,10 @@ On Android, the mock-up is copied as is into the APK by `android/build.sh` and s
 A single object, readable, versioned, validated on read (`sanitize()` drops anything it does not know):
 
 ```json
-{ "version": 3, "mode": "poudlard", "house": "gryffondor",
-  "dock": ["netflix", "prime", "disney", "canal", "max", "appletv", "youtube", "ps5"],
-  "hidden": [], "owl": "vive", "sounds": false, "motion": "auto",
-  "music": "auto",
+{ "version": 5, "mode": "poudlard", "house": "gryffondor",
+  "dock": ["netflix", "prime", "disney", "canal", "max", "appletv", "youtube", "in1"],
+  "hidden": [], "owl": "vive", "sounds": false, "motion": "auto", "motionChosen": false,
+  "ambiance": "calme", "music": "auto",
   "idleSeconds": 0,
   "lastApp": null, "firstRunDone": true,
   "library": { "hidden": [], "apps": {} },
@@ -103,10 +104,10 @@ before version 3, becomes 0).
 
 ## Images, sounds and rights
 
-- Castle, parchment, mist, owl, Ollivanders and Beasts windows, rider: generated locally (method in `tools/README.md`), with no film stills, no Warner logo, no lightning-bolt lettering. Each is sized for the screen it appears on (no texture beyond what a TV GPU accepts).
+- Castle, parchment, owl, Ollivanders and Beasts windows, rider: generated locally (method in `tools/README.md`), with no film stills, no Warner logo, no lightning-bolt lettering. Each is sized for the screen it appears on (no texture beyond what a TV GPU accepts).
 - App logos: `assets/logos.js`, versioned at the maintainer's request (trademarks of their owners, `DISCLAIMER.md`). `LOGOS[id]` missing (a hand-added app) → `monogram(name)`. To rebuild your own file, `tools/README.md`; on Android, the bridge also exposes the icon each app provides (`appIcon(pkg)`).
 - House crests: the four pictures `assets/crest-*.webp`, versioned at the maintainer's request (cut out from published artwork owned by Warner Bros., `DISCLAIMER.md`); `crests.js` falls back to original pen strokes when a picture is missing.
-- Sounds: synthesized (`sound.js`), original phrases, no melody from the films. Background music: `assets/music/ambiance.ogg` (Ogg Opus, under 3 MB, the maintainer's file, versioned at his request), with an original synthesized celesta waltz as the fallback (`docs/MUSIC.md`).
+- Sounds: synthesized (`sound.js`), original phrases, no melody from the films. Background music: `assets/music/ambiance.ogg` (Ogg Opus, 19 MB, the maintainer's recording, versioned at his request), with an original synthesized celesta waltz as the fallback (`docs/MUSIC.md`).
 - Fonts: Cinzel, Cinzel Decorative, EB Garamond, IM Fell English (SIL Open Font License), embedded in `assets/fonts/` with their licence.
 
 ## Android TV port

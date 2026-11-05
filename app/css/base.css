@@ -12,23 +12,31 @@
   --display: "Cinzel", Georgia, serif;                       /* engraved: time, names, plates, titles */
   --body: "EB Garamond", Garamond, Georgia, serif;           /* read: date, states, settings */
   --fell: "IM Fell English", "EB Garamond", Georgia, serif;  /* written by a wizard: Map, Library, Letter */
-  --title: var(--display); --serif: var(--body); --book: var(--fell);
+  --title: var(--display);
   --ui: "Segoe UI", system-ui, sans-serif;
   /* Type scale at 3 m: nothing below --t-hint. Safe area: nothing closer to an edge than --safe-x / --safe-y.
-     On the TV the WebView lays out at 960x540 CSS px (DPR 2): hint 16 px, body 20, label 22, title 27, clock 61 CSS px,
+     On the TV the WebView lays out at 960x540 CSS px (DPR 2): hint 16 px, body 20, label 22, title 27, clock 35 CSS px,
      drawn at twice that on the 1080p panel; the same proportions as a 1920x1080 browser at DPR 1 (cqw scale with it). */
   --text-scale: 1;
-  /* TV reading distance (3 m, 1080p): hints 1.7 cqw ≈ 33 px, body 2.1 ≈ 40 px, labels 2.3, titles 2.8, the clock 6.4.
+  /* TV reading distance (3 m, 1080p): hints 1.7 cqw ≈ 33 px, body 2.1 ≈ 40 px, labels 2.3, titles 2.8, the clock 3.6.
      Capitals are tracked lightly (.1em): wide tracking reads as decoration on a TV, not as text. */
-  --t-hint: calc(var(--text-scale) * 1.7cqw); --t-body: calc(var(--text-scale) * 2.1cqw); --t-label: calc(var(--text-scale) * 2.3cqw); --t-title: calc(var(--text-scale) * 2.8cqw); --t-clock: calc(var(--text-scale) * 6.4cqw);
-  --safe-x: 5cqw; --safe-y: 4.5cqw; --track-wide: .1em; --track-tight: .06em;
-  /* Focus grammar (focus.css): rest → focus → press → land. The focus is a slow breath (--t-focus, --ease-breath):
-     the gold rises in the logo and the scale settles without a bounce. --t-land stays at 200 ms, the time home.js
-     keeps .is-land on the app. */
-  --t-focus: 560ms; --t-press-in: 120ms; --t-press-out: 300ms; --t-land: 200ms;
-  --ease-out: cubic-bezier(.25, .7, .2, 1); --ease-settle: cubic-bezier(.3, .5, .15, 1);
+  --t-hint: calc(var(--text-scale) * 1.7cqw); --t-body: calc(var(--text-scale) * 2.1cqw); --t-label: calc(var(--text-scale) * 2.3cqw); --t-title: calc(var(--text-scale) * 2.8cqw); --t-clock: calc(var(--text-scale) * 3.6cqw);
+  --safe-x: 5cqw; --safe-y: 4.5cqw; --track-wide: .1em;
+  /* Focus grammar (focus.css): rest → focus → press. The release is a slow breath (--ease-breath), with no bounce. */
+  --t-press-in: 120ms; --t-press-out: 300ms;
+  --ease-out: cubic-bezier(.25, .7, .2, 1);
   --ease-breath: cubic-bezier(.42, 0, .12, 1);       /* slow in, long soft settle, no overshoot */
-  /* Screen transitions (router.js removes the leaving layer after 700 ms, 820 for the crane, 840 for the dive, 850 for the undive, 240 for the low-RAM cross-fade: nothing longer here).
+  /* The motion language: one curve for everything that arrives (fast off the mark, a long settle, no overshoot),
+     transform and opacity only, CSS transitions, so that a new key retargets from the current value and nothing jumps.
+     --t-settle: a focus going from one element to the next (the old one settles while the new one rises).
+     The camera has a curve of its own: --ease-arrive suits a rise of a few dozen px, but over a whole screen it starts at
+     full speed and crawls at the end (a snap and a slow tail). --ease-camera over --t-pan moves about 24 device px in the first
+     50 ms, peaks at 3.55 device px per ms (59 px per frame) and settles; both pictures share the screen for about 266 ms.
+     --t-pan: the camera going from one window to the next; --t-chrome-out, --t-chrome-in: what fades over it. */
+  --ease-arrive: cubic-bezier(.32, .72, 0, 1);
+  --ease-camera: cubic-bezier(.4, .05, .35, 1);
+  --t-settle: 320ms; --t-pan: 650ms; --t-chrome-out: 160ms; --t-chrome-in: 560ms;
+  /* Screen transitions (router.js MOVE_MS keeps the leaving layer for the longest of these, plus a short margin: keep them in step).
      One scene curve for the camera moves, a plain ease for the fades, a short candle-snuff. */
   --t-scene: 700ms; --t-scene-fade: 600ms; --t-snuff: 260ms;
   --ease-scene: cubic-bezier(.55, .02, .18, 1); --ease-fade: cubic-bezier(.35, 0, .25, 1);
@@ -71,65 +79,46 @@ html, body { margin: 0; background: var(--bg); color: var(--fg); font-family: va
   container-type: inline-size; cursor: default; font-size: 1cqw; }
 .stage:fullscreen { border-radius: 0; width: 100vw; height: 100vh; aspect-ratio: auto; }
 .stage:focus-visible { box-shadow: 0 0 0 2px var(--gold); }
+/* The camera: every screen layer hangs on it. It draws nothing; a pan moves it (below), and it rests at zero. */
+.camera { position: absolute; inset: 0; will-change: transform; }
 /* A screen layer: no permanent clip-path or mask (a round clip on the layer would cost a full-screen mask texture under
-   every composited child on the TV); transitions move transform and opacity only. */
-.screen { position: absolute; inset: 0; overflow: hidden;
+   every composited child on the TV); transitions move transform and opacity only. Always its own compositor layer:
+   its promotion and the raster that goes with it never land in the first frame of a move. */
+.screen { position: absolute; inset: 0; overflow: hidden; will-change: transform;
   transition-property: transform, opacity;
   transition-duration: calc(var(--k) * var(--t-scene)), calc(var(--k) * var(--t-scene-fade));
   transition-timing-function: var(--ease-scene), var(--ease-fade); }
 .screen.enter-fade { opacity: 0; }
 .screen.leave-fade { opacity: 0; }
-.screen.enter-up { transform: translateY(100%); }     /* the new screen rises from the bottom */
-.screen.leave-up { transform: translateY(-100%); }
 .screen.enter-down { transform: translateY(-100%); }
 .screen.leave-down { transform: translateY(100%); }
 /* "Iris" (into the Room of Requirement): the room opens out of the dark, slightly drawn back, then settles (no clip-path). */
 .screen.enter-iris { opacity: 0; transform: scale(.94); }
 .screen.leave-iris { opacity: 0; }
-/* Camera moves (router.js): the crane down to Ollivanders (the Parapet lifts and grows a little while the shop window
-   rises from below), its reverse, and the candle-snuff into the Room of Requirement (a short fade to black, then the
-   Room fades in over --t-scene-fade). The crane travel is modest: a camera move, not a slide. */
-.screen.enter-crane { transform: translateY(34%); opacity: 0; }
-.screen.leave-crane { transform: translateY(-8%) scale(1.04); opacity: 0; }
-.screen.enter-uncrane { transform: translateY(-8%) scale(1.04); opacity: 0; }
-.screen.leave-uncrane { transform: translateY(34%); opacity: 0; }
+/* The candle-snuff into the Room of Requirement: a short fade to black, then the Room fades in over --t-scene-fade. */
 .screen.leave-snuff { opacity: 0; transition-duration: calc(var(--k) * var(--t-snuff)); transition-timing-function: var(--ease-fade); }
 .screen.enter-snuff { opacity: 0; }
-/* The dive (router.js): into a lit window of the castle and back out. The router puts both layers' transform-origin on
-   the window's point and keeps it until the move is over. The zoom curves follow how a zoom is perceived (by ratio,
-   not by distance): the dive's ease-in tracks 3.5^(t^1.4), a flight that keeps gathering speed; the undive mirrors it.
-   Dive: the Parapet zooms toward the window (scale 1 -> 3.5 in 650 ms) and fades over its last third; the shop, the
-   upper layer, appears from 380 ms and settles from 1.06 to 1 by 830 ms (the Parapet is at 2.2x when it shows).
-   Undive: the shop recedes toward the window (to .92) and fades from 120 ms; the Parapet, the upper layer, shows from
-   100 ms already 3.5x into the window and pulls back to 1 by 850 ms (fast first, a long settle, no overshoot).
-   will-change only while the move lasts (the leave class goes with the layer, data-via is dropped at the end). */
-.screen.leave-dive { transform: scale(3.5); opacity: 0; will-change: transform, opacity;
-  transition-duration: calc(var(--k) * 650ms), calc(var(--k) * 220ms); transition-delay: 0s, calc(var(--k) * 430ms);
-  transition-timing-function: cubic-bezier(.45, 0, .8, .5), var(--ease-fade); }
-.screen.enter-dive { transform: scale(1.06); opacity: 0; }
-.screen[data-via="dive"] { will-change: transform, opacity;
-  transition-duration: calc(var(--k) * 450ms), calc(var(--k) * 340ms); transition-delay: calc(var(--k) * 380ms);
-  transition-timing-function: cubic-bezier(.2, .55, .25, 1), var(--ease-fade); }
-.screen.leave-undive { transform: scale(.92); opacity: 0; will-change: transform, opacity;
-  transition-duration: calc(var(--k) * 420ms), calc(var(--k) * 300ms); transition-delay: 0s, calc(var(--k) * 120ms);
-  transition-timing-function: cubic-bezier(.45, 0, .8, .5), var(--ease-fade); }
-.screen.enter-undive { transform: scale(3.5); opacity: 0; }
-.screen[data-via="undive"] { will-change: transform, opacity;
-  transition-duration: calc(var(--k) * 750ms), calc(var(--k) * 280ms); transition-delay: calc(var(--k) * 100ms);
-  transition-timing-function: cubic-bezier(.25, .55, .3, 1), var(--ease-fade); }
-html:not([data-motion="auto"]) .screen.enter-crane, html:not([data-motion="auto"]) .screen.enter-uncrane { transform: none; }
-html:not([data-motion="auto"]) .screen.leave-crane, html:not([data-motion="auto"]) .screen.leave-uncrane { transform: none; }
-html:not([data-motion="auto"]) .screen.enter-dive, html:not([data-motion="auto"]) .screen.enter-undive,
-html:not([data-motion="auto"]) .screen.leave-dive, html:not([data-motion="auto"]) .screen.leave-undive { transform: none; transition-delay: 0s; }
+/* The pan (router.js): the layers hang on the camera, each exactly one screen from the next (an inline transform, no
+   transition: .is-strip), and only the camera moves. Pictures opaque, no opacity on the layers, so no render surface and no
+   blending between them. Whatever should not travel with its picture (a caption, the Parapet's clock and dock) carries
+   .pan-fade: it goes in --t-chrome-out as the move starts, and comes back when the picture has nearly settled (the curve holds
+   it at 0 for its first 55 %: a transition delay would wake the main thread at every frame). It never scales, and it never
+   crosses the screen.
+   A neighbour (.is-near) waits one screen away, nothing of it drawn. Its .pan-fade is at an opacity that cannot be seen but not at 0:
+   a layer at 0 is not rasterised, and its raster would land in the middle of the move, as it fades in. .is-hold: a screen the camera
+   reached before its mount was over; what it adds to its .pan-fade waits for the end (router.js). */
+.camera.is-panning { transition: transform calc(var(--k) * var(--t-pan)) var(--ease-camera); }
+.screen.is-strip { transition: none; }
+.screen[data-via^="pan"], .screen.leave-pan-down, .screen.leave-pan-up, .screen.is-near { background: var(--night); }
+.screen.is-prep .pan-fade, .screen.is-near .pan-fade { opacity: .004; }
+.screen.is-hold .pan-fade { opacity: 0; }
+.screen[data-via^="pan"] .pan-fade { transition: opacity calc(var(--k) * var(--t-chrome-in)) linear(0 0%, 0 55%, 1 100%); }
+.screen.leave-pan-down .pan-fade, .screen.leave-pan-up .pan-fade { opacity: 0; transition: opacity calc(var(--k) * var(--t-chrome-out)) linear; }
 html:not([data-motion="auto"]) .screen { transition-duration: calc(var(--k) * 200ms); }
-/* The low-RAM TV's dive and undive (router.js, html[data-lowram="1"]): a 200 ms cross-fade, opacity only. The next
-   screen, the upper layer, fades in over the one it replaces, which stays still under it (no dip to black between). */
-.screen.enter-xfade { opacity: 0; }
-.screen[data-via="xfade"] { will-change: opacity; transition-duration: 0s, calc(var(--k) * 200ms); transition-delay: 0s; transition-timing-function: linear, var(--ease-fade); }
-/* A prepared screen (router.js, dive and undive): mounted at rest, without its start scale (its layout reads are
-   true), all but invisible and composited, so its pictures are decoded and rasterised before the move shows it; no
-   transition while it waits. Last of the screen rules: it holds over the enter-* and data-via rules until it goes. */
-.screen.is-prep { opacity: .002; transition: none; will-change: opacity; pointer-events: none; }
+/* A prepared screen (router.js): in place for a few frames, once whole, without any start transform, all but invisible and
+   composited, so that its layers are rasterised before a move shows it; no transition while it waits. Last of the screen
+   rules: it holds over the enter-* and data-via rules until it goes. */
+.screen.is-prep { opacity: .002; transition: none; will-change: transform, opacity; pointer-events: none; }
 
 .fx-dust { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 40; }
 /* A soft halo, not a flash: the core is already translucent and the falloff is long. */

@@ -1,9 +1,10 @@
 /* The Room of Requirement (settings): a large ledger open as a double page on a stone table, by candlelight.
-   Prefix .set-; everything in cqw. Motion: transform and opacity only, event-driven (no loop, no clip-path, no
-   animated colour or shadow: a focus wash is a layer whose opacity changes). Animations use `backwards` fill only,
-   so at rest nothing of this screen is running and the base styles carry the final state. */
+   Prefix .set-; everything in cqw. Motion: the shared curve (--ease-arrive), transform and opacity only, event-driven (no
+   loop, no clip-path, no animated colour or shadow). One mark per page goes from line to line and nothing else changes,
+   so a move paints nothing. Animations use `backwards` fill only, so at rest nothing of this screen is running and the
+   base styles carry the final state. */
 .screen-settings { background: var(--night); }
-.set-room { position: absolute; inset: 0; overflow: hidden; perspective: 160cqw; }
+.set-room { position: absolute; inset: 0; overflow: hidden; }
 
 /* Fallback background: night and a few fixed stars (no image needed). */
 .set-stars { position: absolute; inset: 0; background:
@@ -17,79 +18,83 @@
   background: radial-gradient(ellipse at 60% 70%, var(--house-glow) 0%, transparent 60%); opacity: .14; }
 
 /* ---- The ledger: inside the safe area, above the key hint's band ---- */
-.set-book { position: absolute; left: 5.5cqw; right: 5.5cqw; top: 3.2cqw; bottom: 5.8cqw; display: grid; grid-template-columns: 30cqw .9cqw minmax(0, 1fr); transform-style: preserve-3d; }
+.set-book { position: absolute; left: 5.5cqw; right: 5.5cqw; top: 3.2cqw; bottom: 5.8cqw; display: grid; grid-template-columns: 30cqw .9cqw minmax(0, 1fr); }
 /* minmax(0, 1fr), here and in the grids below: a plain 1fr track asks for its content's min-content width, i.e. one
    more layout pass of the whole right page before the real one (the room's first layout was ~2× slower for it). */
 .set-page { position: relative; overflow: hidden; }
 .set-page::before { content: ""; position: absolute; inset: 0; pointer-events: none; z-index: 3;
   background: linear-gradient(to right, #00000000 94%, #3a260e22 100%), linear-gradient(to bottom, #3a260e14, transparent 8%, transparent 92%, #3a260e18); }
-.set-left { border-radius: .6cqw 0 0 .6cqw; transform-origin: 100% 50%; transform: rotateY(-38deg); opacity: 0;
-  transition: transform calc(var(--k) * 650ms) cubic-bezier(.33, 0, .2, 1), opacity calc(var(--k) * 350ms) ease; }
-.set-right { border-radius: 0 .6cqw .6cqw 0; transform-origin: 0 50%; transform: rotateY(22deg); opacity: 0;
-  transition: transform calc(var(--k) * 650ms) cubic-bezier(.33, 0, .2, 1) 80ms, opacity calc(var(--k) * 350ms) ease 80ms; }
+/* The ledger opens: each page swings on its own perspective (no 3D context kept at rest), painted once on its own layer. */
+.set-page { will-change: transform, opacity; }
+.set-left { border-radius: .6cqw 0 0 .6cqw; transform-origin: 100% 50%; transform: perspective(160cqw) rotateY(-38deg); opacity: 0;
+  transition: transform calc(var(--k) * 520ms) var(--ease-arrive), opacity calc(var(--k) * 240ms) linear; }
+.set-right { border-radius: 0 .6cqw .6cqw 0; transform-origin: 0 50%; transform: perspective(160cqw) rotateY(22deg); opacity: 0;
+  transition: transform calc(var(--k) * 520ms) var(--ease-arrive), opacity calc(var(--k) * 240ms) linear; }
 .is-open .set-left, .is-open .set-right { transform: none; opacity: 1; }
 .set-spine { position: relative; z-index: 2; background: linear-gradient(to right, #2a1a0a66, #0e0804cc 50%, #2a1a0a66); }
 
-/* Left page: the engraved title (may run to two lines) and the nine sections. */
+/* Left page: the engraved title (may run to two lines) and the nine sections. A line's height is a token, the mark's steps. */
 .set-title { position: absolute; top: 2cqw; left: 3cqw; right: 2cqw; font-size: var(--t-label); line-height: 1.15; letter-spacing: .14em; color: var(--gold-dark); text-shadow: 0 .05cqw 0 #fff6cf66; }
-.set-rubs { position: absolute; top: 7.4cqw; left: 2.6cqw; right: 2cqw; margin: 0; padding: 0; list-style: none; }
-.set-rub { position: relative; padding: .6cqw 0 .6cqw 2.4cqw; font-family: var(--body); font-weight: 500; font-size: var(--t-body); line-height: 1.15; color: var(--ink); opacity: .72;
-  white-space: nowrap; transition: opacity calc(var(--k) * 200ms), transform calc(var(--k) * 250ms) cubic-bezier(.3, .7, .2, 1); }
-.set-rub::before { content: ""; position: absolute; left: .4cqw; top: calc(.6cqw + var(--t-body) * .575 - .55cqw); width: 1.1cqw; height: 1.1cqw; background: var(--wax);
-  clip-path: polygon(50% 0, 61% 39%, 100% 50%, 61% 61%, 50% 100%, 39% 61%, 0 50%, 39% 39%);   /* the four-point star, drawn: no glyph (none of the embedded fonts has ✦) */
-  opacity: 0; transform: scale(.6); transition: opacity calc(var(--k) * 200ms), transform calc(var(--k) * 250ms); }
-.set-rub.is-active { opacity: 1; }
-.set-rub.is-active::before { opacity: 1; transform: none; }
-.set-rub.is-focus { opacity: 1; transform: translateX(.4cqw); }
-.set-rub.is-focus .set-rub-label { font-weight: 700; }
-/* The pen stroke: an ink line drawn from left to right under the focused section (scaleX). */
-.set-quill { position: absolute; left: 2.4cqw; right: 1cqw; bottom: .3cqw; height: .2cqw; background: linear-gradient(to right, var(--ink) 0%, var(--ink) 70%, transparent 100%); border-radius: .1cqw;
-  transform: scaleX(0); transform-origin: 0 50%; opacity: .9; transition: transform calc(var(--k) * 300ms) cubic-bezier(.2, .8, .2, 1); }
-.set-rub.is-focus .set-quill { transform: none; }
+.set-rubs { --rub-pad: .6cqw; --rub-h: calc(var(--t-body) * 1.15 + 2 * var(--rub-pad)); position: absolute; top: 7.4cqw; left: 2.6cqw; right: 2cqw; margin: 0; padding: 0; list-style: none; }
+.set-rub { position: relative; height: var(--rub-h); padding: var(--rub-pad) 0 var(--rub-pad) 2.4cqw; font-family: var(--body); font-weight: 500; font-size: var(--t-body); line-height: 1.15; color: var(--ink); opacity: .9;
+  white-space: nowrap; }
+/* The mark: it goes from line to line (settings.js sets its transform): the section in view stands on a slip of lighter paper with a
+   soft shadow, the same as the right page's, and goes quiet while the focus is on the other page. */
+.set-rub { z-index: 1; }
+.set-mark { position: absolute; left: 1.4cqw; top: 0; right: .4cqw; height: var(--rub-h); pointer-events: none; will-change: transform, opacity; border-radius: .3cqw; background: #fff6dc59; box-shadow: 0 .3cqw .8cqw #3a260e73;
+  transition: transform calc(var(--k) * var(--t-settle)) var(--ease-arrive), opacity calc(var(--k) * var(--t-settle)) var(--ease-arrive); }
+.set-left.is-away .set-mark { opacity: .45; }
 .set-folio { position: absolute; left: 3cqw; bottom: 1.3cqw; font-family: var(--fell); font-style: italic; font-size: var(--t-hint); color: var(--ink); opacity: .55; }
 /* "Taille du texte : Grande" (base.css, every token x 1.25): the two-line title, the nine sections and the folio no
    longer fit the page with the normal spacing (the last section ran over the folio). The list starts under the
    taller title and the lines close up; the star follows its line's padding. */
-html[data-text="grand"] .set-rubs { top: 9.2cqw; }
-html[data-text="grand"] .set-rub { padding-top: .34cqw; padding-bottom: .34cqw; }
-html[data-text="grand"] .set-rub::before { top: calc(.34cqw + var(--t-body) * .575 - .55cqw); }
+html[data-text="grand"] .set-rubs { top: 9.2cqw; --rub-pad: .34cqw; }
 
-/* Right page: a column (title, subtitle, body that takes the rest, preview); the message band floats over the
-   bottom of the body. Nothing is placed at a fixed height: a two-line subtitle pushes the body down. */
+/* Right page: a column (the sheet, then the preview). The sheet is a layer of its own over the page: what changes with the
+   section is painted there, and the page under it never again. Its title, subtitle, body that takes the rest; the message
+   band floats over the bottom of the body. Nothing is placed at a fixed height: a two-line subtitle pushes the body down.
+   When the section changes (.is-turning) it goes quickly and comes back on the curve. */
 .set-right { display: flex; flex-direction: column; padding: 2cqw 2.8cqw 1.7cqw 3.2cqw; }
+.set-sheet { position: relative; flex: 1; min-height: 0; display: flex; flex-direction: column; will-change: opacity; transition: opacity calc(var(--k) * var(--t-settle)) var(--ease-arrive); }
+.set-sheet.is-turning { opacity: 0; transition: opacity calc(var(--k) * 90ms) linear; }
 .set-rtitle { flex: none; font-family: var(--display); font-weight: 600; font-size: var(--t-title); letter-spacing: .12em; text-transform: uppercase; color: var(--ink); line-height: 1.1; }
 .set-rsub { flex: none; margin-top: .5cqw; font-family: var(--fell); font-style: italic; font-size: var(--t-hint); line-height: 1.25; color: var(--ink); opacity: .75; }
 .set-body { position: relative; flex: 1; min-height: 0; margin-top: .8cqw; overflow: hidden; }
-.set-flow { position: relative; padding: .4cqw 0; transition: transform calc(var(--k) * 300ms) cubic-bezier(.3, .7, .2, 1); }
+/* A section's sheet: one in view; the others keep their layout, out of the way (settings.js). */
+.set-flow { position: absolute; left: 0; right: 0; top: 0; padding: .4cqw 0; will-change: transform; transition: transform calc(var(--k) * var(--t-settle)) var(--ease-arrive); }
+/* Hidden by opacity and content-visibility, not visibility: visibility is inherited, so changing it restyles every line of the sheet
+   (78 ms of the 187 ms of a section's move at CPU x6), and a sheet that stays a layer is not one more layer to make when it shows. */
+.set-flow.is-warming { opacity: 0; }
+.set-flow.is-away { opacity: 0; content-visibility: hidden; }
 /* The refusal or confirmation message: outside the sliding sheet, at the bottom of the body, always visible and
    whole (as many lines as the sentence needs). A parchment veil separates it from the lines passing underneath. */
-.set-msg { position: absolute; left: 3.2cqw; right: 2.8cqw; bottom: 11.5cqw; z-index: 2; padding: 1cqw .9cqw .3cqw;
+.set-msg { position: absolute; left: 0; right: 0; bottom: 0; z-index: 2; padding: 1cqw .9cqw .3cqw;
   font-family: var(--fell); font-style: italic; font-size: var(--t-hint); line-height: 1.3; color: var(--wax);
-  background: linear-gradient(to bottom, #e8d9b500 0%, #e8d9b5f0 30%, #e8d9b5 100%); transition: opacity calc(var(--k) * 200ms); }
-.set-msg:empty { opacity: 0; padding: 0; }
+  background: linear-gradient(to bottom, #e8d9b500 0%, #e8d9b5f0 30%, #e8d9b5 100%); }
+.set-msg:empty { display: none; }
 /* The TV's own screens and "À propos" are long lists with nothing to show on the parapet: the preview steps aside. */
 .set-right[data-rub="tv"] .set-preview, .set-right[data-rub="about"] .set-preview { display: none; }
-.set-right[data-rub="tv"] .set-msg, .set-right[data-rub="about"] .set-msg { bottom: 1.7cqw; }
 
-/* Focus marks shared by the rows: a wax bar on the left and an ink wash, both layers whose opacity changes. */
-.set-row::before, .set-app::before { content: ""; position: absolute; left: 0; top: .45cqw; bottom: .45cqw; width: .3cqw; border-radius: .15cqw; background: var(--wax); opacity: 0;
-  transition: opacity calc(var(--k) * 150ms); }
-.set-row::after, .set-app::after { content: ""; position: absolute; inset: 0; border-radius: .3cqw; background: #1b1510; opacity: 0; pointer-events: none;
-  transition: opacity calc(var(--k) * 150ms); }
-.set-row.is-focus::before, .set-app.is-focus::before { opacity: 1; }
-.set-row.is-focus::after, .set-app.is-focus::after { opacity: .08; }
+/* What the lifted row stands on: a slip of lighter paper with a soft shadow, one layer that goes from row to row (settings.js
+   sets its transform and its height; a row of another height only scales it a little). */
+.set-focus { position: absolute; left: 0; right: 0; top: 0; height: 3.4cqw; border-radius: .3cqw; background: #fff6dc59; box-shadow: 0 .3cqw .8cqw #3a260e73; opacity: 0; pointer-events: none; transform-origin: 0 0; will-change: transform, opacity;
+  transition: transform calc(var(--k) * var(--t-settle)) var(--ease-arrive), opacity calc(var(--k) * 160ms) linear; }
+.set-focus.is-on { opacity: 1; }
+/* The row itself: its own layer, painted once. At rest its ink is a little lighter; in focus it lifts, the ink at full strength. */
+.set-row, .set-app { z-index: 1; will-change: transform, opacity; transition: transform calc(var(--k) * var(--t-settle)) var(--ease-arrive), opacity calc(var(--k) * var(--t-settle)) var(--ease-arrive); }
+.set-row { opacity: .86; }
+.set-row.is-focus, .set-app.is-focus { opacity: 1; transform: translateY(-.15cqw); }
 
 /* Enumerated setting row: label, then the value between chevrons. Every row keeps the same chevron gutter, shown or
    not, and the value is right-aligned against it: all values end on one column, and the chevrons that appear on the
    focused row move nothing. A change is confirmed by the value written in quill (no seal on these rows). */
 .set-row { position: relative; display: flex; align-items: center; justify-content: space-between; gap: 1.2cqw; padding: .7cqw 1.2cqw .7cqw 1.1cqw; margin-bottom: .2cqw; border-radius: .3cqw;
-  font-family: var(--body); font-size: var(--t-label); line-height: 1.2; color: var(--ink); transition: transform calc(var(--k) * 200ms); }
-.set-row.is-focus { transform: translateX(.2cqw); }
+  font-family: var(--body); font-size: var(--t-label); line-height: 1.2; color: var(--ink); }
 .set-row-label { font-weight: 500; min-width: 0; }
 .set-row-val { flex: none; display: flex; align-items: center; gap: .6cqw; font-weight: 600; font-variant-numeric: tabular-nums; }
 .set-row-value { font-weight: 600; min-width: 7cqw; text-align: right; white-space: nowrap; }
-.set-arrow { flex: none; width: 1cqw; text-align: center; font-style: normal; font-size: var(--t-label); line-height: 1; opacity: 0; transform: scale(.8); transition: opacity calc(var(--k) * 200ms), transform calc(var(--k) * 200ms); }
-.set-row.is-focus .set-arrow { opacity: .8; transform: none; }
+.set-arrow { flex: none; width: 1cqw; text-align: center; font-style: normal; font-size: var(--t-label); line-height: 1; opacity: 0; will-change: opacity; transition: opacity calc(var(--k) * 160ms) linear; }
+.set-row.is-focus .set-arrow { opacity: .8; }
 .set-row.is-focus .set-arrow.is-off { opacity: .18; }
 /* Read-only row (the Home key in the mock-up): pale value, no arrows; the focus marks stay. */
 .set-row.is-off .set-row-value { opacity: .5; }
@@ -101,29 +106,26 @@ html[data-text="grand"] .set-rub::before { top: calc(.34cqw + var(--t-body) * .5
 .set-text { margin: 0 0 1.1cqw 1.1cqw; font-family: var(--body); font-size: var(--t-body); line-height: 1.35; color: var(--ink); max-width: 50cqw; }
 .set-ask { font-family: var(--fell); font-size: var(--t-label); margin-top: 1.2cqw; }
 
-/* A row's wax seal: invisible until something changes, then pressed (scale 1.3 → 1, 200 ms) and kept. */
-.set-rowseal { position: absolute; right: .6cqw; top: 50%; width: 1.9cqw; height: 1.9cqw; margin-top: -.95cqw; opacity: 0; transform: scale(1.3); z-index: 1; }
-.set-rowseal.is-sealed { opacity: 1; transform: none; }
-.set-rowseal.is-press { animation: set-press calc(var(--k) * 200ms) cubic-bezier(.2, .9, .3, 1.2) backwards; }
-@keyframes set-press { from { transform: scale(1.3); opacity: 0; } 35% { opacity: 1; } to { transform: none; opacity: 1; } }
-.set-seal-corner { right: 1cqw; top: auto; bottom: .4cqw; margin-top: 0; }
+/* A row's wax seal: drawn when something changes, then pressed (settings.js, Web Animations) and kept. */
+.set-rowseal { position: absolute; right: .6cqw; top: 50%; width: 1.9cqw; height: 1.9cqw; margin-top: -.95cqw; z-index: 1; }
+.set-seal-corner { right: 1cqw; top: auto; bottom: .4cqw; margin-top: 0; opacity: 0; }
+.set-seal-corner.is-sealed { opacity: 1; }
 
-/* Pen writing (settings.js writeIn, Web Animations): the line inks in (opacity) while settling from the left, 260 ms,
-   staggered by 90 ms for lines written one after another. */
+/* Pen writing (settings.js writeIn, Web Animations): the line inks in (opacity) while settling from the left. */
 
 /* The key hint's labels sit in <em> (settings.js rewrites them): upright, like every other key hint. Cinzel has no italic,
    so an <em> made the browser synthesise a slanted Cinzel instance, a new font to build on the screen's first layout. */
 .screen-settings .keyhint em { font-style: normal; }
 
-/* Pen-drawn buttons: the focus fills the button with ink at once (a single repaint), only the scale moves. */
+/* Pen-drawn buttons: the focus fills the button with ink at once (a small repaint), only the scale moves. */
 .set-btns { display: flex; flex-wrap: wrap; gap: 1.4cqw; margin-left: 1.1cqw; }
 .set-acts { display: grid; gap: .45cqw; margin-top: .6cqw; margin-left: .2cqw; }
 .set-btn { position: relative; display: inline-flex; align-items: center; padding: .6cqw 2cqw; font-family: var(--body); font-weight: 600; font-size: var(--t-body); line-height: 1.25; color: var(--ink);
-  border: .14cqw solid #1b151088; border-radius: .35cqw; width: max-content; max-width: 100%; box-sizing: border-box; transition: transform calc(var(--k) * 200ms); }
+  border: .14cqw solid #1b151088; border-radius: .35cqw; width: max-content; max-width: 100%; box-sizing: border-box; }
+.screen-settings .set-btn { transition: transform calc(var(--k) * var(--t-settle)) var(--ease-arrive); }
 .set-btn::after { content: ""; position: absolute; inset: .22cqw; border: .06cqw solid #1b151055; border-radius: .2cqw; pointer-events: none; }
-.set-btn.is-focus { background: var(--ink); color: var(--parchment); transform: scale(1.03); }
-.set-btn.is-focus::after { border-color: #e8d9b566; }
-.set-btn-nox.is-focus { background: var(--wax); color: var(--ivory); }
+.screen-settings .set-btn.is-focus { background: #fff6dc59; box-shadow: 0 .3cqw .8cqw #3a260e73; }
+.screen-settings .set-btn.is-focus:not(.is-press) { transform: translateY(-.15cqw) scale(1.03); }
 
 /* About: one grid for all the facts, so the keys share a column as wide as the longest one ("Touche Home" on one
    line, at both text sizes); the facts in the reading size of the notes. With the TV's own line the page (facts and
@@ -138,26 +140,24 @@ html[data-text="grand"] .set-rub::before { top: calc(.34cqw + var(--t-body) * .5
 .set-list-head { display: flex; justify-content: space-between; align-items: baseline; margin: .3cqw 0 .3cqw 1.1cqw; font-family: var(--display); font-size: var(--t-hint); letter-spacing: .14em; text-transform: uppercase; color: var(--ink); opacity: .7; }
 .set-count { font-family: var(--body); font-size: var(--t-hint); letter-spacing: 0; text-transform: none; font-variant-numeric: tabular-nums; }
 .set-empty { margin: .2cqw 0 .6cqw 1.1cqw; font-family: var(--fell); font-style: italic; font-size: var(--t-hint); color: var(--ink); opacity: .75; }
-.set-app { position: relative; display: flex; align-items: center; gap: 1cqw; min-height: 3.4cqw; padding: .2cqw 3.2cqw .2cqw .8cqw; border-radius: .3cqw; color: var(--ink); opacity: .8;
-  transition: opacity calc(var(--k) * 200ms), transform calc(var(--k) * 200ms); }
+.set-app { position: relative; display: flex; align-items: center; gap: 1cqw; min-height: 3.4cqw; padding: .2cqw 3.2cqw .2cqw .8cqw; border-radius: .3cqw; color: var(--ink); opacity: .8; }
 .set-app.is-on { opacity: 1; }
-.set-app.is-focus { opacity: 1; transform: translateX(.2cqw); }
 .set-app-rank { flex: none; width: 1.8cqw; font-family: var(--display); font-weight: 600; font-size: var(--t-hint); text-align: center; opacity: .65; font-variant-numeric: tabular-nums; }
 .set-app-name { flex: 1; min-width: 0; font-family: var(--body); font-weight: 500; font-size: var(--t-body); line-height: 1.15; }
-.set-app.is-focus .set-app-name { font-weight: 700; }
 /* State tag ("cachée", "absente", "perso") in pen. */
 .set-app-hidden { flex: none; font-family: var(--fell); font-style: italic; font-size: var(--t-hint); color: var(--ink); opacity: .7; white-space: nowrap; }
 .set-app.is-hidden .set-inklogo, .set-app.is-hidden .set-app-name { opacity: .4; }
 /* Logo in ink: a single masked layer (static mask), 85% ink, as on the Map. */
-.set-inklogo { position: relative; display: inline-block; flex: none; transition: opacity calc(var(--k) * 200ms); }
-.set-inklogo i { position: absolute; inset: 0; background: var(--ink); opacity: .85; -webkit-mask: var(--m) center / contain no-repeat; mask: var(--m) center / contain no-repeat; }
+.set-inklogo { position: relative; display: inline-block; flex: none; }
+.set-inklogo i { position: absolute; inset: 0; opacity: .85; -webkit-mask: center / contain no-repeat; mask: center / contain no-repeat; }
+.set-inklogo i.is-set { background: var(--ink); }   /* with its picture (settings.js setMask): ink without one is a black box */
 .set-inklogo i.luma { -webkit-mask-mode: luminance; mask-mode: luminance; }
 .set-inklogo.is-text { font-family: var(--display); font-weight: 600; font-size: var(--t-hint); letter-spacing: .1em; text-align: center; line-height: 1.5cqw; border: .08cqw solid #1b151066; border-radius: .2cqw; }
 /* Hourglass: the sand falls (scaleY from the bottom) when the app is placed, and empties when it is removed. */
 .set-app-glass { flex: none; width: 1.7cqw; height: 2.3cqw; }
 .set-glass { width: 100%; height: 100%; overflow: visible; }
 .set-glass .g-frame { fill: none; stroke: var(--ink); stroke-width: 1.6; stroke-linecap: round; opacity: .55; transition: opacity calc(var(--k) * 300ms); }
-.set-glass .g-top, .set-glass .g-bot { fill: var(--gold); transform-box: fill-box; transition: transform calc(var(--k) * 300ms) cubic-bezier(.4, 0, .6, 1), opacity calc(var(--k) * 300ms); }
+.set-glass .g-top, .set-glass .g-bot { fill: var(--gold); transform-box: fill-box; transition: transform calc(var(--k) * 300ms) var(--ease-arrive), opacity calc(var(--k) * 300ms); }
 .set-glass .g-top { transform-origin: 50% 100%; transform: scaleY(0); opacity: 0; }
 .set-glass .g-bot { transform-origin: 50% 100%; transform: scaleY(0); opacity: 0; }
 .set-app.is-on .set-glass .g-bot { transform: none; opacity: 1; }
@@ -167,13 +167,12 @@ html[data-text="grand"] .set-rub::before { top: calc(.34cqw + var(--t-body) * .5
 /* ---- House: four wax seals ---- */
 .set-houses { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1.2cqw; margin: .8cqw .4cqw 1.2cqw; }
 .set-house { position: relative; display: grid; justify-items: center; gap: .6cqw; padding: 1.2cqw .4cqw 1cqw; border-radius: .5cqw; border: .14cqw solid transparent; opacity: .75;
-  transition: transform calc(var(--k) * 250ms) cubic-bezier(.3, .7, .2, 1), opacity calc(var(--k) * 200ms); }
+  }
+.screen-settings .set-house { transition: transform calc(var(--k) * var(--t-settle)) var(--ease-arrive); }
 .set-house.is-on { opacity: 1; }
-.set-house.is-focus { opacity: 1; transform: translateY(-.3cqw) scale(1.05); border-color: #1b151099; }
-.set-house-seal { width: 6cqw; height: 6cqw; display: grid; place-items: center; transition: transform calc(var(--k) * 250ms); }
+.screen-settings .set-house.is-focus { opacity: 1; transform: translateY(-.3cqw) scale(1.05); background: #fff6dc59; box-shadow: 0 .3cqw .8cqw #3a260e73; }
+.set-house-seal { width: 6cqw; height: 6cqw; display: grid; place-items: center; transition: transform calc(var(--k) * var(--t-settle)) var(--ease-arrive); }
 .set-house.is-on .set-house-seal { transform: scale(1.06); }
-.set-house-seal.is-press { animation: set-press-seal calc(var(--k) * 200ms) cubic-bezier(.2, .9, .3, 1.2) backwards; }
-@keyframes set-press-seal { from { transform: scale(1.3); } to { transform: scale(1.06); } }
 .set-house-letter { font-family: var(--display); font-weight: 700; font-size: 2.6cqw; color: #f1ebddcc; text-shadow: 0 .05cqw .1cqw #00000080; }
 .set-house-name { font-family: var(--body); font-weight: 600; font-size: var(--t-body); color: var(--ink); text-align: center; line-height: 1.1; }
 .set-house-state { min-height: 1.9cqw; font-family: var(--fell); font-style: italic; font-size: var(--t-hint); color: var(--ink); opacity: .75; }
@@ -189,32 +188,28 @@ html[data-text="grand"] .set-rub::before { top: calc(.34cqw + var(--t-body) * .5
   box-shadow: 0 0 0 .1cqw #1b151066; }
 .set-pv-row { position: absolute; left: 6%; right: 6%; top: 3.2cqw; bottom: .3cqw; display: flex; justify-content: space-evenly; align-items: center; }   /* logos centred at 72 % of the strip: the dock line, a lit tall logo kept inside */
 .set-pv-row.is-few { justify-content: center; gap: 15.9%; }
-.set-pv-app { position: relative; flex: none; transition: transform calc(var(--k) * 250ms) cubic-bezier(.3, .7, .2, 1); }
-/* The focused app, as on the Parapet: lifted and grown by 1.24, in gold. */
-.set-pv-app.is-lit { transform: translateY(-.32cqw) scale(1.24); }
-.set-pv-app .app-logo .l-base { opacity: .8; }
-.set-pv-app.is-lit .app-logo .l-base { opacity: 1; background: linear-gradient(165deg, #FFF6CF 0%, #F3D27A 22%, #C08F35 46%, #F6DD8F 62%, #A26F24 82%, #F1CF7C 100%); }
+.set-pv-app { position: relative; flex: none; will-change: transform; transition: transform calc(var(--k) * var(--t-settle)) var(--ease-arrive); }
+/* The focused app, as on the Parapet: lifted and grown by 1.14, in full ivory. */
+.set-pv-app.is-lit { transform: translateY(-.32cqw) scale(1.14); }
+.set-pv-app .app-logo .l-base { opacity: .62; }
+.set-pv-app.is-lit .app-logo .l-base { opacity: 1; }
 .set-pv-text { display: block; font-family: var(--display); font-size: var(--t-hint); letter-spacing: .06em; color: var(--ivory); opacity: .8; line-height: 1.9cqw; text-align: center; white-space: nowrap; }
 .set-pv-empty { font-family: var(--fell); font-style: italic; font-size: var(--t-hint); color: var(--ivory); opacity: .8; }
 /* The owl: the perched frame of the real sheet (57 x 66 px, its size at DPR 2), placed by settings.js on the logo's top
    edge (translate); it slides there when the focus moves along the parapet list. */
-.set-pv-owl { position: absolute; left: 0; top: 0; width: 2.97cqw; height: 3.44cqw; pointer-events: none;
+.set-pv-owl { position: absolute; left: 0; top: 0; width: 2.97cqw; height: 3.44cqw; pointer-events: none; will-change: transform;
   background: url("../../assets/settings/owl-mini.webp") center / 100% 100% no-repeat;
-  transition: transform calc(var(--k) * 300ms) cubic-bezier(.3, .7, .2, 1), opacity calc(var(--k) * 200ms); }
+  transition: transform calc(var(--k) * var(--t-settle)) var(--ease-arrive), opacity calc(var(--k) * 200ms); }
 .set-pv-owl.is-gone { opacity: 0; }
 
 /* ---- Reduced motion: 200 ms fades and nothing more ---- */
 .screen-settings.is-reduced .set-left, .screen-settings.is-reduced .set-right { transform: none; transition: opacity 200ms ease; }
-.screen-settings.is-reduced .set-rub, .screen-settings.is-reduced .set-row, .screen-settings.is-reduced .set-app, .screen-settings.is-reduced .set-house, .screen-settings.is-reduced .set-btn,
-.screen-settings.is-reduced .set-arrow, .screen-settings.is-reduced .set-house-seal, .screen-settings.is-reduced .set-pv-app, .screen-settings.is-reduced .set-rowseal { transition: opacity 200ms ease; transform: none !important; }
-.screen-settings.is-reduced .set-rub::before { transition: opacity 200ms ease; transform: none; }
-.screen-settings.is-reduced .set-rowseal.is-press, .screen-settings.is-reduced .set-house-seal.is-press { animation: set-fade 200ms ease backwards; }
-/* The pen stroke is no longer drawn: it fades in under the focused section. */
-.screen-settings.is-reduced .set-quill { transform: none; opacity: 0; transition: opacity 200ms ease; }
-.screen-settings.is-reduced .set-rub.is-focus .set-quill { opacity: .9; }
-/* The sheet still slides (needed to see the focused row), but without transition; the owl and the candle teleport with a fade. */
-.screen-settings.is-reduced .set-flow { transition: none; }
+.screen-settings.is-reduced .set-sheet, .screen-settings.is-reduced .set-sheet.is-turning { transition: opacity 200ms ease; }
+.screen-settings.is-reduced .set-row, .screen-settings.is-reduced .set-app, .screen-settings.is-reduced .set-house, .screen-settings.is-reduced .set-btn,
+.screen-settings.is-reduced .set-house-seal, .screen-settings.is-reduced .set-pv-app, .screen-settings.is-reduced .set-rowseal { transition: opacity 200ms ease; transform: none !important; }
+/* The marks no longer glide: they are where the focus is. */
+.screen-settings.is-reduced .set-mark, .screen-settings.is-reduced .set-flow { transition: none; }
+.screen-settings.is-reduced .set-focus { transition: opacity 200ms ease; }
 .screen-settings.is-reduced .set-pv-owl { transition: opacity 200ms ease; }
 /* The sand is no longer poured: it fades in. */
 .screen-settings.is-reduced .set-glass .g-top, .screen-settings.is-reduced .set-glass .g-bot { transition: opacity 200ms ease; transform: none !important; }
-@keyframes set-fade { from { opacity: 0; } to { opacity: 1; } }

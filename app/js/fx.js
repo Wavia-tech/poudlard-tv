@@ -1,5 +1,5 @@
 // Shared effects: ONE scene clock, gold dust bursts (canvas), the Lumos flash, and the soundtrack (delegated to sound.js:
-// a synthesized celesta for the cues, an original background score or a personal file; no audio file is distributed).
+// a synthesized celesta for the cues, an original background score or the music file, assets/music/ambiance.ogg).
 // Everything respects `prefers-reduced-motion` and the "motion: calme" setting.
 //
 // Nothing moves when nothing happens. The scene clock is a single requestAnimationFrame that runs ONLY while it has

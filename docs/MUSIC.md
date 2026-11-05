@@ -15,21 +15,27 @@ This document describes what the code does (`app/js/sound.js`), which audio file
 | **Celesta** | `celesta` | The celesta waltz, always, even if a file exists. |
 | **None** | `aucune` | Nothing: the cues only. |
 
-The levels are constants at the top of `sound.js` (`AMBIENT_DB` for the waltz, `FILE_DB` for the file, the master volume downstream). The file plays through its own `<audio>` element, outside the Web Audio graph: its level (`FILE_VOLUME`, the same loudness as before), its fades and its ducking are the element's volume, so the audio graph sleeps whenever no cue rings (on the TV, the graph kept running for the music alone cost about one core). Since version 0.3 the file sits louder than before against the cues: the first device test found it too quiet.
+The cues are rendered once ahead of time (an `OfflineAudioContext`, hall and compressor included, about 8 MB in all on a low-RAM TV), and a key only starts one buffer: no oscillator is created on the key and no reverb runs. A cue asked for in the first seconds, before that is done, plays live; so does the waltz, always.
+
+The levels are constants at the top of `sound.js` (`AMBIENT_DB` for the waltz, `FILE_DB` for the file, the master volume for the cues and the waltz). The file plays through its own `<audio>` element, outside the Web Audio graph: `FILE_DB` is its whole level (`el.volume` ≈ 0.9), its fades and its ducking are the element's volume, so the audio graph sleeps whenever no cue rings (on the TV, the graph kept running for the music alone cost about one core).
 
 ### The music file (versioned at the maintainer's request)
 
-The repository carries `app/assets/music/ambiance.ogg`: Ogg Opus, under 3 MB, re-encoded from the maintainer's own recording. It replaces the earlier `ambiance.mp3`, a 128 kbit/s file of almost 30 minutes and 28 MB that filled nearly the whole APK. It is **not** covered by the MIT license: its rights belong to its author, it is versioned on the maintainer's explicit decision, and any rights holder may ask for its removal (`DISCLAIMER.md`, section "Third-party material versioned at the maintainer's request").
+The repository carries `app/assets/music/ambiance.ogg`: the maintainer's own recording from 29:45 to its end, 29:37 long, Ogg Opus, stereo, 80 kbit/s, 19 MB. It is shipped as it is, not levelled: −20 LUFS integrated (mean −23.5 dB), peaks at 0 dBFS, 18 LU of range, 30 s blocks from −17 to −40 dB. It opens near −41 dB for its first half minute and reaches −30 dB in the second. It is **not** covered by the MIT license: its rights belong to its author, it is versioned on the maintainer's explicit decision, and any rights holder may ask for its removal (`DISCLAIMER.md`, section "Third-party material versioned at the maintainer's request").
 
 The player probes the names listed in `MUSIC_FILES` (`sound.js`), `ambiance.ogg` first, and plays the first one the browser or the WebView can decode. Another file name, or a `.wav` or `.flac`, is silently ignored. A file that takes more than 4 s to respond is considered absent.
 
 **To use your own music instead**, for private use:
 
 1. Pick a file whose rights you hold, or whose licence covers personal use: your own composition, a work under a compatible Creative Commons licence (read the attribution clause and the no-derivatives clause), a track bought from a sound library. The films' soundtrack has no place here (see below).
-2. Keep it light, since it goes into the APK and is decoded on a TV with little memory: a loop of a few minutes, under 3 MB, that starts and ends on silence or on the same chord (otherwise there is a click at the loop point). Ogg Opus at 64 to 96 kbit/s is the right format for the Android WebView:
-   `ffmpeg -i source.wav -c:a libopus -b:a 64k -vbr on app/assets/music/ambiance.ogg`
+2. Keep it reasonable, since it goes into the APK, stored uncompressed: `tools/test-sound.mjs` allows 24 MB. It should start and end on silence or on the same chord (otherwise there is a click at the loop point). Ogg Opus at 64 to 96 kbit/s is the right format for the Android WebView:
+   `ffmpeg -i source.wav -c:a libopus -b:a 80k -vbr on app/assets/music/ambiance.ogg`
 3. Put it in place of `app/assets/music/ambiance.ogg` and rebuild the APK (`android/build.sh` copies `app/` as is).
 4. Do not commit it: it would replace the versioned file for everyone. Write down its source and licence for yourself, outside the repository.
+
+## How the APK serves the file (byte ranges in the WebView)
+
+The `<audio>` element reads the file in pieces, through `WebAssets.java`, which answers its `Range` requests (`206 Partial Content`). One behaviour of the WebView decides everything here, measured on the TV: **the WebView skips `start` bytes of the stream it is handed, by itself, whenever the request has a `Range`.** So the stream must start at byte 0 of the asset and stop at the last byte asked for, while the headers describe the range (`Content-Range`, and `Content-Length` = its length). A stream already positioned at `start` is skipped twice: `bytes=1000-2023` came back with 24 bytes, `<audio>` failed without a word, and the synthesised waltz played instead, at the cost of a core. If the music is ever silent or replaced by the waltz on a TV, look there first. The asset must be stored uncompressed (`build.sh`, `jar -0`) for `openFd()` to give its length.
 
 ## What the player does (behaviour you can verify in `sound.js`)
 

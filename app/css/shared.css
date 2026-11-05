@@ -1,53 +1,18 @@
 /* Materials and components shared by the screens. */
 
-/* App logo: ivory engraved in relief at rest, embossed gold in focus (is-focus class on an ancestor, or .lit on the logo).
-   Five layers masked by the same SVG (--m). No filter, no blur: the relief comes from the offsets.
-   The gold is a cross-fade, not a switch: a gradient cannot transition, so it sits on the base layer's ::after
-   (inside the same mask) and only its opacity moves, on the focus breath (--t-focus, --ease-breath).
-   The shine and the molten gold move a gradient by transform (a pseudo-element wider / taller than the logo, clipped
-   by the mask), never by background-position: compositor only, no repaint per frame. */
+/* App logo: ivory, engraved in relief by a dark rim. Never gold. Masked by one SVG (--m). No filter, no blur: the relief comes
+   from the offset. Focus is carried by the lift (the screens), not by the logo's own colour. */
 .app-logo { --m: none; position: relative; width: 100%; height: 100%; }
-.app-logo i { position: absolute; inset: 0; -webkit-mask: var(--m) center / contain no-repeat; mask: var(--m) center / contain no-repeat;
-  transition: opacity calc(var(--k) * var(--t-focus)) var(--ease-breath), transform calc(var(--k) * var(--t-focus)) var(--ease-breath), background-color calc(var(--k) * var(--t-focus)) var(--ease-breath); }
+.app-logo i { position: absolute; inset: 0; -webkit-mask: var(--m) center / contain no-repeat; mask: var(--m) center / contain no-repeat; }
 .app-logo.luma i { mask-mode: luminance; }
-.app-logo .l-ext { background: var(--gold-dark); transform: translateY(.16cqw); opacity: 0; }
 .app-logo .l-rimD { background: var(--night); opacity: .6; transform: translateY(.1cqw); }
-.app-logo .l-rimL { background: var(--moon); opacity: .35; transform: translateY(-.05cqw); }
 .app-logo .l-base { background: var(--ivory); opacity: .72; }
-.app-logo .l-base::after { content: ""; position: absolute; inset: 0; opacity: 0; transition: opacity calc(var(--k) * var(--t-focus)) var(--ease-breath);
-  background: linear-gradient(165deg, #FFF6CF 0%, #F3D27A 22%, #C08F35 46%, #F6DD8F 62%, #A26F24 82%, #F1CF7C 100%); }
-.app-logo .l-shine { opacity: 0; overflow: hidden; }
-.app-logo .l-shine::before { content: ""; position: absolute; top: 0; bottom: 0; left: 0; width: 260%; transform: translateX(-98.5%);
-  background: linear-gradient(105deg, transparent 38%, #FFF8E07a 50%, transparent 62%); }
-/* The gold's extrusion: a thin bevel under the edge (1 CSS px, .7), not a brown underline. */
-.is-focus .app-logo .l-ext, .app-logo.lit .l-ext { opacity: .7; transform: translateY(.1cqw); }
-/* In gold the moonlit rim goes: a cool rim peeking over the gold's top edges (and under its holes) read as a
-   silver-blue hairline around it. The gold gradient carries its own highlight. */
-.is-focus .app-logo .l-rimL, .app-logo.lit .l-rimL { opacity: 0; }
-.is-focus .app-logo .l-rimD, .app-logo.lit .l-rimD { opacity: .7; transform: translateY(.1cqw); }
-.is-focus .app-logo .l-base, .app-logo.lit .l-base { opacity: 1; }
-.is-focus .app-logo .l-base::after, .app-logo.lit .l-base::after { opacity: 1; }
-/* The shine: one slow pass, a breath after the gold has risen. No fill: both ends of the pass are outside the logo,
-   and a finished animation that holds its end keeps its layer promoted (and the owl's above it) for as long as the
-   focus stays. The low-RAM TV skips it on a focus move (its GPU composites as little as possible per key press). */
-.is-focus .app-logo .l-shine, .app-logo.lit .l-shine { opacity: 1; }
-.is-focus .app-logo .l-shine::before, .app-logo.lit .l-shine::before { animation: logo-shine calc(var(--k) * 1200ms) cubic-bezier(.4, 0, .3, 1) calc(var(--k) * 120ms) 1; }
-html[data-lowram="1"] .is-focus .app-logo:not(.charging) .l-shine { opacity: 0; }
-html[data-lowram="1"] .is-focus .app-logo:not(.charging) .l-shine::before { animation: none; }
-@keyframes logo-shine { from { transform: translateX(-98.5%); } to { transform: translateX(36.9%); } }
-/* Molten gold (Lumos): the gradient flows from top to bottom, unhurried (the ::after grows to three logo heights and
-   slides up by two of them: the same picture as a background-size of 300 % moving to 100 %). */
-.app-logo .l-base { overflow: hidden; }
-.app-logo.molten .l-base::after { bottom: auto; height: 300%; animation: logo-molten calc(var(--k) * 700ms) cubic-bezier(.4, 0, .3, 1) forwards; }
-@keyframes logo-molten { from { transform: translateY(0); } to { transform: translateY(-66.667%); } }
+.app-logo.lit .l-rimD { opacity: .7; }
+.app-logo.lit .l-base { opacity: 1; }
 
-/* Text engraved in gold / in stone. */
+/* Text engraved. */
 .engraved { font-family: var(--display); font-weight: 600; letter-spacing: var(--track-wide); text-transform: uppercase; color: var(--gold-light);
   text-shadow: 0 -.05cqw 0 #FFF6CF59, 0 .1cqw .1cqw #000000b3; }
-.engraved.gold-text { background: linear-gradient(175deg, #FFF6CF 0%, #F3D27A 25%, #C08F35 50%, #F6DD8F 65%, #A26F24 85%, #F1CF7C 100%);
-  -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; text-shadow: none; }
-.stone-text { font-family: var(--display); font-weight: 600; letter-spacing: var(--track-wide); text-transform: uppercase; color: var(--moon); opacity: .75;
-  text-shadow: 0 -.05cqw 0 #ffffff33, 0 .1cqw .15cqw #000000cc; }
 
 /* Parchment (Map, settings, Letter): the generated image if present, otherwise a gradient. */
 .parchment { position: relative; color: var(--ink); background: var(--parchment) url("../assets/parchment.jpg") center / cover no-repeat; box-shadow: 0 1.2cqw 2.4cqw #000a; }
@@ -61,11 +26,15 @@ html[data-lowram="1"] .is-focus .app-logo:not(.charging) .l-shine::before { anim
 .wax-seal { width: 2.6cqw; height: 2.6cqw; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #ffffff40, transparent 45%), var(--wax, #7a1f1f);
   box-shadow: inset 0 0 0 .22cqw #00000030, inset 0 .1cqw .3cqw #ffffff30, 0 .2cqw .4cqw #0008; }
 
-/* Help strip at the bottom of the screen. */
-.keyhint { position: absolute; left: 50%; bottom: calc(var(--safe-y) - 2.4cqw); transform: translateX(-50%); display: flex; gap: 2.4cqw; white-space: nowrap;
-  font-family: var(--display); font-size: var(--t-hint); letter-spacing: var(--track-wide); text-transform: uppercase; color: var(--mist); opacity: .75; transition: opacity calc(var(--k) * 600ms); }
-.keyhint b { font-weight: 600; color: var(--gold); margin-right: .5cqw; }
+/* The help line: one component, one baseline for every screen, in the safe area, quiet. */
+.keyhint { position: absolute; left: 50%; bottom: 2.85cqw; transform: translateX(-50%); display: flex; gap: 2.4cqw; white-space: nowrap;
+  font-family: var(--body); font-variant: small-caps; font-size: var(--t-hint); line-height: 1.2; letter-spacing: .06em; color: var(--moon); opacity: .72; text-shadow: 0 0 .4cqw #000a; transition: opacity calc(var(--k) * 600ms); }
+.keyhint b { font-weight: 500; font-variant: normal; font-size: .85em; opacity: .75; margin-right: .5cqw; }
 .keyhint.hidden { opacity: 0; }
+
+/* The faces the screens write with, kept in use on hidden lines (settings.js keepFaces). */
+.kept-faces { position: absolute; left: 0; top: 0; width: 1px; height: 1px; overflow: hidden; visibility: hidden; contain: strict; pointer-events: none; }
+.kept-faces > * { position: static; transform: none; animation: none; transition: none; }
 
 /* Quill writing, shared: a line appears as if just written (the boot clock). Opacity and a short slide only: a
    clip-path reveal would repaint every frame. */

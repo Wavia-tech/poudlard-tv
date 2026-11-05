@@ -27,11 +27,20 @@
 //
 // Space: ConvolverNode with a generated impulse response (decaying white noise 3.6 s, two decorrelated channels,
 // low-pass filtered at 5 kHz; 1.8 s and one channel on a low-RAM TV, Platform.device().lowRam), dry/wet mix 0.5/0.5,
-// gentle compressor, master volume −6 dB. The hall is built on the first cue (or the first celesta bar), never
-// before, and it is wired in only while something rings through it: the cue input reaches the convolver from the
-// cue's first note until its last tail plus the hall's own tail, then both links are cut. A convolver left
-// connected keeps its convolution threads busy forever, even on silence: on the TV (round 5) the two "Reverb
-// convolution" threads cost about 21 % of a core each with nothing playing.
+// gentle compressor, master volume −6 dB.
+//
+// Baked cues: a key must cost next to nothing, and a cue's tail must not take a core from the animation it goes with.
+// So the cues are rendered once ahead of time, hall and compressor included, by one OfflineAudioContext, end to end,
+// then cut into one buffer per cue (bakeCues: the rendering runs off the main thread; building its graph is the
+// main-thread part, spread over idle moments, a few ms each). A key then starts one AudioBufferSourceNode into the
+// master, on the key's own task, so sound and picture stay together: no oscillator, no gain node, no convolver running.
+// About 1 MB per cue on a low-RAM TV, 8 MB in all (mono, the short hall), three times that in stereo, in the one buffer the
+// rendering made: a cue plays its stretch of it, and no copy doubles it until the next garbage collection; freed by
+// 'poudlard:trim'. A slight detune per play keeps the sheen of the live notes.
+// A cue asked for before the bake is done (the first seconds), and the celesta waltz always, play live through the
+// graph: oscillators, and the hall, built on the first need and wired in only while something rings through it. A
+// convolver left connected keeps its convolution threads busy forever, even on silence: on the TV (round 5) the two
+// "Reverb convolution" threads cost about 21 % of a core each with nothing playing.
 //
 // Robustness: if AudioContext does not exist (Node, old browser), everything is silent without errors.
 //
@@ -61,15 +70,17 @@
 // ---------------------------------------------------------------------------------------------------------------
 // Two sources:
 //
-//   (a) THE FILE: `assets/music/ambiance.ogg` (Ogg Opus, ≈ 9 min, ≈ 2.8 MB, slowly levelled so that its opening is
-//       as loud as the rest, then loudness-normalised to −18 LUFS, 6.9 LU of range; see docs/MUSIC.md),
+//   (a) THE FILE: `assets/music/ambiance.ogg` (Ogg Opus, the owner's recording from 29:45 to its end: 29:37, stereo,
+//       80 kbit/s, 19 MB, not levelled; see docs/MUSIC.md),
 //       then `.mp3` or `.m4a` (MUSIC_FILES, probed in that order). Versioned in the repo at the owner's explicit
 //       request (see DISCLAIMER.md and docs/MUSIC.md). It is probed with an <audio> (preload "metadata": the probe
 //       never downloads the file); if missing, no visible error, we fall through to (b). Streamed by that <audio>
 //       in a loop and played by it ALONE, outside the Web Audio graph (no MediaElementSource, no compressor, no
-//       hall): its level is el.volume = FILE_VOLUME, the level the graph used to give it, and its fades and its
-//       ducking are el.volume stepped every FILE_STEP_MS while they last (no timer otherwise). Round 5 on the TV:
-//       routed through the graph, the music alone kept the audio thread at about 70 % of a core, plus the hall.
+//       hall): its level is el.volume = FILE_VOLUME, and its fades and its ducking are el.volume stepped every
+//       FILE_STEP_MS while they last (no timer otherwise). Round 5 on the TV: routed through the graph, the music
+//       alone kept the audio thread at about 70 % of a core, plus the hall. In the APK the element reads the file
+//       through WebAssets.java, whose byte ranges follow what the WebView really does (docs/MUSIC.md): a wrong
+//       answer there and <audio> fails silently, the waltz takes over, and it costs a core.
 //
 //   (b) ORIGINAL COMPOSITION synthesized by the celesta engine: a slow waltz in E minor, 3/4, 66 to the quarter note,
 //       24 bars (≈ 65 s) in a seamless loop, composed for this project and published under the repo's license (MIT).
@@ -98,12 +109,11 @@
 // half in 20 ms, stays there 300 ms, then comes back in 450 ms; so the cues always sit on top. Fade-in 3 s
 // (2.5 s for the celesta), fade-out 300 ms (sound muted, mode change, put on hold).
 // Measured at the output in headless Chrome (round 4, TV viewport, autoplay allowed as in the WebView; RMS over
-// 1 s blocks, "peak" = sample peak): file ≈ −30 dBFS RMS from its very first seconds (−26 to −33 depending on
-// the passage, sample peaks around −12), celesta waltz ≈ −32 dBFS RMS; cue sample peaks lumos / enter / return
-// ≈ −20, error / wake / nox / confirm −23 to −25, toggle −25, move −27 dBFS, i.e. no more than about 6 dB above
-// the music's loudest 400 ms block (−24 to −28), over a music ducked 6 dB while they ring. Before (round 3 and the
-// first round-4 build) the music opened near −62 dBFS RMS and stayed under −40, 25 to 30 dB below TV programme
-// level: the owner turned the TV up to hear it, then every cue jumped out.
+// 1 s blocks, "peak" = sample peak): celesta waltz ≈ −32 dBFS RMS; cue sample peaks lumos / enter / return ≈ −20,
+// error / wake / nox / confirm −23 to −25, toggle −25, move −27 dBFS, over a music ducked 6 dB while they ring. The
+// file's level at the output follows from its own numbers and el.volume (see FILE_DB). Before (round 3 and the first
+// round-4 build) the music opened near −62 dBFS RMS and stayed under −40, 25 to 30 dB below TV programme level: the
+// owner turned the TV up to hear it, then every cue jumped out.
 //
 // Modes (Sound.ambient): 'auto' (file if it exists, otherwise celesta) · 'fichier' (the same, chosen by name) ·
 // 'celesta' · 'aucune'; these are exactly
@@ -224,6 +234,16 @@ const CUES = {
   confirm: () => [{ n: G5, t: 0, d: 1.9, g: 0.60 }, { n: D6, t: 0.12, d: 2.2, g: 0.57 }],
 };
 
+// When a cue's last tail ends, in seconds from its start.
+function cueEnd(notes) {
+  let end = 0;
+  for (const note of notes) end = Math.max(end, note.t + (note.air ? note.d : (note.a || ATTACK) + note.d));
+  return end;
+}
+// What the bake renders: every cue, `move` with its two pitches.
+const BAKE_CUES = ['move:1', 'move:-1', 'enter', 'return', 'toggle', 'confirm', 'lumos', 'wake', 'error', 'nox'];
+const BAKE_IDLE_MS = 1500;                   // an idle moment, or this long at most
+
 // ---------------------------------------------------------------------------------------------------------------
 // Background music score (slow waltz, E minor, 3/4)
 // ---------------------------------------------------------------------------------------------------------------
@@ -231,24 +251,19 @@ const CUES = {
 // at the output, just under the file.
 const AMBIENT_DB = -6;
 const AMBIENT = Math.pow(10, AMBIENT_DB / 20);   // ≈ 0.5: level of the synthesized waltz
-// The file is mastered and loudness-normalised (−18 LUFS integrated, 6.9 LU of range, peaks −1.6 dBTP), where the
-// celesta peaks around 0.4. So it has its own level. The file was re-cut in round 4: the previous one opened on
-// 35 s near −34 LUFS (15 dB under its own body), which is what the owner heard first; this one is slowly levelled
-// (dynaudnorm, ≈ 12 s window) so it reaches its body level within two seconds. At −6 dB, through the compressor
-// (threshold −18, ratio 2.5: it only touches the louder passages, and its make-up gain adds about +6.5 dB) and the
-// master at −6 dB, it plays at ≈ −30 dBFS RMS at the output. The direct fallback (without Web Audio) matches it.
-// The one knob if the owner still finds the music low against the cues: FILE_DB (each dB here is a dB at the output
-// on most passages, a little less on the loudest, which the compressor holds).
-const FILE_DB = -6;
-const FILE_LEVEL = Math.pow(10, FILE_DB / 20);   // ≈ 0.5
-const COMP_MAKEUP = Math.pow(10, 6.5 / 20);      // the DynamicsCompressor's automatic make-up gain (threshold −18, ratio 2.5)
+// The file plays outside the graph, so el.volume is its whole level: FILE_DB is the one knob, each dB here is a dB at
+// the output. The owner's recording is not levelled: mean −23.5 dB, −20 LUFS integrated, peaks at 0 dBFS, 18 LU of
+// range (30 s blocks from −17 to −40 dB; it opens near −41 dB for its first half minute and is at −30 by the second).
+// The previous file sat at −18 LUFS, at el.volume ≈ 0.53. So near the top of the element's range: ≈ −24.4 dB mean at
+// the output, about what the previous one gave. Its peaks stay under full scale, and the cues are not touched.
+const FILE_DB = -0.9;
 const AMB_FADE_IN = 2.5;                         // s (celesta)
-const FILE_FADE_IN = 3;                          // s (file; the file itself also starts with a 3 s fade)
+const FILE_FADE_IN = 3;                          // s (file)
 const AMB_FADE_OUT = 0.3;                        // s
 const IDLE_SUSPEND_MS = 12000;                   // no cue and no celesta for that long: suspend the context
-// The file plays outside Web Audio: el.volume carries the level the graph gave it (file gain × master × the
-// compressor's make-up), and fades and ducking step it every FILE_STEP_MS while they last.
-const FILE_VOLUME = Math.min(1, FILE_LEVEL * MASTER * COMP_MAKEUP);   // ≈ 0.53
+// The file plays outside Web Audio: el.volume carries its level, and fades and ducking step it every FILE_STEP_MS
+// while they last.
+const FILE_VOLUME = Math.pow(10, FILE_DB / 20);  // ≈ 0.9
 const FILE_STEP_MS = 40;
 const BOOT_DELAY_MS = 700;                       // start-up context creation, in an idle moment after the first frames
 const DUCK_LEVEL = 0.5, DUCK_HOLD = 0.3, DUCK_BACK = 0.45;   // ducking under a cue
@@ -365,13 +380,17 @@ let trimTimer = 0;          // pending retry of a 'poudlard:trim' that came whil
 let hallUntil = 0;          // audio time until which a cue still rings through the hall (its tails + the hall's own)
 let hallOffTimer = 0;       // pending check that cuts the hall's links once nothing rings through it
 let lowRamCache = null;     // Platform.device().lowRam, read once
+// The baked cues (head of this file): a key of BAKE_CUES → its AudioBuffer. `run` is the bake's token (a dropped
+// context expires it); `busy` from its start, until a dropped context lets it start again.
+const baked = new Map();
+const bake = { run: 0, busy: false };
 
 // Background music state.
 const amb = {
   mode: null,          // mode requested by Sound.ambient(), otherwise null → config.music || 'auto'
   active: null,        // 'celesta' | 'fichier' | null (what is actually playing; 'fichier' is not a mode, it is a source)
   holds: new Set(),    // hold reasons ('nox', 'launch', 'hidden'…): as long as one remains, silence
-  level: AMBIENT,      // target level of the active source (AMBIENT for the celesta, FILE_LEVEL for the file)
+  level: AMBIENT,      // target level of the active source (AMBIENT for the celesta, FILE_VOLUME for the file)
   bus: null,           // { mix, out, duck, rev } once built (celesta only: the file never enters the graph)
   voices: new Set(),   // ambience notes in flight (same shape as `voices`)
   timer: 0,            // scheduler setInterval (celesta)
@@ -448,7 +467,7 @@ function makeNoise(ctx) {
 }
 
 // Built once per context: notes → [dry 0.5] + [convolver → wet 0.5] → gentle compressor → master (−6 dB) → output.
-// The convolver gets its impulse (and the air its noise) only in ensureHall(), on the first cue. Its two links
+// The convolver gets its impulse (and the air its noise) only in ensureHall(), on the first live note. Its two links
 // (input → convolver, convolver → wet) exist only while something rings through it (hallNeed / hallCheck).
 function buildGraph(ctx) {
   const input = ctx.createGain(); input.gain.value = 1;
@@ -468,7 +487,7 @@ function buildGraph(ctx) {
 }
 
 // The hall impulse (≈ 1.4 MB stereo 3.6 s, ≈ 0.35 MB mono 1.8 s on a low-RAM TV; a few ms of work) and the air noise:
-// built on the first cue or the first celesta bar, never in advance (the file alone never needs them).
+// built on the first live cue or the first celesta bar, never in advance (the file and the baked cues never need them).
 function ensureHall() {
   if (!audio || !graph || graph.hall) return;
   graph.hall = true;
@@ -513,6 +532,7 @@ function ensureContext() {
   try { audio = new AC(); } catch (e) { audio = null; return false; }
   try { graph = buildGraph(audio); } catch (e) { graph = null; try { audio.close(); } catch (e2) { /* nothing */ } audio = null; return false; }
   if (audio.addEventListener) audio.addEventListener('statechange', () => { if (audio && audio.state === 'running') armIdle(); });
+  bakeCues();
   return true;
 }
 
@@ -527,6 +547,7 @@ function dropContext() {
   if (idleTimer) { clearTimeout(idleTimer); idleTimer = 0; }
   const ctx = audio;
   audio = null; graph = null; noiseBuf = null; amb.bus = null; amb.revOn = true; resuming = null; pending = null; hallUntil = 0;
+  baked.clear(); bake.run++; bake.busy = false;
   if (amb.active === 'celesta') amb.active = null;
   if (ctx && ctx.state !== 'closed') { try { const p = ctx.close(); if (p && p.catch) p.catch(() => {}); } catch (e) { /* nothing */ } }
 }
@@ -686,9 +707,8 @@ function registerVoice(bag, nodes, longest) {
 // One glass note at time `at` (audio clock). `out`: output node; `bag` / `max`: registry and ceiling.
 // Envelope per partial: silence → linear rise over the attack (30–60 ms) → exponential tail (1.5–3.5 s for the
 // fundamental, shorter for the highs). The partials share one random detune (±3 cents: one glass, not a choir).
-function playNote(note, at, out = graph.input, bag = voices, max = MAX_VOICES) {
-  if (bag.size >= max) return;
-  const ctx = audio;
+function playNote(note, at, out = graph.input, bag = voices, max = MAX_VOICES, ctx = audio) {
+  if (bag && bag.size >= max) return;
   const f0 = hz(note.n);
   const detune = (Math.random() * 2 - 1) * 3;
   const attack = note.a || ATTACK;
@@ -709,24 +729,71 @@ function playNote(note, at, out = graph.input, bag = voices, max = MAX_VOICES) {
     nodes.push(osc, g);
     if (at + dur > longestEnd) { longestEnd = at + dur; longest = osc; }
   }
-  registerVoice(bag, nodes, longest);
+  if (bag) registerVoice(bag, nodes, longest);                     // no bag: a bake, whose nodes go with its context
 }
 
 // A breath of air at time `at`: looped noise through a band-pass, swelling over the first third of `d` and
 // fading over the rest. `g` scales AIR_LEVEL. Cues only (lumos, enter, return), under the notes.
-function playAir(air, at) {
-  if (!noiseBuf || voices.size >= MAX_VOICES) return;
-  const ctx = audio;
-  const src = ctx.createBufferSource(); src.buffer = noiseBuf; src.loop = true;
+function playAir(air, at, out = graph.input, bag = voices, ctx = audio, noise = noiseBuf) {
+  if (!noise || (bag && bag.size >= MAX_VOICES)) return;
+  const src = ctx.createBufferSource(); src.buffer = noise; src.loop = true;
   const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = AIR_HZ; bp.Q.value = AIR_Q;
   const g = ctx.createGain();
   const rise = air.d * 0.35, end = at + air.d;
   g.gain.setValueAtTime(0.0001, at);
   g.gain.linearRampToValueAtTime(AIR_LEVEL * air.g, at + rise);
   g.gain.exponentialRampToValueAtTime(0.0001, end);
-  src.connect(bp).connect(g).connect(graph.input);
+  src.connect(bp).connect(g).connect(out);
   src.start(at); src.stop(end + 0.05);
-  registerVoice(voices, [src, bp, g], src);
+  if (bag) registerVoice(bag, [src, bp, g], src);
+}
+
+// ---- Baked cues (head of this file) -----------------------------------------------------------------------------------
+// Every cue rendered once, as the live graph would play it, master aside: one offline context, the cues end to end, the
+// hall's tail between them. Each step below is its own idle moment; a failure leaves the cues live. Only while the
+// sound is on, and once per context.
+function bakeCues() {
+  if (bake.busy || !enabled || !audio || typeof OfflineAudioContext !== 'function') return;
+  bake.busy = true;
+  const run = bake.run, sr = audio.sampleRate, chans = lowRam() ? 1 : 2;
+  let total = 0;
+  const slots = BAKE_CUES.map((key) => {
+    const [name, dir] = key.split(':');
+    const notes = CUES[name](Number(dir) || 1), secs = cueEnd(notes) + hallSeconds() + 0.1;
+    const slot = { key, notes, at: total, secs };
+    total += secs;
+    return slot;
+  });
+  let off = null, g = null, hall = null, air = null;
+  const steps = [
+    () => { off = new OfflineAudioContext(chans, Math.ceil(total * sr), sr); hall = makeImpulse(off); },
+    () => { air = makeNoise(off); g = buildGraph(off); g.master.gain.value = 1; },
+    () => { g.convolver.buffer = hall; g.input.connect(g.convolver); g.convolver.connect(g.wet); },
+    ...slots.map((s) => () => {
+      for (const note of s.notes) { if (note.air) playAir(note, s.at + note.t, g.input, null, off, air); else playNote(note, s.at + note.t, g.input, null, Infinity, off); }
+    }),
+    () => off.startRendering().then((out) => {
+      off = null; g = null; hall = null; air = null;               // the graph and the hall's impulse go now
+      if (run !== bake.run || !audio) return;
+      for (const s of slots) baked.set(s.key, { buf: out, at: s.at, secs: s.secs });
+    }, () => {}),
+  ];
+  const later = (fn) => { if (typeof requestIdleCallback === 'function') requestIdleCallback(fn, { timeout: BAKE_IDLE_MS }); else setTimeout(fn, 50); };
+  const next = () => {
+    if (run !== bake.run || !steps.length) return;
+    try { steps.shift()(); } catch (e) { steps.length = 0; return; }
+    if (steps.length) later(next);
+  };
+  later(next);
+}
+// A key's cue: one buffer source into the master, nothing else.
+function playBaked(cue) {
+  const src = audio.createBufferSource();
+  src.buffer = cue.buf;
+  src.detune.value = (Math.random() * 2 - 1) * 3;
+  src.connect(graph.master);
+  src.start(0, cue.at, cue.secs);
+  registerVoice(voices, [src], src);
 }
 
 // A plucked harp string (ambience only): harmonic partials, 3 ms attack, the lows last longer.
@@ -916,7 +983,10 @@ function fileFade(target, secs) {
   e.from = fileFadeAt(t); e.to = target; e.t0 = t; e.t1 = t + secs * 1000;
   fileKick();
 }
-function fileDuck() { amb.env.duck = now(); fileKick(); }
+function fileDuck() {                            // the first step comes with the next tick: nothing on the key's task
+  amb.env.duck = now();
+  if (!amb.env.timer) amb.env.timer = setInterval(fileStep, FILE_STEP_MS);
+}
 function fileSilence() {
   const e = amb.env;
   if (e.timer) { clearInterval(e.timer); e.timer = 0; }
@@ -1014,16 +1084,19 @@ function ambientApply() {
   });
 }
 
-// Schedules every note of a cue on a running context (clock re-read here, never before).
+// A cue on a running context: its baked buffer, or every note live until the bake is done (clock re-read here, never
+// before).
 function schedule(name, dir) {
   const make = CUES[name];
   if (!make) return false;
-  const at = audio.currentTime + 0.012;                            // small lead: every note leaves on time
-  const notes = make(dir);
-  let end = 0;
-  for (const note of notes) end = Math.max(end, note.t + (note.air ? note.d : (note.a || ATTACK) + note.d));
-  hallNeed(at + end + hallSeconds() + 0.1);                         // the hall, for this cue's tails and its own
-  for (const note of notes) { if (note.air) playAir(note, at + note.t); else playNote(note, at + note.t); }
+  const buf = baked.get(name === 'move' ? `move:${dir}` : name);
+  if (buf) playBaked(buf);
+  else {
+    const at = audio.currentTime + 0.012;                          // small lead: every note leaves on time
+    const notes = make(dir);
+    hallNeed(at + cueEnd(notes) + hallSeconds() + 0.1);             // the hall, for this cue's tails and its own
+    for (const note of notes) { if (note.air) playAir(note, at + note.t); else playNote(note, at + note.t); }
+  }
   duckAmbient();
   lastAt.set(name, now());
   armIdle();
@@ -1064,7 +1137,7 @@ export const Sound = {
       g.linearRampToValueAtTime(enabled ? MASTER : 0, t + 0.03);
       if (!enabled) stopAll(t + 0.035);
     }
-    if (!enabled) ambientStop(); else ambientApply();               // the file has no master: its own fade
+    if (!enabled) ambientStop(); else { ambientApply(); bakeCues(); }   // the file has no master: its own fade
   },
 
   // Plays a cue by name. opts.dir: 1 (right / up) or −1 (left / down) for `move`.
@@ -1112,12 +1185,14 @@ export const Sound = {
   },
 
   // For tests and debugging: { mode (requested or config), active ('celesta' | 'fichier' | null),
-  // file (true / false / null = not yet probed), holds (hold reasons), unlocked, context state ('none' if none) }.
+  // file (true / false / null = not yet probed), holds (hold reasons), unlocked, context state ('none' if none),
+  // baked (the cues ready to play as a single buffer) }.
   ambientState() {
     return {
       mode: amb.mode || configuredMode(), active: amb.active,
       file: amb.file === undefined ? (amb.src ? true : null) : Boolean(amb.file),
       holds: Array.from(amb.holds), unlocked: gestured, context: audio ? audio.state : 'none',
+      baked: Array.from(baked.keys()),
     };
   },
 };

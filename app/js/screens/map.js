@@ -6,9 +6,8 @@
 // long OK or Menu: the app's Remembrall (Rappeltout) · Back, down from the last row, up from the first: "Fait et bien fait" (the closing line)
 // then back to the Parapet. Every change goes through updateConfig / addCustomApp / removeCustomApp (config.js): nothing else writes.
 //
-// Opening choreography: the screen first slides into place (router `down` transition, 700 ms); ONLY THEN is the `is-in`
-// class set on the section, the parchment unfolds, the formula writes itself, the ink appears, then the footprints
-// walk (650 ms later). Without `is-in`, map.css keeps everything folded and invisible.
+// Opening: the sheet unfolds and the ink appears (.is-in) as the screen arrives, not after it; the footprints walk once
+// the ink is laid. Without `is-in`, map.css keeps everything folded and invisible.
 //
 // Added apps (config.custom): category 'perso', logo = monogram(app.name) when LOGOS[app.id] is missing. They come
 // in the grid after the catalog, before the Passages, followed by the dotted "Ajouter une appli" frame.
@@ -17,9 +16,13 @@
 // The spell to write (.map-spell): a D-pad keyboard drawn in ink (letters, digits, space, Erase, "C'est fait" / Done),
 // the name is written with a quill in IM Fell above it, letter by letter (each one inks in), 20 characters at most.
 //
-// Performance (TV: 4 weak cores, 1.3 GB): nothing moves when nothing happens. Every motion here is event-driven and
-// compositor-only (transform, opacity): no mask or clip-path animation, one fading layer per ROW at opening, the
-// sky canvas drawn once, no loop, no interval. At rest, no animation of this screen is running.
+// Performance (TV: 4 weak cores, 1.3 GB): nothing moves when nothing happens, and a key costs the main thread almost
+// nothing. One mark goes from piece to piece (.map-focus: what the lifted piece stands on), only its
+// transform changes, on the shared curve; the piece over it rises by transform. Each piece is its own small layer, painted
+// once. A piece is a handful of elements (its frame is a background picture), and only the rows in or next to the
+// window exist: opening the Map builds three rows, one per frame while the move has already started (the key's task only makes the
+// empty screen), the others come in an idle moment. No layout is read for a move: every position comes from GEO, the numbers of
+// map.css.
 // Back erases the last letter; Back on an empty field cancels. On the real TV, if Platform.installed() returns a list,
 // those apps are offered first (Remembrall sphere); in the mockup the list is null, so the name is typed.
 //
@@ -41,16 +44,23 @@ const NOT_CONNECTED = 'Cette source n’est pas raccordée.';
 const COLS = 5;              // grid columns
 const ROWS_VISIBLE = 3;      // visible rows per page (further pages downwards)
 const STEPS = 6;             // footprints per walk
+const FOCUS_SCALE = 1.05;    // the focused piece (map.css), and the mark that goes with it
+const FOCUS_LIFT = 0.5;      // cqw: its lift (map.css)
+const NAME_ONE_LINE = 14;    // a name longer than this may break on two lines
 const STEP_GAP = 40;         // ms between two footprints
+const STEP_MS = 1400;        // ms a footprint stays, from its ink to its drying
+const STEP_MIN = 1.2;        // cqw a footprint needs
 const REVEAL_GAP = 70;       // ms between two rows at opening
-const ENTER_MS = 700;        // duration of the router's screen transition (TRANSITION_MS, not exported): we wait for arrival
-const WALK_AFTER_MS = 650;   // the walk starts once the parchment is unfolded and the ink laid down
+const ARRIVE_AFTER_MS = 220; // the sheet starts to unfold this far into the slide
+const WALK_AFTER_MS = 520;   // the walk starts once the parchment is unfolded and the ink laid down
+const OPENED_MS = 1000;      // all of the opening has played
 const INTENT_MS = 350;       // the intent fires at 350 ms (Lumos blueprint); until then, Back cancels
 const FRAME_W = 14, FRAME_H = 7;   // frame of the piece in cqw (map.css: 14 × 7, at the top of the 14 × 10.6 piece)
-// Grid geometry in cqw, the same numbers as map.css (.map-sheet, .map-grid, .map-row, .map-cell). The page slide and
-// the centre of the focused frame are computed from them, never read from the layout: reading offsetTop while the
-// freshly built map was still unstyled forced its whole style and layout synchronously (about 0.5 s of a 4×
-// throttled CPU at the first opening). If map.css changes one of these, change it here too.
+const ARRIVE = 'cubic-bezier(.32,.72,0,1)';   // --ease-arrive (base.css), for the Web Animations below
+const TIDY_MS = 420;         // after a move has settled: the rows next to the window are built, the far ones put away
+// Grid geometry in cqw, the same numbers as map.css (.map-sheet, .map-grid, .map-row, .map-cell). The page slide, the
+// focus mark and the centre of the focused frame are computed from them, never read from the layout. If map.css
+// changes one of these, change it here too.
 const GEO = {
   sheetX: 7, sheetY: 3.2,              // .map-sheet left / top
   gridX: 3.4 + 1.4, gridY: 4.9 + 1.2,  // .map-grid left / top + its padding (left 1.4, top 1.2)
@@ -59,6 +69,8 @@ const GEO = {
   titleH: 2.6,                         // .map-row.has-title padding-top
 };
 const SCREEN_H = 56.25;              // the stage is 16:9: 100 × 56.25 cqw
+const PARAPET_GAP = 1.6;             // cqw between two miniatures (.map-parapet-row gap)
+const LIFT = 0.7;                    // cqw: the held miniature's lift (.map-parapet-item.is-lift)
 // The fonts the Map writes with (fonts.css). Loaded before the grid is built, so that its first layout is done in
 // them, not in a fallback that is thrown away (and re-laid out) a moment later.
 const MAP_FACES = ['1em "IM Fell English"', 'italic 1em "IM Fell English"', '1em "IM Fell English SC"', '1em "EB Garamond"', 'italic 500 1em "EB Garamond"'];
@@ -78,14 +90,13 @@ function decodeParchment() {
   }
   return parchmentP;
 }
+const MASKS_PER_FRAME = 2;   // a logo's SVG document is parsed when its mask gets its style, on the main thread
+const KEY_QUIET_MS = 300;    // no mask in the frames right after a key
+let liveTv = null;           // the TV has a tuner: asked once (a bridge call, a synchronous trip to another process), it does not change
 const facesLoaded = (faces) => { try { return Boolean(document.fonts) && faces.every((f) => document.fonts.check(f)); } catch (e) { return false; } };
-// One-shot warm-up, a few seconds after start-up, in an idle moment: the Map's faces are loaded and its parchment
-// decoded before anyone opens it, so the first opening builds its grid at once (see mount) instead of during the
-// slide. Nothing repeats: one font load per face, one decode.
-if (typeof window !== 'undefined' && typeof document !== 'undefined') {
-  const warm = () => { fontsReady(MAP_FACES, 3000); decodeParchment(); };
-  setTimeout(() => { if (typeof requestIdleCallback === 'function') requestIdleCallback(warm, { timeout: 3000 }); else warm(); }, 6000);
-}
+// Nothing of the Map is held before it opens (memory: the parchment is 6 MB decoded, every logo a parsed SVG document): the parchment
+// is decoded from the key, off the main thread, and has the time of the slide before it shows; the logos' masks come one row per
+// frame, in the frames of that slide.
 // Up/down chevrons of the 3-row window, and the Boutique's star: drawn, because the embedded fonts have no ⌃ ⌄ ✦
 // (a missing glyph sends the browser looking for a system font during layout).
 const CHEVRON_UP = '<svg viewBox="0 0 20 10" aria-hidden="true"><path d="M2 9 10 2l8 7"/></svg>';
@@ -116,17 +127,6 @@ const KEY_ROWS = [
   [{ id: 'space', label: 'Espace', w: 17 }, { id: 'erase', label: 'Effacer', w: 17 }, { id: 'done', label: 'C’est fait', w: 25.6 }],
 ];
 
-// Quill-drawn frame: a slightly wobbly rectangle, a double rule, four corner strokes.
-const FRAME_SVG = `<svg class="map-frame" viewBox="0 0 200 120" preserveAspectRatio="none" aria-hidden="true">
-  <path class="map-frame-outer" d="M8 6 C60 3.5 140 8.5 192 6 C194.5 40 193 80 192 114 C140 116.5 60 111.5 8 114 C5.5 80 7 40 8 6 Z"/>
-  <path class="map-frame-inner" d="M13 11 C60 9 140 13 187 11 C189 40 188 80 187 109 C140 111 60 107 13 109 C11 80 12 40 13 11 Z"/>
-  <path class="map-frame-corners" d="M3 2 l6 6 M197 2 l-6 6 M3 118 l6 -6 M197 118 l-6 -6"/>
-</svg>`;
-// Quill stroke underlining the name (normalised pathLength: dasharray 100).
-const UNDERLINE_SVG = `<svg class="map-underline" viewBox="0 0 100 6" preserveAspectRatio="none" aria-hidden="true">
-  <path pathLength="100" d="M2 3.4 C 22 1.2, 48 5.2, 70 2.6 S 92 3.8, 98 2.8"/></svg>`;
-// Name block under the frame: the name (up to two lines) and the pen stroke drawn under it on focus.
-const LABEL_HTML = `<div class="map-label"><div class="map-name"></div>${UNDERLINE_SVG}</div>`;
 // The "Réglages" (Settings) candle: candle, drips, drip pan, flame (lit when focused).
 const CANDLE_SVG = `<svg class="map-candle" viewBox="0 0 60 80" aria-hidden="true">
   <path class="map-candle-flame" d="M30 12 C23.5 21 23 29 30 34 C37 29 36.5 21 30 12 Z"/>
@@ -141,14 +141,6 @@ const QUILL_SVG = `<svg class="map-quill" viewBox="0 0 60 80" aria-hidden="true"
   <path class="map-quill-nib" d="M14 63 L10 73 M12 68 L16 67"/>
   <path class="map-quill-ink" d="M5 76 c3 -1.2 6 -.2 9 1.2"/>
 </svg>`;
-// An inked footprint (symbol reused through <use>): toes at the top, pointing upwards.
-const DEFS_SVG = `<svg class="map-defs" width="0" height="0" aria-hidden="true"><defs>
-  <symbol id="map-foot" viewBox="0 0 20 32">
-    <path d="M3.5 14 C3.5 11 6 8.5 10 8.5 S16.5 11 16.5 14 C16.5 17 14.5 18.5 14.5 21 C14.5 23 15 24 15 26 C15 29 13 31 10 31 S5 29 5 26 C5 24 5.5 23 5.5 21 C5.5 18.5 3.5 17 3.5 14 Z"/>
-    <circle cx="4" cy="7.2" r="1.5"/><circle cx="6.8" cy="4.6" r="1.8"/><circle cx="10.2" cy="3.4" r="2.1"/><circle cx="13.8" cy="4.4" r="1.8"/><circle cx="16.6" cy="6.8" r="1.4"/>
-  </symbol>
-</defs></svg>`;
-
 // Readable name derived from an Android package (real launcher): last segment, no punctuation, capitalised initial,
 // 20 characters at most. Only produces characters accepted by sanitize() (NAME_RE), otherwise "Appli".
 function pkgLabel(pkg) {
@@ -177,9 +169,16 @@ function freeName(label) {
 export default {
   root: null, ctx: null, rows: [], r: 0, c: 0, mem: [], top: 0,
   timers: [], busy: false, leaving: false, reduced: false, menuOpen: false, arrived: false, built: false, arriveWanted: false,
+  ring: null,            // the focus mark
+  focusEl: null,         // the piece that wears .is-focus
+  keyEl: null,           // the spell key that wears it
+  pressed: false,        // OK is down on the focused piece
+  steps: [],             // the six footprints, drawn once: { el, anim }
+  tidyTimer: 0,
+  fresh: null,           // the app that inks itself alone after a rebuild
+  masksLater: null,      // while mounting: the logos' masks still to set
   move: null,            // Move mode: { id, order:[ids], items:{ id: element } } or null
   spell: null,           // spell to write: { name, r, c, cm, rows:[[{ id?, ch?, el }]], busy } or null
-  stepsBatch: null,      // footprints of the last walk (removed on the next one)
   launching: null,       // launch in progress: { app, sent, intentTimer, endTimer, held } or null
   toastTimer: 0,         // informative brass plate (outside launches)
 
@@ -188,14 +187,13 @@ export default {
     primeEnter(root);                                                    // the router's slide needs the layer's start style
     this.root = root; this.ctx = ctx; this.timers = [];
     this.busy = false; this.leaving = false; this.menuOpen = false; this.arrived = false; this.built = false; this.arriveWanted = false; this.rows = [];
-    this.move = null; this.spell = null; this.mem = []; this.top = 0; this.stepsBatch = null; this.launching = null; this.toastTimer = 0;
+    this.move = null; this.spell = null; this.mem = []; this.top = 0; this.launching = null; this.toastTimer = 0;
+    this.ring = null; this.focusEl = null; this.keyEl = null; this.pressed = false; this.steps = []; this.tidyTimer = 0; this.fresh = null;
     this.reduced = isReduced();
     root.classList.toggle('is-reduced', this.reduced);
 
     root.innerHTML = `
-      ${DEFS_SVG}
       <canvas class="map-sky" width="960" height="540"></canvas>
-      <div class="map-vignette"></div>
       <div class="map-sheet parchment">
         <div class="map-paper"></div>
         <div class="map-folds"></div>
@@ -217,70 +215,79 @@ export default {
       <div class="map-toast brass"></div>
       <div class="keyhint">${KEYHINT_BROWSE}</div>`;
 
-    this.drawSky();
-
     // The footprints start from where we were on the parapet (screen fractions), the dock by default. In cqw,
     // from the 16:9 stage: no layout read.
     const from = (ctx.params && ctx.params.from && Number.isFinite(ctx.params.from.x) && Number.isFinite(ctx.params.from.y))
       ? ctx.params.from : { x: 0.5, y: 0.78 };
     const start = { x: from.x * 100, y: from.y * SCREEN_H };
 
-    // The staging waits for the screen to be in place (end of the router transition, or a fallback timer) AND for
-    // the grid to be built.
+    // The staging starts a moment into the slide, once the grid
+    // is built. Once the ink is laid, the rows' opening reveal is retired (is-quiet): a row that later scrolls into the
+    // window fades in at once, without the opening's delay. The rows next to the window come then, nothing else moving.
     const arrive = () => {
       if (this.arrived || this.root !== root) return;
       if (!this.built) { this.arriveWanted = true; return; }
       this.arrived = true;
       root.classList.add('is-in');
       if (!this.reduced) this.after(WALK_AFTER_MS, () => this.walk(start, this.focusCenter()));
-      // Once the ink is laid, the rows' opening reveal is retired (is-quiet): a row that later scrolls into the
-      // window fades in at once (250 ms), instead of replaying the opening with its delay (it stayed blank ~0.6 s).
-      // The opening's layers (sheet and rows, map.css is-opening) are let go at the same moment.
-      this.after(380 + REVEAL_GAP * ROWS_VISIBLE + 320 + 60, () => { const host = root.querySelector('.map-rows'); if (host) host.classList.add('is-quiet'); root.classList.remove('is-opening'); });
+      this.after(OPENED_MS, () => { const host = root.querySelector('.map-rows'); if (host) host.classList.add('is-quiet'); this.tidyRows(); });
     };
-    root.addEventListener('transitionend', (e) => { if (e.target === root && e.propertyName === 'transform') arrive(); });
-    this.after(ENTER_MS + 40, arrive);
+    this.after(ARRIVE_AFTER_MS, arrive);
 
     if (ctx.config().sounds) ctx.fx.initAudio();
     ctx.fx.whoosh();
 
-    // While it opens, the sheet and the rows are layers of their own (map.css .is-opening), painted and rasterised
-    // during the slide although still invisible: the unfold and the ink then only composite (round 5 on the TV: the
-    // first paint of the sheet and the rows at the unfold made frames of 550 ms to 1 s).
-    root.classList.add('is-opening');
     const parchment = decodeParchment();
-    // When the Map's faces are already loaded (the warm-up above, or an earlier opening), the whole grid is built
-    // now, inside this key's task, before the router's slide has drawn its first frame: the style and layout of the
-    // grid land before the move, which then only composites. Otherwise (fonts not there yet) the grid is built once
-    // they are, then laid on the parchment one row per frame during the slide, as before; the parchment is still
-    // folded and invisible (no .is-in), so nothing half-built shows. Keys stay with the router until mount()
-    // resolves, so none reaches a half-built Map.
-    const now = facesLoaded(MAP_FACES);
-    if (!now) await Promise.all([frames(2, 120), fontsReady(MAP_FACES, 600)]);
+    // The key's task ends here: it only made the empty screen, and the move starts on its next frame. What follows comes a piece per
+    // frame, under the move; the parchment is still folded and invisible (no .is-in), so nothing half-built shows. Keys stay with the
+    // router until mount() resolves, so none reaches a half-built Map.
+    await ctx.slice();
+    if (this.root !== root) return;
+    this.drawSky();
+    await Promise.all([ctx.slice(), facesLoaded(MAP_FACES) ? null : fontsReady(MAP_FACES, 600)]);
     if (this.root !== root) return;
     // The lines in IM Fell are written once their fonts are there: one layout, not a fallback one and then another.
     root.querySelector('.map-formula').textContent = FORMULA;
     root.querySelector('.map-spell-title').textContent = 'Quelle appli ajouter ?';
     root.querySelector('.map-parapet-title').textContent = 'Le parapet';
+    // A mask's SVG document is parsed when its element first gets its style, on the main thread, a few ms each: the
+    // pictures come last, one row per frame, the ink being invisible until the sheet opens.
+    this.masksLater = [];
     this.rows = this.buildRows();
-    this.renderRows({ attach: false });
-    const host = root.querySelector('.map-rows');
-    for (let i = 0; i < this.rows.length; i++) {
-      host.appendChild(this.rows[i].el);
-      if (!now && i < this.rows.length - 1) await frames(1, 50);
-      if (this.root !== root) return;
-    }
-
     // Initial focus: the parapet app we came from, else the last launched one, else the first.
     const wanted = (ctx.params && typeof ctx.params.app === 'string') ? ctx.params.app : getConfig().lastApp;
     const pos = this.findCell((cell) => cell.kind === 'app' && cell.app.id === wanted) || { r: 0, c: 0 };
+    this.r = pos.r; this.c = pos.c;
+    this.top = Math.min(Math.max(0, pos.r - ROWS_VISIBLE + 1), Math.max(0, this.rows.length - ROWS_VISIBLE));
+    await ctx.slice();
+    if (this.root !== root) return;
+    this.renderRows({ fill: false });
     this.setFocus(pos.r, pos.c, { walkFrom: null, instant: true });
-    if (now) void host.offsetHeight;                                     // style and layout here, before the slide's first frame
+    for (let r = this.top; r < this.top + ROWS_VISIBLE; r++) {
+      if (r === pos.r || !this.rows[r]) continue;
+      await ctx.slice();
+      if (this.root !== root) return;
+      this.fillRow(r);
+    }
+    const later = this.masksLater;
+    this.masksLater = null;
+    while (later.length) {
+      await ctx.slice();
+      if (this.root !== root) return;
+      later.splice(0, MASKS_PER_FRAME).forEach(([logo, src]) => { logo.style.webkitMaskImage = `url("${src}")`; });
+    }
     // The sheet unfolds once its picture is decoded (PARCHMENT_MAX_MS at most); a missing picture falls back to the
     // plain parchment colour (map.css .no-parchment), never ink on the night.
     const decoded = await Promise.race([parchment, new Promise((r) => setTimeout(() => r(true), PARCHMENT_MAX_MS))]);
     if (this.root !== root) return;
     if (!decoded) root.classList.add('no-parchment');
+    // A layer at opacity 0 is not rasterised: the rows' raster would land in the first frames of the unfolding. Two frames at an opacity
+    // that cannot be seen, on a sheet that cannot be seen.
+    const rowsHost = root.querySelector('.map-rows');
+    rowsHost.classList.add('is-warm');
+    await ctx.slice(); await ctx.slice();
+    if (this.root !== root) return;
+    rowsHost.classList.remove('is-warm');
     this.built = true;
     if (this.arriveWanted) arrive();
   },
@@ -292,7 +299,7 @@ export default {
     this.launching = null;
     dismissRappeltout();
     this.rows = [];
-    this.stepsBatch = null;
+    this.steps = []; this.ring = null; this.focusEl = null; this.keyEl = null;
     this.move = null;
     this.spell = null;
     this.root = null;
@@ -302,18 +309,26 @@ export default {
   k() { return timeK(); },
   after(ms, fn) { const t = setTimeout(() => { if (this.root) fn(); }, ms * this.k()); this.timers.push(t); return t; },
 
-  // Fallback sky behind the parchment: the Night and a few stars, drawn once (no loop).
+  // Behind the parchment: the Night, a few stars and the vignette, drawn once on one opaque picture (no loop), so that
+  // the screen is one layer under the sheet.
   drawSky() {
     const cv = this.root.querySelector('.map-sky');
-    const g = cv.getContext('2d'); if (!g) return;
-    g.fillStyle = '#070B14'; g.fillRect(0, 0, cv.width, cv.height);
+    const g = cv.getContext('2d', { alpha: false }); if (!g) return;
+    const W = cv.width, H = cv.height;
+    g.fillStyle = '#070B14'; g.fillRect(0, 0, W, H);
     for (let n = 0; n < 110; n++) {
-      const x = Math.random() * cv.width, y = Math.random() * cv.height * 0.9, s = 0.4 + Math.random() * 1.3;
+      const x = Math.random() * W, y = Math.random() * H * 0.9, s = 0.4 + Math.random() * 1.3;
       g.globalAlpha = 0.25 + Math.random() * 0.6;
       g.fillStyle = Math.random() < 0.2 ? '#C9D9EA' : '#F1EBDD';
       g.beginPath(); g.arc(x, y, s, 0, Math.PI * 2); g.fill();
     }
     g.globalAlpha = 1;
+    const side = g.createRadialGradient(W / 2, H / 2, H * 0.4, W / 2, H / 2, W * 0.6);
+    side.addColorStop(0, '#070b1400'); side.addColorStop(1, '#070b14cc');
+    g.fillStyle = side; g.fillRect(0, 0, W, H);
+    const band = g.createLinearGradient(0, 0, 0, H);
+    band.addColorStop(0, '#070b14ff'); band.addColorStop(0.18, '#070b1400'); band.addColorStop(0.82, '#070b1400'); band.addColorStop(1, '#070b14ff');
+    g.fillStyle = band; g.fillRect(0, 0, W, H);
   },
 
   // ---------------------------------------------------------------- data
@@ -359,7 +374,8 @@ export default {
       return { id, name: named ? named.name : p.label, cat: 'passage', input: p.id, port: p.port, connected: p.connected,
         onDock: cfg.dock.includes(id), hidden: cfg.hidden.includes(id) };
     });
-    if (Platform.hasLiveTv()) list.push({ id: 'tv', name: 'Télé', cat: 'passage', live: true, connected: true, onDock: false, hidden: false });
+    if (liveTv === null) liveTv = Platform.hasLiveTv();
+    if (liveTv) list.push({ id: 'tv', name: 'Télé', cat: 'passage', live: true, connected: true, onDock: false, hidden: false });
     return list;
   },
 
@@ -377,14 +393,15 @@ export default {
   // `quiet`: rebuild after an add or a delete, the screen already being in place: existing frames need not
   // reveal themselves again (is-quiet class), only the `fresh` frame (app id) appears in ink.
   // The ink appears row by row (--d on each row, map.css): one fading layer per row, never one per piece.
-  // `attach: false` (mount): the rows are built but not put in the grid; mount() lays them one per frame.
-  renderRows({ quiet = false, fresh = null, attach = true } = {}) {
+  // Every row gets its empty shell, of the size GEO gives it; only the rows in the window get their pieces (fillRow).
+  renderRows({ quiet = false, fresh = null, fill = true } = {}) {
     const host = this.root.querySelector('.map-rows');
     host.textContent = '';
     host.classList.toggle('is-quiet', quiet);
+    this.fresh = quiet ? fresh : null;
     this.rows.forEach((row, r) => {
       const rowEl = document.createElement('div');
-      rowEl.className = 'map-row' + (row.title ? ' has-title' : '');
+      rowEl.className = 'map-row' + (row.title ? ' has-title' : '') + (r < this.top - 1 || r > this.top + ROWS_VISIBLE ? ' is-far' : '');
       rowEl.style.setProperty('--d', `${Math.max(0, r - this.top) * REVEAL_GAP}ms`);
       if (row.title) {
         const t = document.createElement('div');
@@ -392,29 +409,48 @@ export default {
         t.textContent = row.title;
         rowEl.appendChild(t);
       }
-      row.cells.forEach((cell, c) => {
-        const el = cell.kind === 'candle' ? this.renderCandle() : cell.kind === 'add' ? this.renderAdd() : cell.kind === 'store' ? this.renderStore() : this.renderApp(cell.app);
-        el.dataset.r = r; el.dataset.c = c;
-        if (quiet && fresh && cell.kind === 'app' && cell.app.id === fresh) el.classList.add('is-fresh');   // the new piece inks itself alone
-        cell.el = el;
-        rowEl.appendChild(el);
-      });
       row.el = rowEl;
-      if (attach) host.appendChild(rowEl);
+      host.appendChild(rowEl);
     });
+    if (fill) for (let r = this.top; r < this.top + ROWS_VISIBLE; r++) this.fillRow(r);
+    if (!this.ring) {
+      this.ring = document.createElement('div');
+      this.ring.className = 'map-focus';
+      this.ring.innerHTML = '<i></i>';
+    }
+    host.appendChild(this.ring);
     const empty = this.root.querySelector('.map-empty');
     empty.textContent = this.rows.some((row) => row.cells.some((cell) => cell.kind === 'app')) ? '' : 'Le parapet est vide';
-    this.refreshStates();
   },
 
+  // A row's pieces, built once; their states follow the config (paintCell).
+  fillRow(r) {
+    const row = this.rows[r];
+    if (!row || row.filled) return;
+    row.filled = true;
+    const frag = document.createDocumentFragment();
+    const state = this.appStates();
+    row.cells.forEach((cell) => {
+      const el = cell.kind === 'candle' ? this.renderCandle() : cell.kind === 'add' ? this.renderAdd() : cell.kind === 'store' ? this.renderStore() : this.renderApp(cell.app);
+      if (this.fresh && cell.kind === 'app' && cell.app.id === this.fresh) el.classList.add('is-fresh');   // the new piece inks itself alone
+      cell.el = el;
+      if (cell.kind === 'app') this.paintCell(cell, state);
+      frag.appendChild(el);
+    });
+    row.el.appendChild(frag);
+  },
+
+  // A piece: the frame is its background (map.css), the logo one masked element, the name one more. The line under the
+  // logo and the wax seal exist only on the pieces that have them.
   renderApp(app) {
     const el = document.createElement('div');
     el.className = 'map-cell map-app' + (app.custom ? ' is-custom' : '');
     const L = LOGOS[app.id] || monogram(app.name);                     // added app: its monogram
-    el.innerHTML = `${FRAME_SVG}<div class="map-ink-logo"></div>${LABEL_HTML}<div class="map-sub"></div><div class="wax-seal map-seal"></div>`;
-    const logo = el.querySelector('.map-ink-logo');
+    const logo = document.createElement('div');
+    logo.className = 'map-ink-logo';
     if (L && L.src) {
-      logo.style.setProperty('--m', `url("${L.src}")`);
+      if (this.masksLater) this.masksLater.push([logo, L.src]);
+      else logo.style.webkitMaskImage = `url("${L.src}")`;             // on the element: a var() here is substituted again in each of the mask's longhands
       if (L.luma) logo.classList.add('luma');
       const bx = logoBox(L, 3.4, 10);                                  // equal visual weight across the pieces
       logo.style.width = bx.w.toFixed(2) + 'cqw'; logo.style.height = bx.h.toFixed(2) + 'cqw';
@@ -422,9 +458,9 @@ export default {
       logo.classList.add('no-mask');
       logo.textContent = (app.name || '?').charAt(0);
     }
-    el.querySelector('.map-name').textContent = app.name;
+    el.append(logo, this.renderName(app.name));
     // The line under the logo: what the piece is (HDMI port, hand-added), then its state ("absente", "cachée"),
-    // written by refreshStates() so that it follows the config.
+    // written by paintCell() so that it follows the config.
     const sub = app.live ? 'Antenne' : app.port ? `HDMI ${app.port}` : app.input ? app.input : app.custom ? 'Perso' : '';
     el.dataset.sub = sub === app.name ? '' : sub;                       // a port still named "HDMI 2" does not say it twice
     // Added app whose package is no longer on the TV (or a pinned catalog app the TV lacks): drawn anyway, so it
@@ -435,20 +471,28 @@ export default {
     return el;
   },
 
+  // A long name may take two lines; only those pay for the balanced break.
+  renderName(text) {
+    const name = document.createElement('div');
+    name.className = 'map-name' + (text.length > NAME_ONE_LINE ? ' is-long' : '');
+    name.textContent = text;
+    return name;
+  },
+
   // "Boutique" (TV only): the store, to install an app the Map does not have yet. Same dotted frame as "Ajouter".
   renderStore() {
     const el = document.createElement('div');
     el.className = 'map-cell map-add-cell map-store-cell';
-    el.innerHTML = `${FRAME_SVG}${STAR_SVG}${LABEL_HTML}`;
-    el.querySelector('.map-name').textContent = 'Boutique';
+    el.innerHTML = STAR_SVG;
+    el.appendChild(this.renderName('Boutique'));
     return el;
   },
 
   renderCandle() {
     const el = document.createElement('div');
     el.className = 'map-cell map-candle-cell';
-    el.innerHTML = `${FRAME_SVG}<div class="map-candle-halo"></div>${CANDLE_SVG}${LABEL_HTML}`;
-    el.querySelector('.map-name').textContent = 'Réglages';
+    el.innerHTML = `<div class="map-candle-halo"></div>${CANDLE_SVG}`;
+    el.appendChild(this.renderName('Réglages'));
     return el;
   },
 
@@ -456,29 +500,69 @@ export default {
   renderAdd() {
     const el = document.createElement('div');
     el.className = 'map-cell map-add-cell';
-    el.innerHTML = `${FRAME_SVG}${QUILL_SVG}${LABEL_HTML}`;
-    el.querySelector('.map-name').textContent = 'Ajouter une appli';
+    el.innerHTML = QUILL_SVG;
+    el.appendChild(this.renderName('Ajouter une appli'));
     return el;
   },
 
-  // Wax seal (on the parapet) and faded ink (hidden), re-read from the config after every change.
-  refreshStates(pressedId) {
-    const state = Object.fromEntries(allApps().map((a) => [a.id, a]));
-    this.rows.forEach((row) => row.cells.forEach((cell) => {
-      if (cell.kind !== 'app' || !cell.el) return;
-      const s = state[cell.app.id] || {};
-      cell.el.classList.toggle('on-dock', Boolean(s.onDock));
-      cell.el.classList.toggle('is-hidden', Boolean(s.hidden));
-      const mention = cell.el.classList.contains('is-absent') ? 'absente' : s.hidden ? 'cachée' : '';
-      const sub = [cell.el.dataset.sub, mention].filter(Boolean).join(' · ');
-      cell.el.querySelector('.map-sub').textContent = sub;
-      cell.el.classList.toggle('has-sub', Boolean(sub));                // the logo rises a little to leave the line room
-      if (pressedId === cell.app.id) {                                    // the seal presses once
-        const seal = cell.el.querySelector('.map-seal');
-        seal.classList.remove('is-pressed'); void seal.offsetWidth; seal.classList.add('is-pressed');
-      }
-    }));
+  appStates() { return Object.fromEntries(allApps().map((a) => [a.id, a])); },
+
+  // Wax seal (on the parapet) and faded ink (hidden), read from the config.
+  paintCell(cell, state, pressedId) {
+    const el = cell.el;
+    const s = state[cell.app.id] || {};
+    const onDock = Boolean(s.onDock);
+    el.classList.toggle('on-dock', onDock);
+    el.classList.toggle('is-hidden', Boolean(s.hidden));
+    let seal = el.querySelector('.map-seal');
+    if (onDock && !seal) { seal = document.createElement('div'); seal.className = 'wax-seal map-seal'; el.appendChild(seal); }
+    const mention = el.classList.contains('is-absent') ? 'absente' : s.hidden ? 'cachée' : '';
+    const text = [el.dataset.sub, mention].filter(Boolean).join(' · ');
+    let sub = el.querySelector('.map-sub');
+    if (text && !sub) { sub = document.createElement('div'); sub.className = 'map-sub'; el.appendChild(sub); }
+    if (sub) sub.textContent = text;
+    el.classList.toggle('has-sub', Boolean(text));                      // the logo rises a little to leave the line room
+    if (pressedId === cell.app.id && seal && seal.animate) seal.animate([{ transform: 'scale(1.3)' }, { transform: 'scale(1)' }], { duration: 200 * this.k(), easing: ARRIVE });   // the seal presses once
   },
+
+  // Re-read from the config after every change.
+  refreshStates(pressedId) {
+    const state = this.appStates();
+    this.rows.forEach((row) => row.cells.forEach((cell) => { if (cell.kind === 'app' && cell.el) this.paintCell(cell, state, pressedId); }));
+  },
+
+  // A moment after a move: the rows next to the window are built (a key reaching them finds them ready), the far ones
+  // are put away (map.css .is-far: no style, no layout, no layer, and what they had is kept for when they come back).
+  // Then the names are measured, the layout being clean by then: the pen stroke goes under a two-line name.
+  tidyRows() {
+    if (!this.root || this.leaving) return;
+    const masks = [];
+    this.masksLater = masks;
+    this.rows.forEach((row, r) => {
+      const far = r < this.top - 1 || r > this.top + ROWS_VISIBLE;
+      if (!far) this.fillRow(r);
+      if (row.el) row.el.classList.toggle('is-far', far);
+    });
+    this.masksLater = null;
+    const root = this.root;
+    // Their logos, a few per frame, and none in the frames of a key.
+    const nextMasks = () => {
+      if (this.root !== root || !masks.length) return;
+      if (performance.now() - this.lastKey > KEY_QUIET_MS) masks.splice(0, MASKS_PER_FRAME).forEach(([logo, src]) => { logo.style.webkitMaskImage = `url("${src}")`; });
+      if (masks.length) frames(1, 60).then(nextMasks);
+    };
+    nextMasks();
+    frames(2, 120).then(() => {
+      if (this.root !== root) return;
+      this.rows.forEach((row) => row.cells.forEach((cell) => {
+        if (!cell.el || cell.two !== undefined || !row.el || row.el.classList.contains('is-far')) return;
+        const name = cell.el.querySelector('.map-name');
+        cell.two = Boolean(name) && name.offsetHeight > cell.el.offsetWidth * 0.25;   // one line is .15 of the piece's width, two are .29 (.18 and .36 in "Grande")
+      }));
+      this.placeRing(false);
+    });
+  },
+  tidySoon() { clearTimeout(this.tidyTimer); this.tidyTimer = this.after(TIDY_MS, () => this.tidyRows()); },
 
   // Rebuilds the grid (app added or deleted) without replaying the opening, and restores the focus:
   // on the `fresh` app if given, otherwise as close as possible to the previous position.
@@ -492,6 +576,7 @@ export default {
       || { r: Math.min(r, this.rows.length - 1), c: 0 };
     if (!fresh) pos.c = Math.min(c, this.rows[pos.r].cells.length - 1);
     this.setFocus(pos.r, pos.c, { walkFrom: null, instant: true });
+    this.tidySoon();
   },
 
   // Informative brass plate (outside launches: during Lumos, launch() owns the plate).
@@ -507,12 +592,31 @@ export default {
   // ---------------------------------------------------------------- focus and pages
   setFocus(r, c, { walkFrom = undefined, instant = false } = {}) {
     const from = walkFrom === undefined ? this.focusCenter() : walkFrom;
-    this.rows.forEach((row) => row.cells.forEach((cell) => cell.el && cell.el.classList.remove('is-focus')));
+    if (this.focusEl) this.focusEl.classList.remove('is-focus');
     this.r = r; this.c = c; this.mem[r] = c;
+    this.fillRow(r);                                                     // only a key faster than the idle moment gets here first
     const cell = this.focusedCell();
-    if (cell && cell.el) cell.el.classList.add('is-focus');
+    this.focusEl = cell && cell.el;
+    if (this.focusEl) this.focusEl.classList.add('is-focus');
+    this.placeRing(instant);
     this.scrollTo(r, instant);
-    if (!instant && from) this.walk(from, this.focusCenter());
+    if (!instant && from) this.walk(from, this.focusCenter(), true);
+  },
+
+  // The focus mark goes to the focused piece: one transform, in the rows' own coordinates (it slides with them), at the
+  // scale of the focused piece. `instant` (mount, rebuild): the transition is off for this change, back on two frames
+  // later, without forcing a style flush.
+  placeRing(instant) {
+    const ring = this.ring; if (!ring) return;
+    const row = this.rows[this.r];
+    const x = this.c * (GEO.cellW + GEO.gapX), y = this.rowY(this.r) + (row && row.title ? GEO.titleH : 0);
+    if (instant) {
+      ring.style.transition = 'none';
+      const root = this.root;
+      frames(2, 100).then(() => { if (this.root === root) ring.style.transition = ''; });
+    }
+    const flat = this.pressed || this.reduced;
+    ring.style.transform = `translate(${x.toFixed(2)}cqw, ${(y - (flat ? 0 : FOCUS_LIFT)).toFixed(2)}cqw) scale(${flat ? 1 : FOCUS_SCALE})`;
   },
 
   // Top of row `r` inside the rows block, in cqw (GEO, no layout read).
@@ -526,28 +630,33 @@ export default {
   // `instant` (mount, rebuild): no slide. The transition is switched off for this change and back on two frames
   // later, without forcing a style flush.
   scrollTo(r, instant) {
+    const before = this.top;
     if (r < this.top) this.top = r;
     if (r > this.top + ROWS_VISIBLE - 1) this.top = r - ROWS_VISIBLE + 1;
     const rowsEl = this.root.querySelector('.map-rows');
-    const y = this.rowY(this.top);
     if (instant) {
       rowsEl.style.transition = 'none';
       const root = this.root;
       frames(2, 100).then(() => { if (this.root === root) rowsEl.style.transition = ''; });
-    }
-    rowsEl.style.transform = `translateY(${(-y).toFixed(3)}cqw)`;
+    } else if (before === this.top) return;                              // the window has not moved: nothing below changes
+    rowsEl.style.transform = `translateY(${(-this.rowY(this.top)).toFixed(3)}cqw)`;
     // Rows outside the window fade out: never a row cut in half at the bottom of the parchment.
-    this.rows.forEach((rw, i) => { if (rw.el) rw.el.classList.toggle('is-out', i < this.top || i >= this.top + ROWS_VISIBLE); });
+    this.rows.forEach((rw, i) => {
+      if (!rw.el) return;
+      const out = i < this.top || i >= this.top + ROWS_VISIBLE;
+      rw.el.classList.toggle('is-out', out);
+      if (!out) { rw.el.classList.remove('is-far'); this.fillRow(i); }
+    });
     this.root.querySelector('.map-more.up').classList.toggle('is-on', this.top > 0);
     this.root.querySelector('.map-more.down').classList.toggle('is-on', this.top + ROWS_VISIBLE < this.rows.length);
+    if (!instant) this.tidySoon();
   },
 
   // Centre of the FRAME of the focused piece, in cqw (screen coordinates), once the page slide is complete.
   // Computed from the grid geometry (GEO, the numbers of map.css), never read from the layout: independent of the
   // slide in progress on .map-rows, and no forced style or layout on every move.
   focusCenter() {
-    const cell = this.focusedCell();
-    if (!cell || !cell.el || !this.root) return null;
+    if (!this.focusedCell() || !this.root) return null;
     const row = this.rows[this.r];
     const x = GEO.sheetX + GEO.gridX + this.c * (GEO.cellW + GEO.gapX) + FRAME_W / 2;
     const y = GEO.sheetY + GEO.gridY + this.rowY(this.r) - this.rowY(this.top) + (row && row.title ? GEO.titleH : 0) + FRAME_H / 2;
@@ -562,13 +671,26 @@ export default {
   },
 
   // ---------------------------------------------------------------- the footprints
-  // Six inked footprints, alternating left foot / right foot, walking from `from` to the EDGE of the target frame (cqw),
-  // 40 ms between two steps, then fading out. A new walk erases the previous one. Nothing in reduced motion.
-  walk(from, to) {
+  // Inked footprints, six at most, alternating left foot / right foot, walking from `from` to the EDGE of the target frame
+  // (cqw), 40 ms between two steps, then fading out. From one piece to another they walk between the two frames, never
+  // over the ink: side by side there is no room, and no walk. A new walk takes them back. Nothing in reduced motion.
+  // The six are drawn once and stay; a walk only starts six animations of their transform and opacity, on the compositor.
+  footprints() {
+    if (this.steps.length) return this.steps;
+    const layer = this.root.querySelector('.map-steps');
+    for (let i = 0; i < STEPS; i++) {
+      const el = document.createElement('i');
+      el.className = 'map-step';
+      layer.appendChild(el);
+      this.steps.push({ el, anim: null });
+    }
+    return this.steps;
+  },
+  walk(from, to, fromPiece) {
     if (!this.root || this.reduced || !from || !to) return;
     if (!Number.isFinite(from.x) || !Number.isFinite(from.y) || !Number.isFinite(to.x) || !Number.isFinite(to.y)) return;
-    const layer = this.root.querySelector('.map-steps');
-    if (this.stepsBatch) { this.stepsBatch.forEach((s) => s.remove()); this.stepsBatch = null; }
+    const steps = this.footprints();
+    steps.forEach((s) => { if (s.anim) { s.anim.cancel(); s.anim = null; } });
     const dx = to.x - from.x, dy = to.y - from.y;
     const dist = Math.hypot(dx, dy);
     if (dist < 2) return;                                   // a step in place is not drawn
@@ -578,27 +700,28 @@ export default {
     // Distance from the frame centre to its edge in the arrival direction: steps stop just before the rule.
     const edge = Math.min(FRAME_W / 2 / Math.max(1e-3, Math.abs(ux)), FRAME_H / 2 / Math.max(1e-3, Math.abs(uy)));
     const end = Math.max(0, dist - edge - 0.6);
-    if (end < 1) return;                                    // already at the foot of the piece
-    const batch = [];
-    for (let i = 0; i < STEPS; i++) {
-      const t = end * (i + 1) / STEPS;
+    const begin = fromPiece ? edge + 0.6 : 0;               // the other frame has the same edge, on the way out
+    const count = Math.min(STEPS, Math.floor((end - begin) / STEP_MIN));
+    if (count < 2) return;                                  // already at the foot of the piece
+    const k = this.k();
+    const total = STEP_MS + (STEPS - 1) * STEP_GAP;
+    steps.slice(0, count).forEach((s, i) => {
+      const t = begin + (end - begin) * (i + 1) / count;
       const side = i % 2 === 0 ? -1 : 1;
       const x = from.x + ux * t + px * side * 0.55, y = from.y + uy * t + py * side * 0.55;
-      const s = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-      s.setAttribute('class', 'map-step');
-      s.setAttribute('viewBox', '0 0 20 32');
-      const use = document.createElementNS('http://www.w3.org/2000/svg', 'use');
-      use.setAttribute('href', '#map-foot');
-      s.appendChild(use);
-      s.style.left = x.toFixed(2) + 'cqw';
-      s.style.top = y.toFixed(2) + 'cqw';
-      s.style.setProperty('--t', `rotate(${angle.toFixed(1)}deg) scaleX(${side})`);
-      s.style.setProperty('--d', `${i * STEP_GAP}ms`);
-      layer.appendChild(s);
-      batch.push(s);
-    }
-    this.stepsBatch = batch;
-    this.after(1500 + STEPS * STEP_GAP, () => { batch.forEach((s) => s.remove()); if (this.stepsBatch === batch) this.stepsBatch = null; });
+      const at = `translate(${x.toFixed(2)}cqw, ${y.toFixed(2)}cqw) rotate(${angle.toFixed(1)}deg) scaleX(${side})`;
+      // All six start together, each one's turn written in its keyframes: a `delay` would wake the main thread for every
+      // frame until the last one had started.
+      const o = (ms) => (i * STEP_GAP + ms) / total;
+      s.anim = s.el.animate([
+        { opacity: 0, transform: `${at} scale(1.3)` },
+        { opacity: 0, transform: `${at} scale(1.3)`, offset: o(0) },
+        { opacity: 0.82, transform: `${at} scale(1)`, offset: o(STEP_MS * 0.1) },
+        { opacity: 0.82, transform: `${at} scale(1)`, offset: o(STEP_MS * 0.64) },
+        { opacity: 0, transform: `${at} scale(1)`, offset: o(STEP_MS) },
+        { opacity: 0, transform: `${at} scale(1)` },
+      ], { duration: total * k });
+    });
   },
 
   // Stop: the piece bumps against the edge (small recoil), the map does not wrap around.
@@ -629,13 +752,11 @@ export default {
     this.busy = true;
     clearTimeout(this.toastTimer);
     const p = this.focusCenterPx();
-    const W = this.root.clientWidth || 1;
+    const at = this.focusCenter();
     const light = this.root.querySelector('.map-candlelight');
-    const sheet = this.root.querySelector('.map-sheet');
     const toast = this.root.querySelector('.map-toast');
     toast.classList.remove('is-on');
-    light.style.left = ((p.x - sheet.offsetLeft) / W * 100).toFixed(2) + 'cqw';
-    light.style.top = ((p.y - sheet.offsetTop) / W * 100).toFixed(2) + 'cqw';
+    light.style.transform = `translate(${(at.x - GEO.sheetX).toFixed(2)}cqw, ${(at.y - GEO.sheetY).toFixed(2)}cqw)`;
     light.classList.add('is-on');
     fx.lumos(this.root, p.x, p.y, 900);
     fx.chime(1046, 0.04); fx.chime(1318, 0.03); fx.chime(1568, 0.025);     // a chord, not an arpeggio
@@ -843,6 +964,7 @@ export default {
       rows.push(row);
     });
     this.spell = { name: '', r: 1, c: 0, cm: 0, rows, busy: false, onDone: typeof opts.onDone === 'function' ? opts.onDone : null };
+    this.keyEl = null;
     // One focus at a time (contract): the "Ajouter" frame hands its class over to the keyboard; closeSpell() gives it back.
     const cell = this.focusedCell();
     if (cell && cell.el) cell.el.classList.remove('is-focus');
@@ -875,7 +997,9 @@ export default {
     const s = this.spell;
     s.r = Math.min(Math.max(0, r), s.rows.length - 1);
     s.c = Math.min(Math.max(0, c), s.rows[s.r].length - 1);
-    s.rows.forEach((row, i) => row.forEach((k, j) => k.el.classList.toggle('is-focus', i === s.r && j === s.c)));
+    if (this.keyEl) this.keyEl.classList.remove('is-focus');
+    this.keyEl = s.rows[s.r][s.c].el;
+    this.keyEl.classList.add('is-focus');
   },
 
   // Counter and state of "C'est fait" (pale as long as nothing is written).
@@ -931,7 +1055,8 @@ export default {
     s.busy = true;
     const onDone = s.onDone;
     const seal = this.root.querySelector('.map-spell-seal');
-    seal.classList.remove('is-pressed'); void seal.offsetWidth; seal.classList.add('is-pressed');
+    seal.classList.add('is-pressed');
+    if (!this.reduced && seal.animate) seal.animate([{ transform: 'scale(1.5)' }, { transform: 'none' }], { duration: 260 * this.k(), easing: ARRIVE });
     this.ctx.fx.chime(1046, 0.04); this.ctx.fx.chime(1318, 0.03); this.ctx.fx.chime(1568, 0.025);
     this.after(this.reduced ? 200 : SEAL_MS, () => {
       if (!this.spell) return;
@@ -994,11 +1119,11 @@ export default {
 
   // ---------------------------------------------------------------- Move mode
   // The parapet is drawn in miniature at the bottom of the map; left/right swaps the app with its neighbour (both
-  // slide, FLIP 300 ms), OK sets it down (updateConfig({ dock })), Back cancels without writing anything.
+  // slide), OK sets it down (updateConfig({ dock })), Back cancels without writing anything.
   enterMove(id) {
     const order = [...getConfig().dock];
     if (!order.includes(id)) return;
-    this.move = { id, order, items: {} };
+    this.move = { id, order, base: [...order], items: {}, widths: {}, gap: 0 };
     const cell = this.focusedCell();
     if (cell && cell.el) cell.el.classList.add('is-moving');
     this.root.classList.add('is-move');
@@ -1009,9 +1134,13 @@ export default {
     this.renderParapet();
     this.root.querySelector('.map-parapet').classList.add('is-open');
     this.root.querySelector('.keyhint').innerHTML = KEYHINT_MOVE;
+    // The miniatures' widths, read once here: a swap then only computes where each one goes.
+    const m = this.move;
+    m.gap = this.root.clientWidth * PARAPET_GAP / 100;
+    m.base.forEach((x) => { m.widths[x] = m.items[x] ? m.items[x].offsetWidth : 0; });
   },
 
-  // Draws the row once; elements are then reordered (never rebuilt) so the slide can be seen.
+  // Draws the row once, in the parapet's order; a swap only moves the miniatures by transform, until OK writes the order.
   renderParapet() {
     const row = this.root.querySelector('.map-parapet-row');
     row.textContent = '';
@@ -1023,34 +1152,23 @@ export default {
       it.className = 'map-parapet-item' + (id === this.move.id ? ' is-lift' : '');
       const logo = document.createElement('div');
       logo.className = 'map-ink-logo small' + (L && L.luma ? ' luma' : '') + (L ? '' : ' no-mask');
-      if (L) { logo.style.setProperty('--m', `url("${L.src}")`); logo.style.width = Math.min(6, Math.max(1, 2.2 * (L.ratio || 1))).toFixed(2) + 'cqw'; }
+      if (L) { logo.style.webkitMaskImage = `url("${L.src}")`; logo.style.width = Math.min(6, Math.max(1, 2.2 * (L.ratio || 1))).toFixed(2) + 'cqw'; }
       else logo.textContent = (app.name || '?').charAt(0);
-      const name = document.createElement('div');
-      name.className = 'map-parapet-name';
-      name.textContent = app.name;
-      it.appendChild(logo); it.appendChild(name);
+      it.appendChild(logo);
       this.move.items[id] = it;
       row.appendChild(it);
     });
   },
 
-  // FLIP: record each miniature's position, reorder the DOM to match `order`, then each moved miniature
-  // starts from its old position (translateX) and slides to the new one in 300 ms.
-  reflowParapet() {
+  // Each miniature goes to its place in the new order: its distance from where the row first drew it, by transform.
+  // A CSS transition (map.css), so a quick second swap retargets from where it is.
+  placeParapet() {
     const m = this.move;
-    const row = this.root.querySelector('.map-parapet-row');
-    const before = {};
-    m.order.forEach((id) => { const it = m.items[id]; if (it) before[id] = it.offsetLeft; });
-    m.order.forEach((id) => { const it = m.items[id]; if (it) row.appendChild(it); });   // appendChild moves: the DOM order follows `order`
-    if (this.reduced) return;
-    const k = this.k();
+    const at = (list) => { const out = {}; let x = 0; list.forEach((id) => { out[id] = x; x += (m.widths[id] || 0) + m.gap; }); return out; };
+    const was = at(m.base), now = at(m.order);
     m.order.forEach((id) => {
-      const it = m.items[id]; if (!it || before[id] === undefined) return;
-      const dx = before[id] - it.offsetLeft;
-      if (Math.abs(dx) < 1) return;
-      const lift = id === m.id ? ' translateY(-.7cqw)' : '';          // the held app keeps its lift during the slide
-      it.animate([{ transform: `translateX(${dx}px)${lift}` }, { transform: `translateX(0)${lift}` }],
-        { duration: 300 * k, easing: 'cubic-bezier(.2,.8,.2,1)' });
+      const it = m.items[id];
+      if (it) it.style.transform = `translate(${(now[id] - was[id]).toFixed(1)}px, ${id === m.id ? `${-LIFT}cqw` : '0'})`;
     });
   },
 
@@ -1061,7 +1179,7 @@ export default {
       const j = action === 'left' ? i - 1 : i + 1;
       if (j < 0 || j >= m.order.length) { this.ctx.fx.chime(440, 0.02); return true; }
       [m.order[i], m.order[j]] = [m.order[j], m.order[i]];
-      this.reflowParapet();
+      this.placeParapet();
       this.ctx.fx.chime(action === 'left' ? 1046 : 1175, 0.03);
       return true;
     }
@@ -1080,29 +1198,29 @@ export default {
   },
 
   // ---------------------------------------------------------------- leaving
-  // "Fait et bien fait": the formula rewrites itself, the ink fades in reverse order (350 ms),
-  // the parchment folds up, and the Parapet comes back up (`up` transition).
+  // "Fait et bien fait": the key is answered at once, the formula rewrites itself; the parchment folds as the camera goes
+  // back to the Parapet (map.css, when the router gives this layer its leave class).
   leave() {
     if (this.leaving) return;
     this.leaving = true;
     dismissRappeltout();
     if (this.spell) this.closeSpell();
-    if (this.stepsBatch) { this.stepsBatch.forEach((s) => s.remove()); this.stepsBatch = null; }
+    this.steps.forEach((s) => { if (s.anim) { s.anim.cancel(); s.anim = null; } });
     this.ctx.fx.whoosh();
-    // Reduced motion, or Back before the screen is even in place (nothing unfolded yet): leave without staging.
-    if (this.reduced || !this.arrived) { this.ctx.router.go('home', {}, 'up'); return; }
-    const root = this.root;
-    const formula = root.querySelector('.map-formula');
-    root.classList.add('is-leaving');                       // class first: the rewrite picks up the exit pace
-    formula.textContent = MISCHIEF;
-    formula.style.animation = 'none'; void formula.offsetWidth; formula.style.animation = '';
-    this.after(420, () => this.ctx.router.go('home', {}, 'up'));
+    if (!this.reduced && this.arrived) {                     // Back before the screen is even in place: nothing to fold
+      const formula = this.root.querySelector('.map-formula');
+      this.root.classList.add('is-leaving');
+      formula.textContent = MISCHIEF;
+      if (formula.animate) formula.animate([{ opacity: 0, transform: 'translateX(-1.2cqw)' }, { opacity: 0.92, transform: 'none' }], { duration: 300 * this.k(), easing: ARRIVE });
+    }
+    this.ctx.router.go('home', {}, 'pan-down');
   },
 
   // ---------------------------------------------------------------- keys
   onKey(action, ctx) {
-    if (action === 'okdown') { const c = this.focusedCell(); if (c && c.el && !this.busy && !this.spell && !this.move) c.el.classList.add('is-press'); return true; }
-    { const c = this.focusedCell(); if (c && c.el) c.el.classList.remove('is-press'); }
+    this.lastKey = performance.now();
+    if (action === 'okdown') { const c = this.focusedCell(); if (c && c.el && !this.busy && !this.spell && !this.move) { c.el.classList.add('is-press'); this.pressed = true; this.root.classList.add('is-pressing'); this.placeRing(false); } return true; }
+    { const c = this.focusedCell(); if (c && c.el) c.el.classList.remove('is-press'); if (this.pressed) { this.pressed = false; this.root.classList.remove('is-pressing'); this.placeRing(false); } }
     if (this.leaving || this.menuOpen) return true;
     if (this.busy) {                                         // during Lumos: Back cancels as long as the intent has not fired
       if (action === 'back' || action === 'longback') this.cancelLaunch();

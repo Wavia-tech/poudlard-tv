@@ -15,6 +15,10 @@ texture limit of weak TV GPUs (the former one-row sheet of 825 x 640 cells was 5
 
 Repack an existing one-row sheet (cells of equal width, in order) into the grid, without the source poses:
     python -I tools/cutout_owl.py --regrid old-sheet.webp app/assets/owl-sheet.webp 7
+
+Grade a sheet for the Parapet's moonlit night (run it once, on an ungraded sheet: studio white would be the brightest thing on the
+screen, on the darkest rock). A cool multiply, highlights peaking near 200; her yellow eyes keep their light:
+    python -I tools/cutout_owl.py --grade app/assets/owl-sheet.webp app/assets/owl-sheet.webp
 """
 import sys
 
@@ -112,6 +116,26 @@ def regrid(src: str, dst: str, n: int) -> None:
     grid(dst, [fit(old.crop((i * cw, 0, (i + 1) * cw, old.height))) for i in range(n)])
 
 
+GRADE = (0.80, 0.84, 0.92)   # the moon's light on her
+PEAK = 200                   # what her whitest feather reaches
+
+
+def grade(src: str, dst: str) -> None:
+    import numpy as np
+    im = np.asarray(Image.open(src).convert("RGBA")).astype(np.float32)
+    rgb, a = im[..., :3], im[..., 3:]
+    out = rgb * np.array(GRADE, np.float32)
+    top = float(out.max())
+    knee = PEAK * 0.72
+    over = out > knee
+    out[over] = knee + (PEAK - knee) * (1 - np.exp(-(out[over] - knee) / max(top - knee, 1) * 2)) / (1 - np.exp(-2))
+    # The eyes: saturated yellow (red and green far above blue) stays as it was.
+    sat = np.clip(((rgb[..., 0] + rgb[..., 1]) / 2 - rgb[..., 2] - 45) / 40, 0, 1)[..., None]
+    out = out * (1 - sat) + rgb * sat
+    Image.fromarray(np.dstack([np.clip(out, 0, 255), a]).round().astype(np.uint8), "RGBA").save(dst, "WEBP", quality=90, method=6)
+    print(dst, im.shape[1], "x", im.shape[0])
+
+
 def feather(dst: str, w: int = 24, h: int = 48) -> None:
     """A small original feather: an ivory leaf shape with a darker shaft, soft alpha."""
     s = 8
@@ -135,5 +159,7 @@ if __name__ == "__main__":
         regrid(args[1], args[2], int(args[3]))
     elif args and args[0] == "--feather":
         feather(args[1])
+    elif args and args[0] == "--grade":
+        grade(args[1], args[2])
     else:
         cut(args[0], args[1], int(args[2]) if len(args) > 2 else 640)

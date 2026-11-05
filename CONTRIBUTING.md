@@ -15,7 +15,7 @@ Thank you for your interest. The project is small and deliberately dependency-fr
 - One screen = one file `app/js/screens/<name>.js` exporting `{ mount, unmount, onKey }`, and one file `app/css/screens/<name>.css` whose classes carry the screen's prefix.
 - Everything read from storage goes through `sanitize()` (`app/js/config.js`). Never direct `localStorage` in a screen, never `innerHTML` with a configuration value.
 - The only door to the outside is `app/js/platform.js`. Nothing else launches an app, opens a link or touches the system.
-- Nothing moves when nothing happens: animate `transform` and `opacity` only, no infinite animation on the idle Parapet, no canvas redrawn when nothing changes, no layer wider than the screen (`app/CONTRACT.md`).
+- Nothing moves when nothing happens: animate `transform` and `opacity` only, no infinite animation on the idle Parapet but the clouds behind the castle, no canvas redrawn when nothing changes, no layer wider than the screen but the Parapet's three planes (16 CSS px of margin) and its cloud loop (`app/CONTRACT.md`).
 - Every screen must work if an image is missing and if the catalogue is empty.
 - Logos: always `LOGOS[app.id] || monogram(app.name)`. Never assume `LOGOS` has an entry for every app (hand-added apps have none).
 - On the Android side (`android/`), plain Java 8, no Gradle, no library: `build.sh` refuses an APK that declares a permission.
@@ -40,7 +40,7 @@ Check at least: first launch (Admission Letter), full D-pad navigation, held Bac
 ## Pull request
 
 - One pull request per topic, short description: what changes, why, how you checked it.
-- No heavy binary file: raw images, intermediate renders and other working files stay out of the repository. Images are sized for the screen they appear on (no texture wider than the TV needs), audio stays under 3 MB.
+- No heavy binary file: raw images, intermediate renders and other working files stay out of the repository. Images are sized for the screen they appear on (no texture wider than the TV needs), audio stays under the 24 MB that `tools/test-sound.mjs` allows.
 - Files ignored by `.gitignore` (`*.apk`, `android/*.keystore`, `android/out/`, `repo/`, `__pycache__/`) must never appear in a commit, even "just for testing". Neither must a personal replacement of a versioned file (your own `app/assets/logos.js` or `app/assets/music/ambiance.ogg`).
 - No personal path (user name, local folder) in a versioned file: a script must take its paths as parameters.
 

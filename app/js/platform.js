@@ -17,7 +17,7 @@
 const bridge = () => (typeof window !== 'undefined' && window.Android && typeof window.Android.launch === 'function') ? window.Android : null;
 // Allowed hosts for content links (config.js). Any other link is refused, even if it comes from storage.
 // Exact copy of Apps.URL_HOSTS (android/src/.../Apps.java): keep both lists identical.
-const URL_HOSTS = new Set(['www.max.com', 'play.max.com', 'www.netflix.com', 'www.primevideo.com', 'www.disneyplus.com', 'www.youtube.com',
+const URL_HOSTS = new Set(['www.max.com', 'play.max.com', 'play.hbomax.com', 'app.primevideo.com', 'www.netflix.com', 'www.primevideo.com', 'www.disneyplus.com', 'www.youtube.com',
   'www.canalplus.com', 'canalplus.com']);
 const NO_ANSWER = 'La télé n’a pas répondu.';
 const PKG_RE = /^[a-zA-Z][\w]*(\.[a-zA-Z][\w]*)+$/;

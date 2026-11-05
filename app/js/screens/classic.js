@@ -5,7 +5,9 @@
 // then a last row with "Réglages" (Settings) and "Lumos" (relight Hogwarts). A category of more than 6 apps is
 // split into several visual rows (the first carries the title): `this.rows` always matches what is
 // displayed, and D-pad navigation follows the screen.
-// Focus = ivory frame + scale 1.06 in 150 ms, nothing else: by design.
+// Focus = the tile lifts, lit a little, with a soft shadow; no outline. One mark goes from tile to tile (.cls-frame) on the shared
+// curve; the plates are layers painted once, so a move paints nothing and reads no layout: the tiles' places are measured
+// when the grid is built.
 //
 // Entering from Hogwarts mode: the only long transition of this screen (900 ms). The candle goes out, smoke
 // rises over the night, the grid appears underneath. None of this in reduced motion, nor at TV boot.
@@ -19,7 +21,7 @@ import { Input } from '../input.js';
 import { LOGOS } from '../../assets/logos.js';
 import { monogram, logoBox } from '../monogram.js';
 import { beuglante } from '../beuglante.js';
-import { HOME_MODES, HOME_HINT, HOME_NOTE_MOCK, TV_SCREENS, TV_ONLY, ARROW, timeK } from './settings.js';
+import { HOME_MODES, HOME_HINT, HOME_NOTE_MOCK, TV_SCREENS, TV_ONLY, ARROW, timeK, frames } from './settings.js';
 
 const COLS = 6;                 // tiles per visual row (the CSS grid has the same column count)
 const BANNER_MS = 1200;          // "Ouverture de X" banner in the mockup
@@ -27,6 +29,11 @@ const BRIDGE_MS = 3000;          // on the TV: time for the app to take the scre
 const SMOKE_MS = 900;            // the Hogwarts → classic switch
 const SMOKE_GRID_AT = 350;       // the grid appears under the smoke at this point
 const PUFFS = 5;                 // smoke puffs
+const ARRIVE = 'cubic-bezier(.32,.72,0,1)';   // --ease-arrive (base.css), for the Web Animations below
+const FOCUS_SCALE = 1.06;        // the focused plate (classic.css), and the mark on it
+const FOCUS_LIFT = 0.5;          // cqw: its lift (classic.css)
+const ENTER_ROWS = 4;            // the rows that can be on screen at once: only they settle in
+const MASKS_PER_FRAME = 6;       // a logo's SVG document is parsed on the main thread: a few per frame after the key's task
 
 // Category labels, in display order. An empty category does not appear.
 const CATEGORIES = [
@@ -81,16 +88,20 @@ export default {
   busy: false,       // banner, Remembrall, switch or smoke in progress: keys are queued (Input.hold)
   held: false,       // true while we hold the Input queue
   _off: 0,           // current scroll offset (px)
+  geo: null,         // the places read when the grid was built: { viewH, W, maxOff, left, top, plateW, plateH }
+  pressed: false,    // OK is down on the focused tile
+  focusEl: null,     // the tile that wears .is-focus
+  masks: null,       // the logos still to get their picture
   timers: [], msg: null, installed: null,
 
   async mount(root, ctx) {
     this.root = root; this.ctx = ctx; this.timers = [];
-    this.busy = false; this.held = false; this._off = 0; this.msg = null;
+    this.busy = false; this.held = false; this._off = 0; this.msg = null; this.geo = null; this.pressed = false; this.focusEl = null; this.masks = [];
     this.installed = Platform.installed();   // Set of packages, or null (mockup: everything is installed)
 
     root.innerHTML = `
       <div class="cls-clock"><div class="cls-time"></div><div class="cls-date"></div></div>
-      <div class="cls-scroll"><div class="cls-pool"></div><div class="cls-rows"></div></div>
+      <div class="cls-scroll"><div class="cls-rows"></div></div>
       <div class="keyhint"><span><b>${ARROW.up}</b>Réglages</span><span><b>OK</b>Ouvrir</span><span><b>OK long</b>Options</span><span><b>Retour long</b>Poudlard</span></div>
       <div class="cls-banner"><span class="cls-banner-text"></span></div>`;
 
@@ -104,6 +115,10 @@ export default {
     [this.r, this.c] = found || [0, 0];
     this.wantCol = this.c;
     this.focus(true);
+    this.flushMasks();
+    // The stage only changes size on the test bench (full screen): the places are read again then.
+    this.ro = new ResizeObserver(() => { if (this.root && this.geo && this.root.clientWidth !== this.geo.rootW) { this.geo = null; this.focus(true); } });
+    this.ro.observe(root);
 
     // Hogwarts → classic switch: the smoke, except at TV boot (params.boot) and in reduced motion.
     // home.js and settings.js can say so explicitly with { smoke: true }; without a parameter, any mount
@@ -118,6 +133,8 @@ export default {
     this.timers.forEach((t) => { clearInterval(t); clearTimeout(t); });
     this.timers = [];
     clearTimeout(this.clockTimer); this.clockTimer = 0;
+    if (this.ro) { this.ro.disconnect(); this.ro = null; }
+    this.geo = null; this.focusEl = null; this.masks = null;
     if (this.msg) { this.msg.close(); this.msg = null; }
     if (typeof dismissRappeltout === 'function') dismissRappeltout();   // an open sphere is not left orphaned
     this.release();                                                      // never leave the input queue closed
@@ -192,6 +209,7 @@ export default {
   build() {
     const host = this.root.querySelector('.cls-rows');
     host.textContent = '';
+    this.geo = null; this.focusEl = null;
     this.rows = this.computeRows();
 
     const hasApps = this.rows.some((row) => !row.tail);
@@ -221,6 +239,24 @@ export default {
       row.el = sec;
       host.appendChild(sec);
     }
+    const frame = document.createElement('div');
+    frame.className = 'cls-frame';
+    host.appendChild(frame);
+  },
+
+  // The places a move needs, read once, when the grid has just been built or the stage has changed size.
+  measure() {
+    const scroll = this.root.querySelector('.cls-scroll'), host = this.root.querySelector('.cls-rows');
+    const frame = host.querySelector('.cls-frame');
+    const first = this.rows[0] && this.rows[0].items[0];
+    const plate = first && first.el.querySelector('.cls-plate');
+    const g = this.geo = { rootW: this.root.clientWidth, viewH: scroll.clientHeight, W: scroll.clientWidth, maxOff: Math.max(0, host.offsetHeight - scroll.clientHeight),
+      left: scroll.offsetLeft, top: scroll.offsetTop, plateW: plate ? plate.offsetWidth : 0, plateH: plate ? plate.offsetHeight : 0 };
+    this.rows.forEach((row) => {
+      row.top = row.el.offsetTop; row.bottom = row.top + row.el.offsetHeight;
+      row.items.forEach((it) => { it.x = it.el.offsetLeft; it.y = it.el.offsetTop; });
+    });
+    frame.style.width = `${g.plateW}px`; frame.style.height = `${g.plateH}px`;
   },
 
   // App tile: 16:9 stone plate, centred ivory logo (or the initial in Cinzel if the logo is missing), name below.
@@ -239,8 +275,8 @@ export default {
       box.style.width = bx.w.toFixed(2) + 'cqw';
       box.style.height = bx.h.toFixed(2) + 'cqw';
       const logo = document.createElement('div');
-      logo.className = 'app-logo ivory-logo' + (L.luma ? ' luma' : '');
-      logo.style.setProperty('--m', `url("${L.src}")`);
+      logo.className = 'app-logo' + (L.luma ? ' luma' : '');
+      this.masks.push([logo, L.src]);                    // its picture comes just after the key's task (flushMasks)
       const base = document.createElement('i');
       base.className = 'l-base';
       logo.appendChild(base);
@@ -266,17 +302,32 @@ export default {
     return el;
   },
 
-  // The house candle pool slides under the focused tile (transform only, 150 ms), and the rows dim when idle.
-  movePool(instant) {
-    const pool = this.root.querySelector('.cls-pool'); const it = this.current();
-    if (!pool || !it || !it.el) { if (pool) pool.classList.remove('is-on'); return; }
+  // The logos get their pictures a few per frame, those on screen first; none shows before it has it (classic.css).
+  flushMasks() {
+    const root = this.root;
+    const step = () => {
+      if (this.root !== root || !this.masks || !this.masks.length) return;
+      this.masks.splice(0, MASKS_PER_FRAME).forEach(([logo, src]) => { logo.style.setProperty('--m', `url("${src}")`); logo.classList.add('has-m'); });
+      if (this.masks.length) requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+  },
+
+  // The mark goes to the focused tile: its transform, in the rows' own coordinates (it
+  // slides with the rows). `instant` (mount, rebuild): the transition is off for this change, back on two frames later.
+  placeFrame(instant) {
     const host = this.root.querySelector('.cls-rows');
-    const x = it.el.offsetLeft + it.el.parentElement.offsetLeft + it.el.offsetWidth / 2, y = it.el.parentElement.parentElement.offsetTop + it.el.offsetTop + it.el.offsetHeight * 0.3 - (this._off || 0);
-    if (instant) pool.style.transition = 'none';
-    pool.style.transform = `translate(${x - pool.offsetWidth / 2}px, ${y - pool.offsetHeight / 2}px)`;
-    if (instant) { void pool.offsetWidth; pool.style.transition = ''; }
-    pool.classList.add('is-on');
-    void host;
+    const frame = host.querySelector('.cls-frame');
+    const it = this.current(), g = this.geo;
+    if (!it || !it.el || !g || !frame) return;
+    if (instant) {
+      frame.style.transition = 'none';
+      const root = this.root;
+      frames(2, 100).then(() => { if (this.root === root) frame.style.transition = ''; });
+    }
+    const scale = this.pressed ? 1.02 : (isReduced() ? 1 : FOCUS_SCALE);
+    const lift = this.pressed || isReduced() ? 0 : g.rootW * FOCUS_LIFT / 100;
+    frame.style.transform = `translate(${it.x}px, ${it.y - lift}px) scale(${scale})`;
   },
   dim() { if (this.root) this.root.classList.add('is-dim'); },
   // Everything released (main.js error boundary, hand-over to another app): the banner withdraws, keys are free.
@@ -337,8 +388,8 @@ export default {
 
   // A Remembrall anchored on a tile; `busy` while it is open (it takes the keys itself).
   async ask(rappeltout, it, title, options) {
-    const rr = this.root.getBoundingClientRect(), tr = it.el.getBoundingClientRect();
-    const anchor = { x: tr.left - rr.left + tr.width / 2, y: tr.top - rr.top + tr.height / 2 };
+    const g = this.geo;
+    const anchor = { x: g.left + it.x + g.plateW / 2, y: g.top + it.y - this._off + g.plateH / 2 };
     this.busy = true;
     let choice = null;
     try { choice = await rappeltout(this.root, { title, options, anchor }); } catch (e) { choice = null; }
@@ -353,15 +404,15 @@ export default {
     return this.installed.has(app.pkg);
   },
 
-  // Grid entrance: rows settle with a light fade, staggered by 40 ms. Nothing in reduced motion.
+  // Grid entrance: the rows on screen settle with a light fade, one after the other. Nothing in reduced motion.
   enter() {
     if (isReduced()) return;
     const k = this.k();
-    this.rows.forEach((row, i) => {
+    this.rows.slice(0, ENTER_ROWS).forEach((row, i) => {
       if (!row.el || !row.el.animate) return;
       row.el.animate(
         [{ opacity: 0, transform: 'translateY(1.2cqw)' }, { opacity: 1, transform: 'translateY(0)' }],
-        { duration: 360 * k, delay: 40 * k * i, easing: 'cubic-bezier(.2,.7,.2,1)', fill: 'backwards' },
+        { duration: 360 * k, delay: 40 * k * i, easing: ARRIVE, fill: 'backwards' },
       );
     });
   },
@@ -416,14 +467,13 @@ export default {
     layer.animate([{ opacity: 1, offset: 0 }, { opacity: 1, offset: SMOKE_GRID_AT / SMOKE_MS }, { opacity: 0 }],
       { duration: SMOKE_MS * k, easing: 'ease-out', fill: 'forwards' });
 
+    // The grid is there and takes its keys from that moment: the rest of the smoke only dissipates over it.
     this.timers.push(setTimeout(() => {
       if (rows) rows.style.opacity = '';
       this.enter();
-    }, SMOKE_GRID_AT * k));
-    this.timers.push(setTimeout(() => {
-      layer.remove();
       this.release();
-    }, (SMOKE_MS + 80 * (PUFFS - 1)) * k));
+    }, SMOKE_GRID_AT * k));
+    this.timers.push(setTimeout(() => layer.remove(), (SMOKE_MS + 80 * (PUFFS - 1)) * k));
   },
 
   // ---- Focus and scrolling --------------------------------------------------------------------------------
@@ -433,31 +483,37 @@ export default {
     return row ? row.items[this.c] : null;
   },
 
-  // Puts the ivory frame on the current tile and scrolls the row into the window (transform only).
+  // Puts the mark on the current tile and scrolls the row into the window (transform only).
   // The focused row stays above the window's bottom fade (2.4 cqw, see classic.css).
   focus(instant) {
-    this.rows.forEach((row, ri) => row.items.forEach((it, ci) => it.el.classList.toggle('is-focus', ri === this.r && ci === this.c)));
-    const scroll = this.root.querySelector('.cls-scroll');
+    if (!this.geo) this.measure();
+    const it = this.current();
+    if (this.focusEl) this.focusEl.classList.remove('is-focus');
+    this.focusEl = it ? it.el : null;
+    if (this.focusEl) this.focusEl.classList.add('is-focus');
     const host = this.root.querySelector('.cls-rows');
-    const row = this.rows[this.r];
-    if (!scroll || !host || !row || !row.el) return;
-    const viewH = scroll.clientHeight;
-    const top = row.el.offsetTop, bottom = top + row.el.offsetHeight;
-    const pad = Math.round(scroll.clientWidth * 0.006);    // margin for the 1.06 scale
-    const fade = Math.round(scroll.clientWidth * 0.024);   // height of the bottom fade (.cls-scroll::after)
-    const maxOff = Math.max(0, host.offsetHeight - viewH);
+    const row = this.rows[this.r], g = this.geo;
+    if (!host || !row || !row.el) return;
+    const pad = Math.round(g.W * 0.006);    // margin for the 1.06 scale
+    const fade = Math.round(g.W * 0.024);   // height of the bottom fade (.cls-scroll::after)
     let off = this._off || 0;
-    if (top - pad < off) off = Math.max(0, top - pad);
-    else if (bottom + pad + fade > off + viewH) off = bottom + pad + fade - viewH;
+    const was = off;
+    if (row.top - pad < off) off = Math.max(0, row.top - pad);
+    else if (row.bottom + pad + fade > off + g.viewH) off = row.bottom + pad + fade - g.viewH;
     if (this.r === 0) off = 0;
-    off = Math.min(Math.max(0, off), maxOff);
+    off = Math.min(Math.max(0, off), g.maxOff);
     this._off = off;
-    // A row that has slid partly above the window fades out: never half a tile under the date.
-    this.rows.forEach((rw) => { if (rw.el) rw.el.classList.toggle('is-out', rw.el.offsetTop < off - 2); });
-    if (instant) host.style.transition = 'none';
-    host.style.transform = `translateY(${-off}px)`;
-    if (instant) { void host.offsetWidth; host.style.transition = ''; }
-    this.movePool(instant);
+    if (instant) {
+      host.style.transition = 'none';
+      const root = this.root;
+      frames(2, 100).then(() => { if (this.root === root) host.style.transition = ''; });
+    }
+    if (instant || off !== was) {
+      // A row that has slid partly above the window fades out: never half a tile under the date.
+      this.rows.forEach((rw) => { if (rw.el) rw.el.classList.toggle('is-out', rw.top < off - 2); });
+      host.style.transform = `translateY(${-off}px)`;
+    }
+    this.placeFrame(instant);
   },
 
   move(dr, dc) {
@@ -561,9 +617,10 @@ export default {
 
   onKey(action, ctx) {
     const it = this.current();
-    if (action === 'okdown') { if (!this.busy && it && it.el) it.el.classList.add('is-press'); return true; }
+    if (action === 'okdown') { if (!this.busy && it && it.el) { it.el.classList.add('is-press'); this.pressed = true; this.placeFrame(false); } return true; }
     if (this.busy) return true;     // (during a banner or the smoke, input.js already queues the key)
     if (it && it.el) it.el.classList.remove('is-press');
+    if (this.pressed) { this.pressed = false; this.placeFrame(false); }
     if (this.undim()) return true;  // idle dim: the first key only wakes the grid, the focus does not move
     switch (action) {
       case 'left': this.move(0, -1); return true;

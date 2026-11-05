@@ -27,9 +27,28 @@ below), leaving aside anything that requires a permission or touches the TV's ow
 > - with no network, system fonts; a 28 MB music file that did not start on its own.
 > With Netflix in front, Poudlard dropped to about 3 % CPU.
 >
-> **Version 0.3** addresses each point (`../CHANGELOG.md`). **A second test on the TV is still to be done** (paused while the TV is in everyday use); its
-> results go here. Still to check on a device after it: the HDMI switches one port at a time, the role dialog on
-> Android 10+, the fallback and rescue screens, a dongle (Chromecast with Google TV) as a second device.
+> **Version 0.3** addresses each point (`../CHANGELOG.md`).
+>
+> **4 and 5 November 2026, version 0.3 in progress.** The same TV, with Poudlard as its home, sounds on, the music file playing;
+> measured from the computer with `adb` and the WebView's DevTools on a debuggable build (`POUDLARD_DEBUG=1`, see "Debugging"). The
+> numbers below are the **last measured build, 5 November 10:55**. Budgets: no gap above 50 ms in a move, no long task above 50 ms on a focus
+> move or 120 ms on a screen change, 300 MB at most.
+> - Pacing of this TV: with no recent key any animation runs at about 39 images/s (17 and 33 ms alternating, even one 20 px div, at
+>   720p or 1080p); for about 2 s after a key, 56-60 images/s. `gfxinfo`'s "janky" count mixes that in: read the frames of the moves.
+> - Holds: a median frame of 16.7 ms on every flow, but for closing the Map and Settings back to the Parapet (21 ms). The pan is continuous. The
+>   music file plays (the byte-range bug, `../docs/MUSIC.md`). Mouvement went from Économie to Auto once. The Home key returns to the Parapet.
+> - At rest: the shop 5 % of a core and no frame; the Parapet 12.5 % + 10.6 % of a core (app + renderer), with the clouds at 5 steps a second.
+> - Memory (PSS, app + renderer): 262 MB at rest, 280 MB in the shop, 308 MB after a full walk.
+> - **Still failing:** pan burst Down Down Up, a 781 ms long task with the keys held 759 ms. Open the Map 275 ms; close it 244 ms, then 197 ms,
+>   the camera starting 738 ms after the key; Settings back to the Parapet 284 + 100 ms; open Settings 112, 95, 95 ms; Settings section moves 95 and
+>   117 ms; a key during a neighbour's mount 187 ms; neighbours' mounts 117 to 197 ms. Isolated gaps of 66 to 100 ms inside the moves of the
+>   dock, the pans and the Map. On the Parapet's look, against `castle.jpg`: a dark crescent on the moon under parallax, a softer sky, a ring around the moon,
+>   clouds that no longer match under it.
+> - **Not measured on the TV yet:** everything after that build (pieces of mounts, the lists no longer read in a mount or a key, the Parapet kept behind
+>   the Map, the sky rebuilt, the clouds at 3.4 steps a second, the tint painted once, and the key fixes of the last review). These are checked on a
+>   computer only, which proves nothing about fluidity. The tint of the evening hours has never been measured.
+> - Still to check on a device: opening apps and film links on the current build, the first key after coming back from a film, the HDMI switches one
+>   port at a time, the role dialog on Android 10+, the fallback and rescue screens, a dongle (Chromecast with Google TV) as a second device.
 
 ## What the APK never does
 
@@ -85,7 +104,7 @@ The script copies `../app/` as is into `assets/web/` (without the `.md` files). 
 version without the test bench), that is the page loaded; otherwise `index.html`. Assets are added to the APK with `jar`
 rather than `aapt2 -A`, which avoids aapt2's backslash bug on Windows. The embedded fonts (`app/assets/fonts/`,
 OFL) go in, so the TV needs no network to show them. So do the app logos, the four house crest pictures and the
-music file (`app/assets/music/ambiance.ogg`, under 3 MB), which the repository versions at the maintainer's request
+music file (`app/assets/music/ambiance.ogg`, 19 MB, stored uncompressed and served by byte ranges, `../docs/MUSIC.md`), which the repository versions at the maintainer's request
 (`../DISCLAIMER.md`): they are third-party material, not covered by the MIT license, and an APK handed to someone
 else carries them under the responsibility of whoever hands it over.
 
@@ -137,7 +156,7 @@ mock-up's Salle sur Demande → Accueil de la télé section.
    the rescue screen (Back held 6 s) its « Accueil d'origine » button.
    The app cannot hand the HOME role to another app itself: the system reassigns it when our alias disappears. On a
    TV that still has two other homes (a third-party launcher next to an enabled Google TV launcher), the system may
-   ask once which one to use. *To be confirmed by the second device test (see the "Test status" box).*
+   ask once which one to use. *To be confirmed on a device (see the "Test status" box).*
 2. **From the computer**, without a remote: give the home to the one you want. List the candidates first (the
    package varies by brand), then designate it:
    ```bash
@@ -191,8 +210,8 @@ Changing this host in `WebAssets.java` would lose the saved configuration.
 Sleep: the activity does not set `FLAG_KEEP_SCREEN_ON`. The TV keeps its screensaver and its standby.
 
 Memory: the target TV has 1.3 GB of RAM and about 550 MB free; on the first test Android ended the app and its
-WebView renderer at about 115 MB (47 MB of graphics). Keep decoded images small (no texture wider than the screen
-needs, none above the GPU's texture limit) and nothing animating at idle. To measure:
+WebView renderer at about 115 MB (47 MB of graphics). Keep decoded images small (no texture wider than the screen,
+but for the Parapet's three planes and its cloud loop, `../app/CONTRACT.md`; none above the GPU's texture limit) and nothing animating at idle. To measure:
 `adb shell dumpsys meminfo fr.wavia.poudlardtv` and `adb shell top -n 1 | grep -i webview`.
 
 ## Debugging
@@ -201,13 +220,14 @@ needs, none above the GPU's texture limit) and nothing animating at idle. To mea
 adb logcat -s PoudlardTV chromium          # the launcher and the WebView's JS errors
 ```
 
-To inspect the page as in Chrome: `chrome://inspect` on the computer (USB debugging enabled on the TV),
-after adding `WebView.setWebContentsDebuggingEnabled(true)` in `HomeActivity.buildWebView` for the duration of the test
-(do not leave it in a published release).
+To inspect the page as in Chrome, build a debuggable APK: `POUDLARD_DEBUG=1 bash build.sh`. A debuggable app's WebView opens its
+DevTools by itself: `chrome://inspect` on the computer, USB debugging enabled on the TV (or `adb forward` to `webview_devtools_remote_<pid>`). `run-as`,
+and so `tools/tv.sh config pull`, need such a build too. It declares no permission either. `build.sh` prints a warning when the variable is set: rebuild
+without it before any release, and check with `aapt dump badging PoudlardTV.apk` that `application-debuggable` is gone.
 
 ## What remains
 
-- The second device test, and the "Test status" box updated with its results.
+- Measuring the current working tree on the TV, the failures of the "Test status" box first, and the box updated with the results.
 - `appIcon(pkg)` in classic mode, as an alternative to the versioned logos.
 - An original PNG banner (320x180) instead of `banner.xml`.
 

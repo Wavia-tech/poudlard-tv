@@ -1,43 +1,39 @@
 /* The Marauder's Map. Prefix .map-. Everything in cqw (screen: 100 × 56.25 cqw).
    Materials: parchment (.parchment, image or fallback gradient), ink (--ink) for everything drawn in pen,
    house wax for the seals, brass for the opening plate.
-   Motion: transform and opacity ONLY (compositor), event-driven, never a loop. No mask or clip-path animation,
-   no filter, no blend mode: the ink appears by opacity, the pen strokes by scaleX. Animations use `backwards`
-   fill only (or none), so nothing stays "in effect" once played: at rest, document.getAnimations() is empty of
-   running animations and the base styles carry the final state.
+   Motion: the shared curve (--ease-arrive), transform and opacity ONLY (compositor), event-driven, never a loop. No mask or
+   clip-path animation, no filter, no blend mode. One mark goes from piece to piece (.map-focus); at a move nothing else
+   changes but the two pieces' transforms, and nothing is painted again: the pieces and the mark are layers of their own,
+   painted once. Animations use `backwards` fill only (or none), so at rest document.getAnimations() is empty of running
+   animations and the base styles carry the final state.
 
    States set by map.js on the section:
-     .is-in       the screen has arrived in place (end of the router transition): the opening staging starts.
-                  Without .is-in, the parchment and the ink stay invisible: nothing plays during the slide.
-     .is-leaving  "Mischief managed": everything fades out in reverse, faster.
+     .is-in       the screen is arriving: the opening staging starts.
+                  Without .is-in, the parchment and the ink stay invisible.
+     .is-leaving  "Mischief managed": the line is rewritten; the parchment folds when the move starts (.leave-pan-down).
      .is-move     Move mode (a miniature parapet in place of the formula).
      .is-spell    the quill keyboard is open over the grid.
      .is-reduced  reduced motion: 200 ms fades, nothing else. */
 
 .screen-map { background: var(--night); }
-.screen-map .map-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
 
-/* ---- Behind the parchment: the Night and a few stars (canvas drawn once), vignette ---- */
+/* ---- Behind the parchment: the Night, a few stars and the vignette, one opaque canvas drawn once ---- */
 .map-sky { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
-.map-vignette { position: absolute; inset: 0; pointer-events: none;
-  background: radial-gradient(ellipse at 50% 50%, #0000 40%, #070b14cc 100%), linear-gradient(to bottom, #070b14 0%, #070b1400 18%, #070b1400 82%, #070b14 100%); }
 
 /* ---- The parchment: 86 × 47 cqw, above the key hint (which keeps its own band at the bottom) ----
-   It unfolds from the centre (scaleX + opacity, 450 ms) once the screen is in place. The paper is cut out of its
-   photo (assets/map-parchment.webp: alpha along the paper's edge, the curls showing the night through them, the photo
-   cropped to the paper), so the sheet has no colour, no radius, no shadow and no inset glow of its own: nothing but
-   the paper over the night. If the picture is missing (map.js: .no-parchment), the plain parchment colour stands in. */
-.map-sheet { position: absolute; left: 7cqw; top: 3.2cqw; width: 86cqw; height: 47cqw; overflow: hidden; opacity: 0; }
+   It unfolds from the centre (scaleX + opacity) as the screen arrives. The paper is cut out of its photo
+   (assets/map-parchment.webp: alpha along the paper's edge, the curls showing the night through them, the photo cropped
+   to the paper), so the sheet has no colour, no radius, no shadow and no inset glow of its own: nothing but the paper over
+   the night. If the picture is missing (map.js: .no-parchment), the plain parchment colour stands in.
+   A layer for as long as the Map is there: painted once, while still invisible, and at an opacity that cannot be seen rather than 0: a
+   layer at 0 is not rasterised, and that raster would land in the first frames of the unfolding. */
+.map-sheet { position: absolute; left: 7cqw; top: 3.2cqw; width: 86cqw; height: 47cqw; overflow: hidden; opacity: .004; will-change: transform, opacity; }
 .map-sheet.parchment { background: url("../../assets/map-parchment.webp") 0 0 / 100% 100% no-repeat; box-shadow: none; border-radius: 0; }
 .map-sheet.parchment::after { content: none; }
 .screen-map.no-parchment .map-sheet.parchment { background: var(--parchment); border-radius: .35cqw; }
-/* While the Map opens (map.js .is-opening, from the mount until the ink is laid), the sheet and the rows are layers of
-   their own: painted and rasterised during the slide, while still invisible, so the unfold and the ink only composite.
-   Let go right after (will-change only while animating). */
-.screen-map.is-opening .map-sheet, .screen-map.is-opening .map-row { will-change: transform, opacity; }
-.screen-map.is-in .map-sheet { opacity: 1; animation: map-unfold calc(var(--k) * 450ms) cubic-bezier(.65, 0, .25, 1) backwards; }
-@keyframes map-unfold { from { opacity: 0; transform: scaleX(.5); } 40% { opacity: 1; } to { opacity: 1; transform: none; } }
-.screen-map.is-leaving .map-sheet { animation: map-fold calc(var(--k) * 300ms) cubic-bezier(.65, 0, .25, 1) calc(var(--k) * 150ms) both; }
+.screen-map.is-in .map-sheet { opacity: 1; animation: map-unfold calc(var(--k) * 420ms) var(--ease-arrive) backwards; }
+@keyframes map-unfold { from { opacity: .004; transform: scaleX(.5); } to { opacity: 1; transform: none; } }
+.screen-map.is-in.leave-pan-down .map-sheet { animation: map-fold calc(var(--k) * var(--t-pan)) var(--ease-arrive) both; }
 @keyframes map-fold { from { opacity: 1; transform: none; } to { opacity: 0; transform: scaleX(.5); } }
 
 /* Paper grain: a faint candle stain toward the top right, kept inside the paper (the curls are transparent: nothing is
@@ -49,31 +45,34 @@
     linear-gradient(180deg, #0000 calc(50% - .25cqw), #5a3d1426 calc(50% - .05cqw), #fff5dd44 50%, #5a3d141a calc(50% + .12cqw), #0000 calc(50% + .3cqw)); }
 
 /* ---- The formula, written in pen: the ink fades in while the line settles (opacity + a short slide) ---- */
-.map-formula { position: absolute; left: 4.8cqw; right: 4.8cqw; top: 1.5cqw; text-align: center; font-family: var(--fell); font-style: italic; font-size: var(--t-label);
+.map-formula { will-change: transform, opacity; position: absolute; left: 4.8cqw; right: 4.8cqw; top: 1.5cqw; text-align: center; font-family: var(--fell); font-style: italic; font-size: var(--t-label);
   line-height: 1.2; color: var(--ink); opacity: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; transition: opacity calc(var(--k) * 250ms); }
-.screen-map.is-in .map-formula { opacity: .92; animation: map-write calc(var(--k) * 600ms) ease-out calc(var(--k) * 300ms) backwards; }
+.screen-map.is-in .map-formula { opacity: .92; animation: map-write calc(var(--k) * 500ms) var(--ease-arrive) calc(var(--k) * 200ms) backwards; }
 @keyframes map-write { from { opacity: 0; transform: translateX(-1.2cqw); } to { opacity: .92; transform: none; } }
-.screen-map.is-in.is-leaving .map-formula { animation: map-write calc(var(--k) * 300ms) ease-out backwards; }   /* "Mischief managed", faster */
+.screen-map.is-in.is-leaving .map-formula { animation: none; }   /* "Mischief managed": map.js writes it, at once */
 .screen-map.is-move .map-formula, .screen-map.is-spell .map-formula { opacity: 0; }
 
 /* ---- Grid: 5 columns, a 3-row window ----
    The rows slide vertically (transform on .map-rows); rows outside the window fade out (.is-out, map.js) so that
-   a row is never shown cut in half at the bottom of the window. The padding gives the focused piece room to grow. */
+   a row is never shown cut in half at the bottom of the window. The padding gives the focused piece room to grow.
+   A row has its size even while empty (map.js fills it when it comes near the window; GEO keeps the same numbers). */
 .map-grid { position: absolute; left: 3.4cqw; top: 4.9cqw; width: 79.2cqw; height: 38.6cqw; padding: 1.2cqw 1.4cqw 0; overflow: hidden;
-  transition: opacity calc(var(--k) * 300ms); }
-.map-rows { position: relative; transition: transform calc(var(--k) * 400ms) cubic-bezier(.33, 0, .2, 1); }
-.map-row { position: relative; display: flex; gap: 1.6cqw; margin-bottom: .9cqw; transition: opacity calc(var(--k) * 250ms); }
+  transition: opacity calc(var(--k) * var(--t-settle)) var(--ease-arrive); }
+.map-rows { position: relative; will-change: transform; transition: transform calc(var(--k) * var(--t-settle)) var(--ease-arrive); }
+.map-row { position: relative; display: flex; gap: 1.6cqw; height: 10.6cqw; margin-bottom: .9cqw; will-change: transform, opacity; transition: opacity calc(var(--k) * var(--t-settle)) var(--ease-arrive); }
 .map-row.is-out { opacity: 0; }
-.map-row.has-title { padding-top: 2.6cqw; }
+.map-row.has-title { height: 13.2cqw; padding-top: 2.6cqw; }
+/* A row far from the window: no style, no layout, no layer; what it had is kept for when it comes back. */
+.map-row.is-far { content-visibility: hidden; }
 .map-row-title { position: absolute; left: .3cqw; top: 0; font-family: var(--fell); font-style: italic; font-size: var(--t-hint); line-height: 1.3; color: var(--ink); opacity: .78; white-space: nowrap; }
 .map-row-title::after { content: ""; display: inline-block; width: 9cqw; height: .1cqw; margin: 0 0 .45cqw .8cqw; background: var(--ink); opacity: .45; }
-/* The ink appears row by row (--d, 70 ms per row) once the sheet is open: one fading layer per row, not per piece. */
+/* The ink appears row by row (--d, 70 ms per row) as the sheet opens: one fading layer per row, not per piece. */
 .map-row { opacity: 0; }
-.screen-map.is-in .map-row { opacity: 1; animation: map-reveal calc(var(--k) * 320ms) ease-out backwards; animation-delay: calc(var(--k) * (var(--d, 0ms) + 380ms)); }
+.map-rows.is-warm .map-row { opacity: .004; }   /* map.js: their raster, before the sheet unfolds */
+.screen-map.is-in .map-row { opacity: 1; animation: map-reveal calc(var(--k) * 320ms) var(--ease-arrive) backwards; animation-delay: calc(var(--k) * (var(--d, 0ms) + 160ms)); }
 .screen-map.is-in .map-row.is-out { opacity: 0; animation: none; }
 @keyframes map-reveal { from { opacity: 0; transform: translateY(.5cqw); } to { opacity: 1; transform: none; } }
 .screen-map.is-in .map-rows.is-quiet .map-row { animation: none; }   /* a rebuild (add, delete, rename) does not replay the opening */
-.screen-map.is-in.is-leaving .map-row { opacity: 0; animation: none; transition-duration: calc(var(--k) * 200ms); }
 .map-empty { position: absolute; left: 0; right: 0; top: 19cqw; text-align: center; font-family: var(--fell); font-style: italic; font-size: var(--t-title); color: var(--ink); opacity: .8; }
 .map-empty:empty { display: none; }
 /* The chevrons are inline SVG strokes (map.js): no glyph, so no fallback font to look up during layout. */
@@ -85,74 +84,60 @@
 .map-more.down { bottom: .9cqw; }
 .map-more.is-on { opacity: .6; }
 
-/* ---- A piece: pen-drawn frame (14 × 7 cqw), logo in ink, name in IM Fell SC on up to two lines, pen stroke under the name ---- */
-.map-cell { position: relative; flex: none; width: 14cqw; height: 10.6cqw; transform-origin: 50% 35%;
-  transition: transform calc(var(--k) * 200ms) cubic-bezier(.2, .8, .2, 1); }
-/* The candle lights the focused piece: a warm wash behind the frame (opacity only). */
-.map-cell::before { content: ""; position: absolute; left: -.5cqw; right: -.5cqw; top: -.5cqw; height: 8cqw; border-radius: .8cqw; pointer-events: none; opacity: 0;
-  background: radial-gradient(ellipse 60% 70% at 50% 50%, #c98a2e3d 0%, #c98a2e1c 55%, #c98a2e00 100%); transition: opacity calc(var(--k) * 200ms); }
-.map-cell.is-focus::before { opacity: 1; }
-.map-cell.is-focus { transform: scale(1.05); }
-.map-cell.is-moving { transform: translateY(-.8cqw) rotate(-1.5deg) scale(1.05); }
+/* ---- A piece: pen-drawn frame (14 × 7 cqw), logo in ink, name in IM Fell SC on up to two lines ----
+   Its own small layer, painted once. The focus only moves its transform. The frame is a background picture: one element
+   for what was five, drawn with the same pen. */
+.screen-map .map-cell { transition: transform calc(var(--k) * var(--t-settle)) var(--ease-arrive); }
+.map-cell { position: relative; flex: none; width: 14cqw; height: 10.6cqw; transform-origin: 50% 35%; will-change: transform; contain: layout style size; }
+.map-cell::before { content: ""; position: absolute; left: 0; top: 0; width: 14cqw; height: 7cqw; background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 280 140' preserveAspectRatio='none'%3E%3Cg fill='none' stroke='%231B1510' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M 11.2 7 C 84 4.1 196 9.9 268.8 7 C 272.3 46.7 270.2 93.3 268.8 133 C 196 135.9 84 130.1 11.2 133 C 7.7 93.3 9.8 46.7 11.2 7 Z' stroke-width='1.8' stroke-opacity='0.8'/%3E%3Cpath d='M 18.2 12.8 C 84 10.5 196 15.2 261.8 12.8 C 264.6 46.7 263.2 93.3 261.8 127.2 C 196 129.5 84 124.8 18.2 127.2 C 15.4 93.3 16.8 46.7 18.2 12.8 Z' stroke-width='1' stroke-opacity='0.35'/%3E%3Cpath d='M 4.2 2.3 l 8.4 7 M 275.8 2.3 l -8.4 7 M 4.2 137.7 l 8.4 -7 M 275.8 137.7 l -8.4 -7' stroke-width='1.4' stroke-opacity='0.55'/%3E%3C/g%3E%3C/svg%3E") 0 0 / 100% 100% no-repeat; }
+.screen-map .map-cell.is-focus:not(.is-press) { transform: translateY(-.5cqw) scale(1.05); }
+.screen-map .map-cell.is-press, .screen-map.is-pressing .map-focus { transition-duration: calc(var(--k) * var(--t-press-in)); }
+.screen-map .map-cell.is-moving { transform: translateY(-.8cqw) rotate(-1.5deg) scale(1.05); }
 /* A piece added by hand appears on its own (the rest of the grid is already inked). */
-.screen-map.is-in .map-cell.is-fresh { animation: map-reveal calc(var(--k) * 320ms) ease-out backwards; }
+.screen-map.is-in .map-cell.is-fresh { animation: map-reveal calc(var(--k) * 320ms) var(--ease-arrive) backwards; }
 
-/* The frame: stroke changes on focus are abrupt (a single frame), only the opacity transitions. */
-.map-frame { position: absolute; left: 0; top: 0; width: 14cqw; height: 7cqw; overflow: visible; fill: none; stroke: var(--ink); stroke-linecap: round; stroke-linejoin: round; }
-.map-frame path { vector-effect: non-scaling-stroke; transition: opacity calc(var(--k) * 200ms); }
-.map-frame-outer { stroke-width: .09cqw; opacity: .8; }
-.map-frame-inner { stroke-width: .05cqw; opacity: .35; }
-.map-frame-corners { stroke-width: .07cqw; opacity: .55; }
-.map-cell.is-focus .map-frame-outer { stroke-width: .26cqw; opacity: 1; }
-.map-cell.is-focus .map-frame-inner { stroke-width: .1cqw; opacity: .9; }
-.map-cell.is-focus .map-frame-corners { stroke-width: .14cqw; opacity: 1; }
-
-/* The official logo in ink: a single layer masked by the logo's SVG (a static mask, never animated). */
-.map-ink-logo { --m: none; position: absolute; left: 50%; top: 3.3cqw; height: 3.4cqw; width: 3.4cqw; transform: translate(-50%, -50%); background: var(--ink); opacity: .8;
-  -webkit-mask: var(--m) center / contain no-repeat; mask: var(--m) center / contain no-repeat; transition: opacity calc(var(--k) * 200ms); }
+/* What the lifted piece stands on: one element that goes from piece to piece under the rows, in their coordinates (map.js sets
+   its transform, at the focused piece's lift and scale): a slip of lighter paper and its soft shadow on the parchment, painted once.
+   No frame, no underline. */
+.map-row { z-index: 1; }
+.map-focus { position: absolute; left: 0; top: 0; width: 14cqw; height: 10.6cqw; transform-origin: 50% 35%; pointer-events: none; opacity: 0; will-change: transform; z-index: 0;
+  transition: transform calc(var(--k) * var(--t-settle)) var(--ease-arrive); }
+.screen-map.is-in .map-focus { opacity: 1; animation: map-ink calc(var(--k) * 320ms) linear calc(var(--k) * 160ms) backwards; }
+.screen-map.is-in .map-rows.is-quiet .map-focus { animation: none; }
+@keyframes map-ink { from { opacity: 0; } to { opacity: 1; } }
+.map-focus i { position: absolute; display: block; left: .3cqw; top: .3cqw; width: 13.4cqw; height: 6.4cqw; border-radius: .3cqw; background: #fff6dc4d; box-shadow: 0 .5cqw 1.1cqw #3a260e8c; }
+/* The official logo in ink: a single layer masked by the logo's SVG (a static mask, never animated; map.js sets its image). */
+.map-ink-logo { position: absolute; left: 50%; top: 3.3cqw; height: 3.4cqw; width: 3.4cqw; transform: translate(-50%, -50%); background: var(--ink); opacity: .88;
+  -webkit-mask: center / contain no-repeat; mask: center / contain no-repeat; }
 .map-ink-logo.luma { -webkit-mask-mode: luminance; mask-mode: luminance; }
 .map-ink-logo.no-mask { -webkit-mask: none; mask: none; background: none; color: var(--ink); font-family: var(--fell); font-size: 3cqw; line-height: 3.4cqw; text-align: center; }
 .map-ink-logo.small { position: static; transform: none; height: 2.2cqw; width: 2.2cqw; }
 .map-ink-logo.small.no-mask { font-size: 2cqw; line-height: 2.2cqw; }
-.map-cell.is-focus .map-ink-logo { opacity: 1; }
 .map-cell.has-sub .map-ink-logo { top: 2.45cqw; transform: translate(-50%, -50%) scale(.74); }   /* a line is written under it (HDMI, Perso, cachée) */
 
-/* Name and pen stroke share a label block under the frame: a long name takes two lines, never an ellipsis. */
-.map-label { position: absolute; left: -.6cqw; right: -.6cqw; top: 7.1cqw; display: flex; flex-direction: column; align-items: center; }
-.map-name { max-width: 100%; text-align: center; font-family: "IM Fell English SC", var(--fell); font-size: var(--t-hint); line-height: 1.2; color: var(--ink); opacity: .82;
-  overflow-wrap: anywhere; text-wrap: balance; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; transition: opacity calc(var(--k) * 200ms); }
-.map-cell.is-focus .map-name { opacity: 1; }
+/* The name under the frame: a long name takes two lines, never an ellipsis. */
+.map-name { position: absolute; left: -.6cqw; right: -.6cqw; top: 7.1cqw; max-height: calc(var(--t-hint) * 2.4); text-align: center; font-family: "IM Fell English SC", var(--fell); font-size: var(--t-hint); line-height: 1.2; color: var(--ink); opacity: .9;
+  overflow: hidden; overflow-wrap: anywhere; }
+.map-name.is-long { text-wrap: balance; }
 .map-sub { position: absolute; left: .4cqw; right: .4cqw; top: 4.4cqw; text-align: center; font-family: var(--body); font-size: var(--t-hint); line-height: 1.25; color: var(--ink); opacity: .62;
   white-space: nowrap; overflow: hidden; }
-.map-sub:empty { display: none; }
-.map-underline { flex: none; width: 8.8cqw; height: .5cqw; margin-top: .1cqw; overflow: visible; transform: scaleX(0); transform-origin: 0 50%;
-  transition: transform calc(var(--k) * 260ms) cubic-bezier(.2, .8, .2, 1); }
-.map-underline path { fill: none; stroke: var(--ink); stroke-width: .14cqw; stroke-linecap: round; vector-effect: non-scaling-stroke; }
-.map-cell.is-focus .map-underline { transform: scaleX(1); }
 
-/* On the parapet: a small house wax seal, pressed once when pinning. */
+/* On the parapet: a small house wax seal, pressed once when pinning (map.js, Web Animations). */
 .map-seal { position: absolute; right: .45cqw; top: .4cqw; width: 1.9cqw; height: 1.9cqw; opacity: 0; transform: scale(.6);
-  transition: opacity calc(var(--k) * 200ms), transform calc(var(--k) * 200ms); }
+  transition: opacity calc(var(--k) * 200ms), transform calc(var(--k) * 200ms) var(--ease-arrive); }
 .map-cell.on-dock .map-seal { opacity: 1; transform: scale(1); }
-.map-cell.on-dock .map-seal.is-pressed { animation: map-press calc(var(--k) * 200ms) ease-out 1; }
-@keyframes map-press { from { transform: scale(1.3); } to { transform: scale(1); } }
 
 /* Hidden, or absent from the TV: ink faded; the mention ("cachée", "absente") is written on the .map-sub line. */
 .map-cell.is-hidden .map-sub, .map-cell.is-absent .map-sub { font-style: italic; opacity: .78; }
 .map-cell.is-hidden .map-ink-logo, .map-cell.is-absent .map-ink-logo { opacity: .35; }
 .map-cell.is-hidden .map-name, .map-cell.is-absent .map-name { opacity: .5; }
-.map-cell.is-hidden .map-frame-outer, .map-cell.is-hidden .map-frame-corners,
-.map-cell.is-absent .map-frame-outer, .map-cell.is-absent .map-frame-corners { opacity: .45; }
-.map-cell.is-focus.is-hidden .map-ink-logo, .map-cell.is-focus.is-absent .map-ink-logo { opacity: .55; }
-.map-cell.is-focus.is-hidden .map-name, .map-cell.is-focus.is-absent .map-name { opacity: .8; }
+.map-cell.is-hidden::before, .map-cell.is-absent::before { opacity: .56; }
 /* HDMI port with nothing plugged in (is-pale, map.js): pale ink, the port number stays readable. OK refuses. */
 .map-cell.is-pale .map-ink-logo, .map-cell.is-pale .map-name { opacity: .42; }
 .map-cell.is-pale .map-sub { opacity: .72; }
-.map-cell.is-pale .map-frame-outer, .map-cell.is-pale .map-frame-corners { opacity: .5; }
+.map-cell.is-pale::before { opacity: .6; }
 /* "Boutique" (TV only): the dotted frame of "Ajouter", a small four-point star (inline SVG) instead of the quill. */
-.map-star { position: absolute; left: 50%; top: 3.3cqw; width: 2.6cqw; height: 2.6cqw; transform: translate(-50%, -50%); fill: var(--ink); opacity: .7;
-  transition: opacity calc(var(--k) * 200ms); }
-.map-store-cell.is-focus .map-star { opacity: 1; }
+.map-star { position: absolute; left: 50%; top: 3.3cqw; width: 2.6cqw; height: 2.6cqw; transform: translate(-50%, -50%); fill: var(--ink); opacity: .85; }
 
 /* ---- The "Réglages" (Settings) candle: drawn in ink, its flame lights up when the candle is in focus ---- */
 .map-candle { position: absolute; left: 50%; top: .6cqw; width: 4.6cqw; height: 5.9cqw; transform: translateX(-50%); fill: none; stroke: var(--ink); stroke-linecap: round; stroke-linejoin: round; }
@@ -160,49 +145,44 @@
 .map-candle-flame { fill: transparent; opacity: .8; }
 .map-candle-wick { stroke-width: .1cqw; }
 .map-candle-halo { position: absolute; left: 50%; top: 1.9cqw; width: 8cqw; height: 8cqw; transform: translate(-50%, -50%); border-radius: 50%; opacity: 0; pointer-events: none;
-  background: radial-gradient(circle, #ffb45780 0%, #ffb4574d 32%, #ffb45700 70%); transition: opacity calc(var(--k) * 300ms); }
+  background: radial-gradient(circle, #ffb45780 0%, #ffb4574d 32%, #ffb45700 70%); transition: opacity calc(var(--k) * var(--t-settle)) var(--ease-arrive); }
 .map-cell.is-focus .map-candle-flame { fill: var(--candle); opacity: 1; }
 .map-cell.is-focus .map-candle-halo { opacity: .85; }
 
-/* ---- The footprints (SVG reused through <use>): six steps appear, then the ink dries and fades (event-driven) ---- */
+/* ---- The footprints: six small layers drawn once, a walk animates them (map.js, Web Animations, then nothing) ---- */
 .map-steps { position: absolute; inset: 0; z-index: 30; pointer-events: none; }
-.map-step { --t: rotate(0deg); --d: 0ms; position: absolute; width: 1.1cqw; height: 1.76cqw; margin: -.88cqw 0 0 -.55cqw; fill: var(--ink); opacity: 0; overflow: visible; transform: var(--t);
-  animation: map-step calc(var(--k) * 1400ms) linear calc(var(--k) * var(--d)) backwards; }
-@keyframes map-step { from { opacity: 0; transform: var(--t) scale(1.3); } 10% { opacity: .82; transform: var(--t) scale(1); } 64% { opacity: .82; transform: var(--t) scale(1); } to { opacity: 0; transform: var(--t) scale(1); } }
+.map-step { position: absolute; left: 0; top: 0; width: 1.1cqw; height: 1.76cqw; margin: -.88cqw 0 0 -.55cqw; opacity: 0; will-change: transform, opacity;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 32' fill='%231B1510'%3E%3Cpath d='M3.5 14 C3.5 11 6 8.5 10 8.5 S16.5 11 16.5 14 C16.5 17 14.5 18.5 14.5 21 C14.5 23 15 24 15 26 C15 29 13 31 10 31 S5 29 5 26 C5 24 5.5 23 5.5 21 C5.5 18.5 3.5 17 3.5 14 Z'/%3E%3Ccircle cx='4' cy='7.2' r='1.5'/%3E%3Ccircle cx='6.8' cy='4.6' r='1.8'/%3E%3Ccircle cx='10.2' cy='3.4' r='2.1'/%3E%3Ccircle cx='13.8' cy='4.4' r='1.8'/%3E%3Ccircle cx='16.6' cy='6.8' r='1.4'/%3E%3C/svg%3E") 0 0 / 100% 100% no-repeat; }
 
 /* ---- Lumos, ink version: the room lights up by candle under the launched piece ---- */
-.map-candlelight { position: absolute; left: 50%; top: 50%; width: 34cqw; height: 34cqw; margin: -17cqw 0 0 -17cqw; border-radius: 50%; opacity: 0; pointer-events: none;
-  background: radial-gradient(circle, #ffb45766 0%, #ffd9a033 40%, #ffd9a000 70%); transition: opacity calc(var(--k) * 250ms); }
+.map-candlelight { position: absolute; left: 0; top: 0; width: 34cqw; height: 34cqw; margin: -17cqw 0 0 -17cqw; border-radius: 50%; opacity: 0; pointer-events: none;
+  background: radial-gradient(circle, #ffb45766 0%, #ffd9a033 40%, #ffd9a000 70%); transition: opacity calc(var(--k) * 250ms) linear; }
 .map-candlelight.is-on { opacity: 1; }
 /* The brass plate: the TV's sentence on as many lines as it needs (never cut), above the key hint. */
 .map-toast { position: absolute; left: 50%; bottom: 6.6cqw; z-index: 48; max-width: 64cqw; width: max-content; font-size: var(--t-body); line-height: 1.3; text-align: center;
   white-space: normal; text-wrap: balance; opacity: 0; transform: translate(-50%, .8cqw); pointer-events: none;
-  transition: opacity calc(var(--k) * 300ms), transform calc(var(--k) * 300ms); }
+  transition: opacity calc(var(--k) * var(--t-settle)) var(--ease-arrive), transform calc(var(--k) * var(--t-settle)) var(--ease-arrive); }
 .map-toast.is-on { opacity: 1; transform: translate(-50%, 0); }
 
 /* ---- Move mode: the parapet drawn in miniature in place of the formula ---- */
 .map-parapet { position: absolute; left: 4.8cqw; right: 4.8cqw; top: .3cqw; height: 4.6cqw; display: flex; align-items: center; gap: 2cqw; opacity: 0; transform: translateY(-1.2cqw);
-  pointer-events: none; transition: opacity calc(var(--k) * 300ms), transform calc(var(--k) * 300ms) cubic-bezier(.2, .8, .2, 1); }
+  pointer-events: none; transition: opacity calc(var(--k) * var(--t-settle)) var(--ease-arrive), transform calc(var(--k) * var(--t-settle)) var(--ease-arrive); }
 .map-parapet.is-open { opacity: 1; transform: none; }
 .map-parapet-title { flex: none; max-width: 24cqw; font-family: var(--fell); font-style: italic; font-size: var(--t-body); line-height: 1.2; color: var(--ink); opacity: .9; }
 .map-parapet-row { position: relative; flex: 1; display: flex; align-items: flex-end; justify-content: center; gap: 1.6cqw; height: 100%; padding-bottom: .5cqw; min-width: 0; }
 .map-parapet-row::after { content: ""; position: absolute; left: 0; right: 0; bottom: .15cqw; height: .1cqw; background: var(--ink); opacity: .55; }   /* the parapet's stone, in one stroke */
-/* The miniature parapet shows logos only; the app being moved is named in the title slot on the left (map.js),
-   whole, never squeezed under a logo. */
-.map-parapet-item { display: flex; flex-direction: column; align-items: center; opacity: .5; transition: opacity calc(var(--k) * 200ms); }   /* the slide is a FLIP in JS */
+/* The miniature parapet shows logos only; the app being moved is named in the title slot on the left (map.js), whole,
+   never squeezed under a logo. A swap only moves the miniatures' transforms (map.js placeParapet). */
+.map-parapet-item { display: flex; flex-direction: column; align-items: center; opacity: .5; transition: transform calc(var(--k) * var(--t-settle)) var(--ease-arrive); }
 .map-parapet-item.is-lift { opacity: 1; transform: translateY(-.7cqw); }
-.map-parapet-name { display: none; }
 
 /* ---- "Add an app": the same piece, but dashed, with a quill in place of the logo ---- */
-.map-add-cell .map-frame path { vector-effect: none; stroke-width: 1.3; stroke-dasharray: 7 5; opacity: .6; }
-.map-add-cell .map-frame-inner { display: none; }
-.map-add-cell.is-focus .map-frame path { stroke-width: 2.6; opacity: 1; }
+.map-add-cell::before { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 280 140' preserveAspectRatio='none'%3E%3Cg fill='none' stroke='%231B1510' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M 11.2 7 C 84 4.1 196 9.9 268.8 7 C 272.3 46.7 270.2 93.3 268.8 133 C 196 135.9 84 130.1 11.2 133 C 7.7 93.3 9.8 46.7 11.2 7 Z' stroke-width='1.8' stroke-opacity='0.6' stroke-dasharray='9 6'/%3E%3Cpath d='M 4.2 2.3 l 8.4 7 M 275.8 2.3 l -8.4 7 M 4.2 137.7 l 8.4 -7 M 275.8 137.7 l -8.4 -7' stroke-width='1.8' stroke-opacity='0.6' stroke-dasharray='9 6'/%3E%3C/g%3E%3C/svg%3E"); }
 .map-quill { position: absolute; left: 50%; top: .5cqw; width: 4.6cqw; height: 6cqw; transform: translateX(-50%); fill: none; stroke: var(--ink);
-  stroke-linecap: round; stroke-linejoin: round; opacity: .75; transition: opacity calc(var(--k) * 200ms), transform calc(var(--k) * 200ms); }
+  stroke-linecap: round; stroke-linejoin: round; opacity: .85; transition: transform calc(var(--k) * var(--t-settle)) var(--ease-arrive); }
 .map-quill path { vector-effect: non-scaling-stroke; stroke-width: .09cqw; }
 .map-quill-feather { fill: transparent; }
-.map-add-cell.is-focus .map-quill { opacity: 1; transform: translateX(-50%) rotate(-8deg); }   /* the quill lifts, ready to write */
-.map-add-cell.is-focus .map-quill-feather { fill: #1b15101f; }
+.map-add-cell.is-focus .map-quill { transform: translateX(-50%) rotate(-8deg); }   /* the quill lifts, ready to write */
 .map-cell.is-custom .map-sub { font-style: italic; }
 
 /* ---- The spell to write (D-pad keyboard in ink, name written in pen) ----
@@ -210,7 +190,7 @@
    once, row by row (opacity + a short rise); the letters appear by opacity. */
 .screen-map.is-spell .map-grid, .screen-map.is-spell .map-more { opacity: .04; }
 .map-spell { position: absolute; left: 3.4cqw; right: 3.4cqw; top: 1.2cqw; bottom: 1cqw; opacity: 0; transform: translateY(1.2cqw); pointer-events: none;
-  transition: opacity calc(var(--k) * 300ms), transform calc(var(--k) * 300ms) cubic-bezier(.2, .8, .2, 1); }
+  transition: opacity calc(var(--k) * var(--t-settle)) var(--ease-arrive), transform calc(var(--k) * var(--t-settle)) var(--ease-arrive); }
 .map-spell.is-open { opacity: 1; transform: none; }
 .map-spell-title { text-align: center; font-family: var(--fell); font-style: italic; font-size: var(--t-label); line-height: 1.2; color: var(--ink); opacity: .88;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -227,36 +207,35 @@
 /* The keyboard: 10 keys of 5.4 × 4 cqw per row, 0.8 cqw between them; the last row has three wide keys. */
 .map-spell-keys { display: flex; flex-direction: column; align-items: center; gap: .7cqw; margin-top: .7cqw; }
 .map-key-row { display: flex; gap: .8cqw; justify-content: center; }
-.map-spell.is-dealing .map-key-row { animation: map-key-in calc(var(--k) * 260ms) cubic-bezier(.2, .8, .2, 1) backwards; animation-delay: calc(var(--k) * var(--d, 0ms)); }
+.map-spell.is-dealing .map-key-row { animation: map-key-in calc(var(--k) * 300ms) var(--ease-arrive) backwards; animation-delay: calc(var(--k) * var(--d, 0ms)); }
 @keyframes map-key-in { from { opacity: 0; transform: translateY(.6cqw); } to { opacity: 1; transform: none; } }
-/* box-sizing: border-box: the thicker focus border does not change the key's width (the row does not jump). */
-.map-key { --rot: 0deg; position: relative; flex: none; box-sizing: border-box; width: 5.4cqw; height: 4cqw; display: flex; align-items: center; justify-content: center;
+/* The focus: the key rises, a wash of ink with a bolder rule fades in over it (one pseudo-element, its opacity alone). */
+.screen-map .map-key { transition: transform calc(var(--k) * var(--t-settle)) var(--ease-arrive); }
+.map-key { --rot: 0deg; position: relative; flex: none; width: 5.4cqw; height: 4cqw; display: flex; align-items: center; justify-content: center;
   font-family: "IM Fell English SC", var(--fell); font-size: var(--t-label); line-height: 1; color: var(--ink);
   border: .08cqw solid #1b1510a6; border-radius: .45cqw .6cqw .5cqw .55cqw / .55cqw .45cqw .6cqw .5cqw;
-  transform: rotate(var(--rot)); transition: transform calc(var(--k) * 150ms) cubic-bezier(.2, .8, .2, 1), opacity calc(var(--k) * 150ms); }
-.map-key::before { content: ""; position: absolute; inset: 0; border-radius: inherit; background: var(--ink); opacity: 0; transition: opacity calc(var(--k) * 150ms); }
+  transform: rotate(var(--rot)); }
+.map-key::before { content: ""; position: absolute; inset: -.08cqw; border-radius: inherit; border: .2cqw solid var(--ink); background: #1b151024; opacity: 0; transition: opacity calc(var(--k) * 140ms) linear; }
 .map-key.is-wide { font-family: var(--fell); font-style: italic; font-size: var(--t-body); }
-.map-key.is-focus { transform: scale(1.1); border-color: var(--ink); border-width: .2cqw; }
-.map-key.is-focus::before { opacity: .14; }
+.screen-map .map-key.is-focus { transform: scale(1.1); }
+.map-key.is-focus::before { opacity: 1; }
 .map-key.is-off { opacity: .4; }
 
 /* Message written under the keyboard and the seal pressed on validation. */
 .map-spell-msg { margin-top: .6cqw; text-align: center; font-family: var(--fell); font-style: italic; font-size: var(--t-hint); line-height: 1.2; color: var(--ink); opacity: .85; min-height: 2cqw; }
 .map-spell-seal { position: absolute; right: 12cqw; top: 2.2cqw; width: 4.2cqw; height: 4.2cqw; opacity: 0; transform: scale(.6); pointer-events: none;
-  transition: opacity calc(var(--k) * 200ms), transform calc(var(--k) * 200ms); }
-.map-spell-seal.is-pressed { opacity: 1; transform: none; animation: map-seal-press calc(var(--k) * 260ms) cubic-bezier(.2, .8, .2, 1) backwards; }
-@keyframes map-seal-press { from { transform: scale(1.5); } to { transform: none; } }
+  transition: opacity calc(var(--k) * 200ms), transform calc(var(--k) * 200ms) var(--ease-arrive); }
+.map-spell-seal.is-pressed { opacity: 1; transform: none; }   /* the press itself: map.js, Web Animations */
 
 /* ---- Reduced motion: 200 ms fades once the screen is in place, nothing else ---- */
 .screen-map.is-reduced .map-sheet, .screen-map.is-reduced .map-formula, .screen-map.is-reduced .map-row,
-.screen-map.is-reduced .map-cell, .screen-map.is-reduced .map-key-row, .screen-map.is-reduced .map-spell-name span { animation: none !important; transform: none; }
+.screen-map.is-reduced .map-cell, .screen-map.is-reduced .map-key-row, .screen-map.is-reduced .map-spell-name span { animation: none !important; transform: none !important; }
 .screen-map.is-reduced .map-sheet, .screen-map.is-reduced .map-row { transition: opacity calc(var(--k) * 200ms); }
-.screen-map.is-reduced .map-underline { transform: none; opacity: 0; transition: opacity calc(var(--k) * 200ms); }
-.screen-map.is-reduced .map-cell.is-focus .map-underline { opacity: 1; }
+.screen-map.is-reduced .map-focus { animation: none; transition: none; }
 .screen-map.is-reduced .map-rows { transition: none; }
 .screen-map.is-reduced .map-step { display: none; }
-.screen-map.is-reduced .map-seal.is-pressed, .screen-map.is-reduced .map-spell-seal.is-pressed { animation: none; }
 .screen-map.is-reduced .map-spell, .screen-map.is-reduced .map-parapet { transform: none; transition: opacity calc(var(--k) * 200ms); }
-.screen-map.is-reduced .map-key, .screen-map.is-reduced .map-key.is-focus { transform: none; transition: opacity calc(var(--k) * 200ms); }
-.screen-map.is-reduced .map-quill, .screen-map.is-reduced .map-add-cell.is-focus .map-quill { transform: translateX(-50%); transition: opacity calc(var(--k) * 200ms); }
+.screen-map.is-reduced .map-parapet-item { transition: none; }
+.screen-map.is-reduced .map-key, .screen-map.is-reduced .map-key.is-focus { transform: none; transition: none; }
+.screen-map.is-reduced .map-quill, .screen-map.is-reduced .map-add-cell.is-focus .map-quill { transform: translateX(-50%); transition: none; }
 .screen-map.is-reduced .map-toast { transform: translate(-50%, 0); transition: opacity calc(var(--k) * 200ms); }

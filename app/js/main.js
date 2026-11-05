@@ -1,5 +1,5 @@
 // Entry point: load the config, install input handling, register the screens, start.
-import { loadConfig, getConfig, updateConfig, onConfigChange, HOUSES } from './config.js';
+import { loadConfig, getConfig, updateConfig, undoAutoEconomy, onConfigChange, HOUSES } from './config.js';
 import { Input } from './input.js';
 import { Router } from './router.js';
 import { Fx } from './fx.js';
@@ -12,7 +12,9 @@ let config = loadConfig();
 // with a calm owl on its first run, and economy counts as reduced motion: plain fades, no flight, no fly-by, a 300 ms
 // boot. The motion is now compositor-only and the Parapet costs nothing at rest, so the full motion is the default
 // everywhere. A TV that still carries that automatic pair (economie + calme, set together by 0.2) is put back on
-// 'auto' + 'vive' once; a choice made afterwards in the Room of Requirement is never touched again.
+// 'auto' + 'vive' once; a TV left in economy whose owl had been put back by hand goes back on 'auto' once too
+// (undoAutoEconomy, config.js). A choice made in the Room of Requirement (`motionChosen`) is never touched, and nothing
+// in the code sets economy by itself any more: it is only ever the person's choice.
 const ECO_UNDONE = 'poudlard-tv.eco-auto-undone';
 try {
   if (!localStorage.getItem(ECO_UNDONE)) {
@@ -20,6 +22,7 @@ try {
     localStorage.setItem(ECO_UNDONE, '1');
   }
 } catch (e) { /* storage unavailable: nothing to undo */ }
+config = undoAutoEconomy(Platform.device().lowRam);
 
 // Sound is armed only once the boot sequence is over (or on the first key): enabling it starts sound.js's start-up
 // unlock, whose AudioContext and reverb take one long frame on the TV's weak cores (about 600 ms measured at CPU x4),
@@ -71,14 +74,14 @@ for (const [name, screen] of Object.entries(SCREENS)) Router.register(name, scre
 let idleTimer = 0;
 function armIdle() {
   clearTimeout(idleTimer);
-  const c = getConfig();
-  if (!c.idleSeconds) return;
+  if (!getConfig().idleSeconds) return;
   idleTimer = setTimeout(() => {
-    const cur = Router.current();
+    const c = getConfig(), cur = Router.current();    // the config as it is now: this was armed before the last key's handler ran
+    if (!c.idleSeconds) return;
     if (c.mode === 'classique') { if (cur === 'classic' && SCREENS.classic.dim) SCREENS.classic.dim(); return; }   // classic: the rows dim, nothing else
     if (cur === 'home' && SCREENS.home.nox) SCREENS.home.nox();
     else if (cur !== 'sorting') Router.replace('home', { nox: true }, 'fade');
-  }, c.idleSeconds * 1000);
+  }, getConfig().idleSeconds * 1000);
 }
 Input.onActivity(armIdle);
 armIdle();
@@ -95,7 +98,7 @@ function countFatal(msg) {
   if (fatals.length >= 3) { fatals.length = 0; Platform.fatal(msg); }
 }
 function releaseAll(message) {
-  try { const s = SCREENS[Router.current()]; if (s && s.settle) s.settle(); } catch (e) { /* the screen could not settle: the keys are freed below anyway */ }
+  try { const s = Router.activeScreen(); if (s && s.settle) s.settle(); } catch (e) { /* the screen could not settle: the keys are freed below anyway */ }
   Input.release();
   if (message) import('./beuglante.js').then((m) => m.beuglante(stage, { message })).catch(() => {});
 }
@@ -103,8 +106,25 @@ window.addEventListener('error', (e) => { const msg = String(e && e.message || e
 window.addEventListener('unhandledrejection', (e) => { console.error('fatal', e.reason); releaseAll('Un sortilège a raté. Tout est relâché.'); });
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) { clearTimeout(idleTimer); releaseAll(null); }
-  else { Input.flush(); armIdle(); }
+  else { Input.flush(); armIdle(); readListsSoon(); Router.wake(); }
 });
+// The lists read from the TV (installed apps, HDMI inputs) are a synchronous trip to another process: about 170-280 ms of the main
+// thread on the TV (Bridge.installedApps), the anonymous long tasks of the profiler. So no mount and no key reads them. They can only
+// change while another app has the screen, so they are read again once, a moment after the page comes back; until then the old
+// lists stand. The Parapet stays mounted through the pans and behind the Map: it is told, in a task of its own.
+const LISTS_AFTER_MS = 1500;
+let listsTimer = 0;
+function readListsSoon() {
+  clearTimeout(listsTimer);
+  listsTimer = setTimeout(() => {
+    const read = () => {
+      if (document.hidden) return;
+      Platform.refresh(); Platform.installed(); Platform.inputs();
+      setTimeout(() => { try { SCREENS.home.listsRead(); } catch (e) { console.error('lists', e); } }, 0);
+    };
+    if (typeof requestIdleCallback === 'function') requestIdleCallback(read, { timeout: 1500 }); else read();
+  }, LISTS_AFTER_MS);
+}
 
 // Memory pressure: the Android shell relays onTrimMemory as a 'poudlard:trim' window event (detail: { level }, the
 // ComponentCallbacks2 level when known). The effects drop their particles and canvas backing; the active screen
@@ -112,7 +132,8 @@ document.addEventListener('visibilitychange', () => {
 window.addEventListener('poudlard:trim', (e) => {
   const level = e && e.detail && typeof e.detail.level === 'number' ? e.detail.level : 80;
   try { Fx.trim(); } catch (err) { /* nothing to free */ }
-  try { const s = SCREENS[Router.current()]; if (s && s.trim) s.trim(level); } catch (err) { console.error('trim', err); }
+  try { const s = Router.activeScreen(); if (s && s.trim) s.trim(level); } catch (err) { console.error('trim', err); }
+  try { Router.trim(); } catch (err) { console.error('trim', err); }    // the screens that stand ahead go: nothing waits for them
 });
 
 // Background music: starts on the first user gesture (the browser requires it), follows the setting and the Sound button.

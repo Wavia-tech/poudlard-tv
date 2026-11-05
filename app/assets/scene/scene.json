@@ -1,5 +1,5 @@
 {
-  "note": "Parapet backdrop in three planes cut from assets/castle.jpg. Device px = image px of castle.jpg (1920x1080 on a 960x540 CSS screen at DPR 2). Every plane is 32 device px (16 CSS px) wider than the screen on each side: place each plane container at left:-16px, top:0, 992x540 CSS, and translate it horizontally only. Stacking (back to front): sky, sky-detail, castle, lit-windows, lake-shimmer, fg-left + fg-right. Children sit inside their plane's container at the given CSS offsets so they follow its parallax.",
+  "note": "Parapet backdrop cut from assets/castle.jpg by tools/parapet_scene.py. Device px = image px of castle.jpg (1920x1080 on a 960x540 CSS screen at DPR 2). Every plane is 16 CSS px wider than the screen on each side: place each plane container at left:-16px, top:0, 992x540 CSS, and translate it horizontally only. All numbers below are CSS px inside the plane. Stacking (back to front): clouds, castle-base, castle-top, lit-windows, lake-shimmer, fg-left + fg-right.",
   "screenCss": [
     960,
     540
@@ -12,49 +12,57 @@
   },
   "marginCss": 16,
   "parallaxCssPerStep": {
-    "sky": 1,
+    "sky": 3,
     "castle": 3,
     "fg": 7
   },
   "maxShiftCss": {
-    "sky": 2,
+    "sky": 5,
     "castle": 5,
     "fg": 10
   },
+  "clouds": {
+    "loopCss": 1024,
+    "note": "Two copies of the picture side by side in a wrapper that slides translateX(0 -> -loopCss) and repeats, by whole device px.",
+    "seconds": 171,
+    "stepsPerSecond": 11.98
+  },
   "planes": [
     {
-      "name": "sky",
-      "src": "sky.webp",
-      "css": {
-        "x": 0,
-        "y": 0,
-        "w": 992,
-        "h": 540
-      },
-      "note": "half resolution (992x540 px drawn at 992x540 CSS): opaque, no alpha"
-    },
-    {
-      "name": "sky-detail",
+      "name": "clouds",
       "parent": "sky",
-      "src": "sky-detail.webp",
-      "css": {
-        "x": 685.0,
-        "y": 71.5,
-        "w": 307.0,
-        "h": 254.0
-      },
-      "note": "moon and right-hand snowy ridges at full resolution over the half-res sky"
-    },
-    {
-      "name": "castle",
-      "src": "castle.webp",
+      "src": "clouds.webp",
       "css": {
         "x": 0,
         "y": 0,
-        "w": 992,
-        "h": 540
+        "w": 1025,
+        "h": 356
       },
-      "note": "castle, rock, mist, lake, boathouse; alpha 0 in the sky"
+      "note": "opaque, 2 pixels per CSS px: 1:1 on a DPR 2 screen; the second copy overlaps the first by 1 CSS px"
+    },
+    {
+      "name": "castle-base",
+      "parent": "castle",
+      "src": "castle-base.webp",
+      "css": {
+        "x": 0.0,
+        "y": 354.0,
+        "w": 992.0,
+        "h": 186.0
+      },
+      "note": "opaque; the lake mist and the night fade are baked in"
+    },
+    {
+      "name": "castle-top",
+      "parent": "castle",
+      "src": "castle-top.webp",
+      "css": {
+        "x": 0.0,
+        "y": 0.0,
+        "w": 992.0,
+        "h": 362.0
+      },
+      "note": "alpha: the light of the sky, the moon's disc and glow, the silhouette, the mountains; its last 8 CSS px fade over castle-base"
     },
     {
       "name": "lit-windows",
@@ -89,9 +97,9 @@
       "src": "fg-left.webp",
       "css": {
         "x": 0.0,
-        "y": 43.5,
+        "y": 43.0,
         "w": 346.0,
-        "h": 496.5
+        "h": 497.0
       }
     },
     {
@@ -99,10 +107,10 @@
       "parent": "fg",
       "src": "fg-right.webp",
       "css": {
-        "x": 897.5,
-        "y": 244.5,
-        "w": 94.5,
-        "h": 265.0
+        "x": 897.0,
+        "y": 244.0,
+        "w": 95.0,
+        "h": 266.0
       }
     }
   ],
@@ -110,7 +118,7 @@
     "cxCss": 709.25,
     "cyCss": 111.75,
     "rCss": 27.75,
-    "note": "screen CSS px at rest (plane offset already removed)"
+    "note": "screen CSS px at rest (plane offset already removed); it is in castle-top"
   },
   "sprites": {
     "logo-shadow.webp": {
@@ -134,7 +142,7 @@
     "lake-mist-tile.webp": {
       "w": 960,
       "h": 130,
-      "note": "same look and scale as assets/mist.png (displayed 960 CSS px wide), seamless horizontally: lay two side by side in one strip of 1920 CSS px, translateX(0 -> -960px) linear infinite, 120 s or slower"
+      "note": "the lake mist (960 CSS px wide), also baked at .13 into castle-base, seamless horizontally: lay two side by side in one strip of 1920 CSS px, translateX(0 -> -960px) linear infinite, 120 s or slower"
     },
     "mist-wake.webp": {
       "w": 320,

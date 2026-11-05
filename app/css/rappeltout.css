@@ -1,13 +1,14 @@
 /* Rappeltout (Remembrall): glass sphere (shared context menu). Prefix .rpt-.
    Glass made of radial gradients (dark body, moon reflection at the top left, bounced light at the bottom right),
-   static shadows only; in motion: transform and opacity, nothing else, and only while it opens or closes.
+   static shadows only; in motion: the shared curve, transform and opacity, nothing else: the sphere as it opens or closes,
+   the mark going from line to line.
    The sphere's width is set by rappeltout.js from its text (aspect-ratio 1 makes the height); a label wraps on
    two lines rather than widening the sphere past the screen. The chosen line carries .is-on (the calling screen
    keeps its single .is-focus under the veil). */
 
-.rpt-veil { position: absolute; inset: 0; z-index: 70; background: var(--night); opacity: 0; pointer-events: none;
-  transition: opacity calc(var(--k) * 200ms) ease; }
-.rpt-veil.is-on { opacity: .55; }
+.rpt-veil { position: absolute; inset: 0; z-index: 70; background: var(--night); opacity: 0; pointer-events: none; will-change: opacity;
+  transition: opacity calc(var(--k) * var(--t-settle)) var(--ease-arrive); }
+.rpt-veil.is-on { opacity: .34; }
 
 .rpt-orb { position: absolute; z-index: 71; min-width: 17cqw; aspect-ratio: 1; box-sizing: border-box; border-radius: 50%; display: flex; align-items: center; justify-content: center;
   padding: 2cqw 2.6cqw; color: var(--moon); text-align: center; pointer-events: none; transform-origin: 50% 50%;
@@ -16,10 +17,10 @@
     radial-gradient(circle at 70% 84%, #c9d9ea33 0%, #c9d9ea00 38%),                    /* bounced light */
     radial-gradient(circle at 50% 56%, #1c2230f2 0%, #121a28f4 58%, #070b14fa 100%);     /* body of the glass */
   box-shadow: inset 0 0 0 .1cqw #c9d9ea4d, inset -.4cqw -.6cqw 1.8cqw #00000099, inset .3cqw .4cqw 1.2cqw #ffffff14, 0 1.4cqw 2.6cqw #000c;
-  opacity: 0; transform: scale(.6);
-  transition: transform calc(var(--k) * 250ms) cubic-bezier(.2, .9, .3, 1.18), opacity calc(var(--k) * 200ms) ease; }
+  opacity: 0; transform: scale(.86); will-change: transform, opacity;
+  transition: transform calc(var(--k) * var(--t-settle)) var(--ease-arrive), opacity calc(var(--k) * 200ms) linear; }
 .rpt-orb.is-on { opacity: 1; transform: none; }
-.rpt-orb.is-off { opacity: 0; transform: scale(.82); transition-duration: calc(var(--k) * 180ms); }
+.rpt-orb.is-off { opacity: 0; transform: scale(.9); transition-duration: calc(var(--k) * 180ms); }
 .rpt-orb.is-reduced { transform: none; transition: opacity calc(var(--k) * 200ms) ease; }
 .rpt-orb.is-reduced.is-off { transform: none; }
 /* Too many lines for any sphere that fits the screen: a rounded pane of the same glass. */
@@ -31,27 +32,23 @@
 .rpt-orb.is-tall::after { display: none; }
 
 .rpt-body { display: flex; flex-direction: column; align-items: center; gap: .15cqw; max-width: 34cqw; }
-.rpt-body.is-refuse { animation: rpt-refuse calc(var(--k) * 240ms) ease-in-out 1; }
-@keyframes rpt-refuse { 0%, 100% { transform: rotate(0); } 25% { transform: rotate(-1.5deg); } 75% { transform: rotate(1.5deg); } }
 
 /* Title: the app name, engraved Cinzel, 1.5 cqw minimum (readable from 3 m); wraps rather than widening the sphere. */
-.rpt-title { max-width: 30cqw; font-family: var(--display); font-weight: 600; font-size: var(--t-hint); line-height: 1.25; letter-spacing: var(--track-wide); text-transform: uppercase; color: var(--gold);
+.rpt-title { max-width: 30cqw; font-family: var(--display); font-weight: 600; font-size: var(--t-hint); line-height: 1.25; letter-spacing: var(--track-wide); text-transform: uppercase; color: var(--moon); opacity: .8;
   margin-bottom: .6cqw; text-wrap: balance; overflow-wrap: anywhere; }
 .rpt-title:empty { display: none; }
 
 /* The lines' window and track (the track slides only when the window is smaller than the list). */
 .rpt-list { position: relative; display: flex; flex-direction: column; align-items: center; }
 .rpt-list.is-window { overflow: hidden; align-self: stretch; }
-.rpt-track { position: relative; display: flex; flex-direction: column; align-items: center; gap: .15cqw; transition: transform calc(var(--k) * 150ms); }
+.rpt-track { position: relative; display: flex; flex-direction: column; align-items: center; gap: .15cqw; transition: transform calc(var(--k) * var(--t-settle)) var(--ease-arrive); }
 
-/* Lines: the colour changes at once (no colour transition), opacity and transform only. A long label takes two lines. */
-.rpt-line { position: relative; max-width: 30cqw; font-family: var(--body); font-weight: 500; font-size: var(--t-body); line-height: 1.22; opacity: .74;
-  padding: .1cqw 1.8cqw; text-wrap: balance; overflow-wrap: anywhere; transition: opacity calc(var(--k) * 150ms), transform calc(var(--k) * 150ms); }
-.rpt-line.is-on { opacity: 1; color: var(--gold-light); transform: translateX(.2cqw); }
-/* The chosen line's star, drawn (clip-path, static): the embedded fonts have no ✦ glyph, and a missing glyph makes
-   the browser search the system fonts while laying the sphere out. Centred on the first line. */
-.rpt-line.is-on::before { content: ""; position: absolute; left: .1cqw; top: calc(var(--t-body) * .61 + .1cqw - .55cqw); width: 1.1cqw; height: 1.1cqw; background: var(--gold);
-  clip-path: polygon(50% 0, 61% 39%, 100% 50%, 61% 61%, 50% 100%, 39% 61%, 0 50%, 39% 39%); }
+/* The mark: a soft wash across the sphere's lines, what the chosen line stands on. Goes by its transform alone. */
+.rpt-mark { position: absolute; left: 0; right: 0; top: 0; border-radius: 1cqw; background: #c9d9ea1f; box-shadow: 0 .25cqw .7cqw #0008; pointer-events: none; transform-origin: 0 0; will-change: transform;
+  transition: transform calc(var(--k) * var(--t-settle)) var(--ease-arrive); }
+/* Lines: the colour changes at once (no colour transition). A long label takes two lines. */
+.rpt-line { position: relative; max-width: 30cqw; font-family: var(--body); font-weight: 500; font-size: var(--t-body); line-height: 1.22; opacity: .8;
+  padding: .1cqw 1.8cqw; text-wrap: balance; overflow-wrap: anywhere; }
+.rpt-line.is-on { opacity: 1; color: var(--ivory); }
 .rpt-line.is-disabled { opacity: .45; font-style: italic; }
 .rpt-line.is-disabled.is-on { opacity: .62; color: var(--moon); }
-.rpt-line.is-disabled.is-on::before { background: var(--mist); }

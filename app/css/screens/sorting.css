@@ -1,5 +1,5 @@
 /* The Admission Letter (first launch): a parchment letter laid at a slight angle on the night, written in IM Fell.
-   Prefix .sort-; everything in cqw; motion in transform and opacity only, nothing that loops.
+   Prefix .sort-; everything in cqw; motion on the shared curve, in transform and opacity only, nothing that loops.
    Focus on parchment, one grammar for every control: the focused item is inked (dark ink plate, parchment letters)
    and settles a little forward; the rest of the sheet stays as written. Lumos alone turns gold. */
 .screen-sorting { background: var(--night); }
@@ -17,7 +17,8 @@
    Vertical budget (cqw, 56.25 for the whole screen): letter 2.4 → 49.6 (the key strip lives below 50.8), the sheet
    inside it from 6.2 to 5.4 above the letter's bottom (35.6 cqw of content), the "classic mode" link under the sheet. */
 .sort-letter { position: absolute; left: 13cqw; right: 13cqw; top: 2.4cqw; bottom: 6.65cqw; border-radius: .4cqw;
-  transform: rotate(-.5deg) translateY(2cqw); opacity: 0; transition: transform calc(var(--k) * 700ms) cubic-bezier(.33, 0, .2, 1), opacity calc(var(--k) * 400ms) ease; }
+  transform: rotate(-.5deg) translateY(2cqw); opacity: 0; will-change: transform, opacity;
+  transition: transform calc(var(--k) * var(--t-pan)) var(--ease-arrive), opacity calc(var(--k) * 300ms) linear; }
 .is-open .sort-letter { transform: rotate(-.5deg) translateY(0); opacity: 1; }
 .sort-letter::before { content: ""; position: absolute; inset: 0; pointer-events: none; z-index: 1;
   background: linear-gradient(to bottom, #3a260e14, transparent 7%, transparent 93%, #3a260e1a), linear-gradient(to right, #3a260e10, transparent 6%, transparent 94%, #3a260e10); }
@@ -26,24 +27,17 @@
 /* The letter's seal, at the top right, in the color of the draft's house. */
 .sort-seal { position: absolute; top: 1.6cqw; right: 3cqw; width: 4.4cqw; height: 4.4cqw; display: grid; place-items: center; z-index: 2; transform: rotate(8deg); }
 .sort-seal span { font-family: var(--display); font-weight: 700; font-size: 2cqw; color: #f1ebddcc; text-shadow: 0 .05cqw .1cqw #00000080; }
-.sort-seal.is-press { animation: sort-press calc(var(--k) * 200ms) cubic-bezier(.2, .9, .3, 1.2) both; }
-@keyframes sort-press { from { transform: rotate(8deg) scale(1.3); } to { transform: rotate(8deg) scale(1); } }
 
 /* The sheet: the content of the current page; it turns (slides and folds slightly) on every page.
    A column: the buttons row sits at the bottom of the sheet, always in the same place from page to page. */
 .sort-sheet { position: absolute; left: 4.6cqw; right: 4.2cqw; top: 6.2cqw; bottom: 5.4cqw; transform-origin: 0 50%;
   display: flex; flex-direction: column; align-items: flex-start; }
 .sort-sheet > * { flex: none; max-width: 100%; }
-.sort-sheet.is-turn { animation: sort-turn calc(var(--k) * 420ms) cubic-bezier(.33, 0, .2, 1) both; }
-@keyframes sort-turn { from { transform: translateX(1.6cqw) rotateY(-6deg); opacity: 0; } to { transform: translateX(0) rotateY(0); opacity: 1; } }
-.sort-sheet.is-leave { transition: transform calc(var(--k) * 260ms) ease-in, opacity calc(var(--k) * 220ms) ease-in; transform: translateX(-1.6cqw) rotateY(6deg); opacity: 0; }
+.sort-sheet.is-leave { transition: transform calc(var(--k) * 260ms) var(--ease-arrive), opacity calc(var(--k) * 180ms) linear; transform: translateX(-1.6cqw) rotateY(6deg); opacity: 0; }
 /* Each line comes in under the pen, one after another (--i = the line's rank): opacity and a short slide only
    (compositor work, no clip-path repaint on the TV). `backwards`: hidden during its delay, then nothing remains. */
-.sort-line { animation: sort-write calc(var(--k) * 360ms) cubic-bezier(.25, .7, .2, 1) backwards; animation-delay: calc(var(--k) * (var(--i, 0) * 90ms + 120ms)); }
+.sort-line { animation: sort-write calc(var(--k) * 360ms) var(--ease-arrive) backwards; animation-delay: calc(var(--k) * (var(--i, 0) * 70ms + 80ms)); }
 @keyframes sort-write { from { opacity: 0; transform: translateX(-.6cqw); } to { opacity: 1; transform: none; } }
-/* Rewriting a value already laid down (a count, an option, a message). */
-.sort-write { animation: sort-rewrite calc(var(--k) * 260ms) ease-out backwards; animation-delay: 0ms; }
-@keyframes sort-rewrite { from { opacity: 0; transform: translateX(-.4cqw); } to { opacity: 1; transform: none; } }
 
 .sort-title { margin: 0 0 .7cqw; font-family: var(--fell); font-weight: 400; font-size: 3.1cqw; line-height: 1.1; color: var(--ink); }
 .sort-text { margin: 0 0 .6cqw; max-width: 62cqw; font-family: var(--fell); font-size: var(--t-body); line-height: 1.3; color: var(--ink); }
@@ -52,7 +46,7 @@
 /* Footer: the discreet link, present on every page, under the sheet (never over the buttons). */
 .sort-foot { position: absolute; left: 4.6cqw; right: 4.2cqw; bottom: 1.6cqw; display: flex; justify-content: flex-end; z-index: 2; }
 .sort-link { position: relative; font-family: var(--fell); font-style: italic; font-size: var(--t-hint); line-height: 1.3; color: var(--ink); opacity: .62; padding: .3cqw 1cqw; border-radius: .3cqw;
-  transition: opacity calc(var(--k) * 200ms), transform calc(var(--k) * 200ms) var(--ease-out); }
+  transition: transform calc(var(--k) * var(--t-settle)) var(--ease-arrive); }
 .sort-link span { position: relative; border-bottom: .07cqw solid #1b151066; }
 
 /* ---- The ink plate: one focus for every control on the parchment ----
@@ -67,7 +61,7 @@
 /* ---- Page I: the crests ---- */
 .sort-shields { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1.4cqw; width: 62cqw; margin: .8cqw 0 .6cqw; }
 .sort-shield { position: relative; display: grid; justify-items: center; gap: .3cqw; padding: .9cqw .4cqw .7cqw; border-radius: .5cqw; opacity: .62;
-  transition: transform calc(var(--k) * 260ms) var(--ease-out), opacity calc(var(--k) * 200ms); }
+  transition: transform calc(var(--k) * var(--t-settle)) var(--ease-arrive); }
 /* The frame of the focused crest: drawn once, shown by opacity (an ink rule and a faint wash). */
 .sort-shield::before { content: ""; position: absolute; inset: 0; z-index: -1; border-radius: inherit; border: .16cqw solid #1b1510b0; background: #1b151012;
   opacity: 0; transition: opacity calc(var(--k) * 160ms) ease-out; }
@@ -91,11 +85,11 @@
 .sort-shield.is-on .sort-shield-svg .rim { stroke: var(--wax); stroke-width: 2; opacity: 1; }
 .sort-shield.is-on .sort-shield-svg .banner-text { fill: var(--wax); }
 .sort-shield-name { font-family: var(--fell); font-variant: small-caps; font-size: var(--t-label); line-height: 1.1; letter-spacing: .04em; color: var(--ink); }
-.sort-shield.is-on .sort-shield-name::after { content: " ✦"; color: var(--wax); }
+/* The star, drawn: the embedded fonts have no ✦ glyph, and a missing glyph sends the browser looking through the system fonts. */
+.sort-shield.is-on .sort-shield-name::after { content: ""; display: inline-block; width: .9cqw; height: .9cqw; margin-left: .4cqw; background: var(--wax);
+  clip-path: polygon(50% 0, 61% 39%, 100% 50%, 61% 61%, 50% 100%, 39% 61%, 0 50%, 39% 39%); }
 .sort-wax { display: flex; align-items: center; gap: 1.2cqw; margin-top: .3cqw; }
 .sort-wax-seal { width: 3.2cqw; height: 3.2cqw; }
-.sort-wax-seal.is-press { animation: sort-press-seal calc(var(--k) * 200ms) cubic-bezier(.2, .9, .3, 1.2) both; }
-@keyframes sort-press-seal { from { transform: scale(1.3); } to { transform: scale(1); } }
 .sort-wax-text { font-family: var(--fell); font-style: italic; font-size: var(--t-body); color: var(--ink); opacity: .8; }
 
 /* ---- Page II: the list of spells ----
@@ -106,7 +100,7 @@
 .sort-grid { --cols: 4; display: grid; grid-template-columns: repeat(var(--cols), minmax(0, 1fr)); gap: .45cqw .8cqw; width: 63cqw; }
 .sort-grid.is-empty { display: block; font-family: var(--fell); font-style: italic; font-size: var(--t-body); line-height: 1.3; color: var(--ink); opacity: .75; }
 .sort-cell { position: relative; display: flex; align-items: center; gap: .7cqw; min-height: 3.4cqw; padding: .35cqw .7cqw; border-radius: .35cqw; color: var(--ink); opacity: .74;
-  transition: opacity calc(var(--k) * 200ms), transform calc(var(--k) * 220ms) var(--ease-out); }
+  transition: transform calc(var(--k) * var(--t-settle)) var(--ease-arrive); }
 .sort-cell.is-on { opacity: 1; }
 .sort-cell.is-focus { opacity: 1; color: var(--parchment); transform: scale(1.04); }
 .sort-cell-name { flex: 1; min-width: 0; font-family: var(--fell); font-size: var(--t-body); line-height: 1.1; overflow-wrap: anywhere; }
@@ -115,7 +109,7 @@
 /* The box: an ink square, the pen tick appears (scale + opacity). */
 .sort-box { flex: none; width: 1.55cqw; height: 1.55cqw; border: .13cqw solid #1b1510aa; border-radius: .15cqw; display: grid; place-items: center; }
 .sort-box svg { width: 1.35cqw; height: 1.35cqw; fill: none; stroke: var(--ink); stroke-width: 3.2; stroke-linecap: round; stroke-linejoin: round;
-  opacity: 0; transform: scale(.4) rotate(-10deg); transition: transform calc(var(--k) * 220ms) cubic-bezier(.2, .9, .3, 1.3), opacity calc(var(--k) * 150ms); }
+  opacity: 0; transform: scale(.4) rotate(-10deg); transition: transform calc(var(--k) * var(--t-settle)) var(--ease-arrive), opacity calc(var(--k) * 150ms); }
 .sort-cell.is-on .sort-box svg { opacity: 1; transform: scale(1) rotate(0); }
 .sort-cell.is-on .sort-box { border-color: var(--wax); }
 .sort-cell.is-focus .sort-box { border-color: #e8d9b5cc; }
@@ -123,13 +117,13 @@
 
 /* ---- Page III: Hedwig, sounds ---- */
 .sort-enum { position: relative; display: flex; align-items: center; gap: 1.6cqw; margin: .3cqw 0 .3cqw -.9cqw; padding: .45cqw .9cqw; border-radius: .35cqw; min-width: 44cqw; color: var(--ink);
-  transition: transform calc(var(--k) * 220ms) var(--ease-out); }
+  transition: transform calc(var(--k) * var(--t-settle)) var(--ease-arrive); }
 .sort-enum.is-focus { color: var(--parchment); transform: translateX(.3cqw); }
 /* Label and values: a list of settings, hence EB Garamond (IM Fell stays on the intro sentence). */
 .sort-enum-label { min-width: 10cqw; font-family: var(--body); font-weight: 500; font-size: var(--t-label); letter-spacing: .02em; }
 .sort-opts { display: flex; gap: .8cqw; }
 .sort-opt { padding: .2cqw 1.1cqw; border-radius: 2cqw; border: .12cqw solid transparent; font-family: var(--body); font-weight: 500; font-size: var(--t-body); opacity: .55;
-  transition: opacity calc(var(--k) * 200ms), transform calc(var(--k) * 200ms); }
+  transition: transform calc(var(--k) * var(--t-settle)) var(--ease-arrive); }
 .sort-opt.is-on { opacity: 1; border-color: currentColor; font-weight: 600; }
 .sort-enum.is-focus .sort-opt { opacity: .7; }
 .sort-enum.is-focus .sort-opt.is-on { opacity: 1; transform: scale(1.06); }
@@ -142,7 +136,7 @@
 /* Pen-drawn buttons, in a row at the bottom of the sheet; Lumos is the only one in gold. */
 .sort-btns { display: flex; flex-wrap: wrap; gap: 1.4cqw; margin-top: auto; padding-top: 1cqw; }
 .sort-btn { position: relative; display: inline-flex; align-items: center; padding: .65cqw 2.2cqw; font-family: var(--fell); font-size: var(--t-label); line-height: 1.2; color: var(--ink);
-  border: .14cqw solid #1b151088; border-radius: .35cqw; transition: transform calc(var(--k) * 220ms) var(--ease-out); }
+  border: .14cqw solid #1b151088; border-radius: .35cqw; transition: transform calc(var(--k) * var(--t-settle)) var(--ease-arrive); }
 .sort-btn::after { content: ""; position: absolute; inset: .22cqw; border: .06cqw solid #1b151055; border-radius: .2cqw; pointer-events: none; }
 .sort-btn.is-focus { background: var(--ink); color: var(--parchment); border-color: var(--ink); transform: scale(1.05); }
 .sort-btn.is-focus::after { border-color: #e8d9b566; }
@@ -162,12 +156,11 @@
 
 /* ---- Reduced motion: 200 ms fades and nothing more ---- */
 .screen-sorting.is-reduced .sort-letter { transform: rotate(-.5deg); transition: opacity 200ms ease; }
-.screen-sorting.is-reduced .sort-line, .screen-sorting.is-reduced .sort-write { animation: sort-fade 200ms ease backwards; animation-delay: 0ms; }
-.screen-sorting.is-reduced .sort-sheet.is-turn { animation: sort-fade 200ms ease both; }
+.screen-sorting.is-reduced .sort-line { animation: sort-fade 200ms ease backwards; animation-delay: 0ms; }
 .screen-sorting.is-reduced .sort-sheet.is-leave { transform: none; transition-duration: 200ms; }
-.screen-sorting.is-reduced .sort-seal.is-press, .screen-sorting.is-reduced .sort-wax-seal.is-press { animation: sort-fade 200ms ease both; }
 .screen-sorting.is-reduced .sort-shield, .screen-sorting.is-reduced .sort-cell, .screen-sorting.is-reduced .sort-enum, .screen-sorting.is-reduced .sort-btn, .screen-sorting.is-reduced .sort-link,
 .screen-sorting.is-reduced .sort-opt, .screen-sorting.is-reduced .sort-lumos.is-lit, .screen-sorting.is-reduced .sort-wax-seal { transition-duration: 200ms; transform: none !important; }
 /* The tick fades in, without rotation or scale. */
 .screen-sorting.is-reduced .sort-box svg { transition: opacity 200ms ease; transform: none !important; }
 @keyframes sort-fade { from { opacity: 0; } to { opacity: 1; } }
+.screen-sorting .keyhint em { font-style: normal; }   /* Cinzel has no italic: an <em> made the browser synthesise a slanted instance */

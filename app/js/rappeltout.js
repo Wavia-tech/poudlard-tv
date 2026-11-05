@@ -1,5 +1,7 @@
-// Remembrall (Rappeltout): the shared context menu. A glass sphere resting on a darkened backdrop, a few lines
+// Remembrall (Rappeltout): the shared context menu. A glass sphere resting on a lightly dimmed backdrop, a few lines
 // in EB Garamond, up/down to choose, OK to take, Back to put the sphere down.
+// Motion: the shared curve, transform and opacity only. The sphere is measured once, in the frame after the key, and a
+// mark goes from line to line by its transform: a move reads no layout.
 // It takes over the keys (Input.setHandler) while displayed and hands them back to the router (Router.refocus()).
 //
 //   rappeltout(host, { title, options: [{ id, label, disabled? }], anchor?: { x, y, edge? } }) → Promise<string|null>
@@ -62,10 +64,35 @@ export function rappeltout(host, { title = '', options = [], anchor = null } = {
       track.appendChild(li);
       lines.push(li);
     }
+    const mark = document.createElement('i');            // the chosen line's mark: a soft wash and the star, one layer
+    mark.className = 'rpt-mark';
+    track.prepend(mark);
     orb.appendChild(body);
     host.appendChild(veil);
     host.appendChild(orb);
 
+    // ---- Chosen line ----
+    let i = 0;
+    let off = 0;
+    let windowed = false;
+    let view = 0;
+    let places = null;                                  // [{ top, h }] of the lines, once measured
+    const paint = (instant) => {
+      lines.forEach((li, n) => li.classList.toggle('is-on', n === i));
+      if (!places) return;
+      const p = places[i];
+      if (instant) mark.style.transition = 'none';
+      mark.style.transform = `translateY(${p.top}px) scaleY(${(p.h / places[0].h).toFixed(3)})`;
+      if (instant) { void getComputedStyle(mark).transform; mark.style.transition = ''; }
+      if (!windowed) return;
+      if (p.top + p.h - off > view) off = p.top + p.h - view;
+      else if (p.top < off) off = p.top;
+      track.style.transform = `translateY(${-off}px)`;
+    };
+    paint();
+
+    // The sphere's size and place, in the frame after the key: the layout of its text is done once, there.
+    const place = () => {
     // ---- Size: a sphere just large enough for its text (the text block fits inside the circle), never larger
     // than the screen. Long labels wrap (rappeltout.css caps a line's width); if even the largest sphere cannot hold
     // every line, it becomes a rounded glass pane and the lines scroll in their window. ----
@@ -75,7 +102,6 @@ export function rappeltout(host, { title = '', options = [], anchor = null } = {
     const maxD = H - 2 * margin;
     const bw = body.offsetWidth, bh = body.offsetHeight;
     const D = Math.max(17 * cq, Math.hypot(bw, bh) + 2 * cq, bw + 5.6 * cq, bh + 4.4 * cq);
-    let windowed = false;
     if (D <= maxD) {
       orb.style.width = (D / cq).toFixed(2) + 'cqw';
     } else {
@@ -105,18 +131,13 @@ export function rappeltout(host, { title = '', options = [], anchor = null } = {
       orb.style.transformOrigin = `${ox}% ${oy}%`;
     }
 
-    // ---- Chosen line ----
-    let i = 0;
-    let off = 0;
-    const paint = () => {
-      lines.forEach((li, n) => li.classList.toggle('is-on', n === i));
-      if (!windowed) return;
-      const view = list.clientHeight, li = lines[i];
-      if (li.offsetTop + li.offsetHeight - off > view) off = li.offsetTop + li.offsetHeight - view;
-      else if (li.offsetTop < off) off = li.offsetTop;
-      track.style.transform = `translateY(${-off}px)`;
+    view = list.clientHeight;
+    places = lines.map((li) => ({ top: li.offsetTop, h: li.offsetHeight }));
+    mark.style.height = `${places[0].h}px`;
+    paint(true);
+    veil.classList.add('is-on');
+    orb.classList.add('is-on');
     };
-    paint();
 
     // ---- Closing (only once) ----
     let done = false;
@@ -142,7 +163,7 @@ export function rappeltout(host, { title = '', options = [], anchor = null } = {
       if (action === 'ok' || action === 'longok') {
         const o = opts[i];
         if (!o || o.disabled) {                       // the sphere refuses with a little shiver
-          body.classList.remove('is-refuse'); void body.offsetWidth; body.classList.add('is-refuse');
+          if (!reduced && body.animate) body.animate([{ transform: 'rotate(0)' }, { transform: 'rotate(-1.5deg)', offset: 0.25 }, { transform: 'rotate(1.5deg)', offset: 0.75 }, { transform: 'rotate(0)' }], { duration: 240 * k, easing: 'ease-in-out' });
           Fx.chime(440, 0.03);
           return true;
         }
@@ -155,7 +176,7 @@ export function rappeltout(host, { title = '', options = [], anchor = null } = {
     });
 
     // ---- Appearance ----
-    requestAnimationFrame(() => { veil.classList.add('is-on'); orb.classList.add('is-on'); });
+    requestAnimationFrame(() => { if (!done) place(); });
   });
 }
 
