@@ -59,6 +59,15 @@ activer les options pour les développeurs et le débogage ADB ? ». « Débogag
 | OK maintenu | Déplacer, retirer ou cacher une appli |
 | Retour maintenu 2 s | Écran sobre, sans décor (et retour) |
 
+## Musique et blasons
+
+Pour respecter les droits d'auteur, Poudlard TV est livré **sans la musique des films ni les blasons officiels** :
+une valse originale joue en fond, et les blasons des maisons sont dessinés pour le projet.
+
+Envie d'une autre musique d'ambiance ? Si tu as un fichier audio que tu as le droit d'utiliser, demande à Claude Code :
+« Ajoute ce fichier comme musique d'ambiance de Poudlard TV et réinstalle l'appli sur ma télé. » Il reste sur ta télé
+et sur ton ordinateur, jamais sur GitHub.
+
 ## Revenir comme avant
 
 - **Retour maintenu 2 secondes** : écran sobre.

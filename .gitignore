@@ -3,7 +3,8 @@
 # ---------------------------------------------------------------------------
 
 # The maintainer's own choice (November 2026): the app logos (app/assets/logos.js), the house crest pictures
-# (app/assets/crest-*.webp) and the background music (app/assets/music/ambiance.ogg) ARE versioned, see DISCLAIMER.md.
+# (app/assets/crest-*.webp) and the background music (app/assets/music/ambiance.ogg) were versioned until
+# 8 November 2026, then taken out for copyright reasons. A user's own files stay on their computer:
 # The fonts (app/assets/fonts/) are versioned too, with their OFL licence.
 
 # Hosting page for the mock-up (an index.html variant for publishing as an
@@ -48,3 +49,8 @@ node_modules/
 
 # Local configuration of the Claude app (launching the mock-up server)
 .claude/
+
+# Copyright: never commit a music file or official crest pictures (DISCLAIMER.md)
+app/assets/music/*
+!app/assets/music/.gitkeep
+app/assets/crest-*.webp

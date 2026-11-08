@@ -11,7 +11,7 @@ This document describes what the code does (`app/js/sound.js`), which audio file
 
 | Setting | Value | What is played |
 |---|---|---|
-| **Auto** (default) | `auto` | The music file (below), which the repository ships; the celesta waltz only if no file can be played. |
+| **Auto** (default) | `auto` | The music file (below), if you added one; otherwise the celesta waltz. |
 | **Celesta** | `celesta` | The celesta waltz, always, even if a file exists. |
 | **None** | `aucune` | Nothing: the cues only. |
 
@@ -19,9 +19,9 @@ The cues are rendered once ahead of time (an `OfflineAudioContext`, hall and com
 
 The levels are constants at the top of `sound.js` (`AMBIENT_DB` for the waltz, `FILE_DB` for the file, the master volume for the cues and the waltz). The file plays through its own `<audio>` element, outside the Web Audio graph: `FILE_DB` is its whole level (`el.volume` ≈ 0.9), its fades and its ducking are the element's volume, so the audio graph sleeps whenever no cue rings (on the TV, the graph kept running for the music alone cost about one core).
 
-### The music file (versioned at the maintainer's request)
+### The music file (none ships with the project)
 
-The repository carries `app/assets/music/ambiance.ogg`: the maintainer's own recording from 29:45 to its end, 29:37 long, Ogg Opus, stereo, 80 kbit/s, 19 MB. It is shipped as it is, not levelled: −20 LUFS integrated (mean −23.5 dB), peaks at 0 dBFS, 18 LU of range, 30 s blocks from −17 to −40 dB. It opens near −41 dB for its first half minute and reaches −30 dB in the second. It is **not** covered by the MIT license: its rights belong to its author, it is versioned on the maintainer's explicit decision, and any rights holder may ask for its removal (`DISCLAIMER.md`, section "Third-party material versioned at the maintainer's request").
+Since 8 November 2026 the repository and the APK carry **no music file** (copyright): out of the box, Poudlard TV plays its original celesta waltz. You may add, for your own TV, an audio file you own or hold a license for, as `app/assets/music/ambiance.ogg`, then rebuild the APK. The folder is ignored by Git: never commit it. With Claude Code: « Ajoute ce fichier comme musique d'ambiance de Poudlard TV et réinstalle l'appli sur ma télé ».
 
 The player probes the names listed in `MUSIC_FILES` (`sound.js`), `ambiance.ogg` first, and plays the first one the browser or the WebView can decode. Another file name, or a `.wav` or `.flac`, is silently ignored. A file that takes more than 4 s to respond is considered absent.
 
