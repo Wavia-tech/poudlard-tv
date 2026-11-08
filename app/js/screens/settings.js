@@ -6,9 +6,9 @@
 //
 // Motion: the shared curve, transform and opacity only. One mark per page goes from line to line (.set-mark on the left,
 // .set-focus on the right): a key moves its transform and paints nothing, and no layout is read for a move (the lines'
-// positions are measured once, when a section is laid out). The sections stay laid out once built: going from one to the
-// next shows a sheet that is already there, and only when the keys stop (the mark never waits for it). Opening the room: the key's
-// task only makes the empty room, and the rest comes a piece per frame, under the move (mount).
+// positions are measured once, when a section is laid out). The sections stay laid out and painted once built: going from one
+// to the next changes the opacity of two sheets that are already there, and only when the keys stop (the mark never waits for
+// it). Opening the room: the key's task only makes the empty room, and the rest comes a piece per frame, under the move (mount).
 import { HOUSES, DOCK_MAX, getConfig, updateConfig, resetConfig, allApps, appById, isReduced } from '../config.js';
 import { Platform } from '../platform.js';
 import { LOGOS } from '../../assets/logos.js';
@@ -20,16 +20,17 @@ const logoOf = (id) => LOGOS[id] || (appById(id) ? monogram(appById(id).name) : 
 // Sections of the left page (display order). The first two are the Free My TV pair: who answers the Home key,
 // and the TV's own settings screens (Poudlard opens them, changes nothing itself).
 const RUBRIQUES = [
-  { id: 'home', label: 'Accueil de la télé', title: 'La touche Home', sub: 'Qui répond à la touche Home : Poudlard ou l’accueil d’origine de la télé.' },
-  { id: 'tv', label: 'Réglages de la télé', title: 'La télé elle-même', sub: 'Ses propres menus : image, son, réseau, télécommandes. Poudlard n’y change rien.' },
+  { id: 'home', label: 'Accueil de la télé', title: 'La touche Home', sub: 'Revenir à l’accueil de la télé, ou choisir qui répond à la touche Home.' },
+  { id: 'tv', label: 'Réglages de la télé', title: 'La télé elle-même', sub: 'Ses propres menus : image, son, réseau, télécommandes. Poudlard n’y change rien.', wide: true },
   { id: 'dock', label: 'Parapet et applis', title: 'Le Parapet', sub: 'OK pose ou retire une appli ; Gauche et Droite changent son rang ; OK maintenu la cache dans la Carte.' },
   { id: 'house', label: 'Maison', title: 'Votre maison', sub: 'La cire, la bougie et le liseré prennent sa couleur.' },
   { id: 'owl', label: 'Chouette et sons', title: 'Hedwige', sub: 'Elle est le curseur du parapet. Les sons sont des clochettes ; la musique joue en fond.' },
   { id: 'motion', label: 'Mouvement et énergie', title: 'Mouvement', sub: 'Pour une télé qui rame, ou pour les yeux fatigués.' },
   { id: 'idle', label: 'Veille', title: 'Nox', sub: 'Sans touche, le château s’endort et seule l’heure veille.' },
   { id: 'classic', label: 'Mode classique', title: 'Le lundi matin', sub: 'Un accueil ordinaire, même parapet, sans décor ni chouette.' },
-  { id: 'about', label: 'À propos', title: 'Poudlard TV', sub: 'Un objet privé, hors ligne, réversible.' },
+  { id: 'about', label: 'À propos', title: 'Poudlard TV', sub: 'Un objet privé, hors ligne, réversible.', wide: true },
 ];
+// `wide`: a long list with nothing to show on the parapet, which takes the preview's room (settings.css .set-right.is-wide).
 
 // Enumerated values: [config value, displayed label]. Labels are constants, never data.
 const OWL = [['vive', 'Vive'], ['calme', 'Calme'], ['absente', 'Absente']];
@@ -65,6 +66,23 @@ export const HOME_HINT = {
   fire: 'Sur Fire TV la touche Home reste à Amazon : ouvrez Poudlard TV depuis vos applis.',
 };
 export const HOME_NOTE_MOCK = 'Sur la télé seulement : la maquette ne change rien.';
+// « Revenir à l'accueil de la télé », the way out in one press (here and on classic mode's « Touche Home » tile):
+// setHome('original') closes our HOME entry point if it was open (the Home key goes back) and opens the TV's own
+// home (HomeMode.giveBackHome: the recorded original, else the system TV launcher). `mode` is Platform.homeMode().
+// Returns { ok, text }: `text` is the sentence for the message band (the page is usually hidden by then).
+export const TV_HOME = 'Revenir à l’accueil de la télé';
+const TV_HOME_NOTE = (mode) => (mode === 'poudlard'
+  ? 'Rend la touche Home à l’accueil de la télé et l’ouvre. Poudlard TV reste dans vos applis.'
+  : 'Ouvre l’accueil de la télé. Poudlard TV reste dans vos applis.');
+export function openTvHome(mode) {
+  const r = Platform.setHome('original');
+  if (r.status === 'simulated') return { ok: false, text: HOME_NOTE_MOCK };
+  if (r.status === 'failed') return { ok: false, text: r.error };
+  if (r.hint === 'press-home') {   // nothing could be started; the HOME entry point is closed all the same
+    return { ok: false, text: mode === 'poudlard' ? 'Aucun autre accueil n’a pu s’ouvrir. La touche Home est rendue à la télé : appuyez dessus.' : 'Aucun autre accueil n’a pu s’ouvrir sur cette télé.' };
+  }
+  return { ok: true, text: mode === 'poudlard' ? 'La touche Home revient à l’accueil de la télé.' : 'L’accueil de la télé s’ouvre.' };
+}
 // The TV's own screens, in Free My TV's order (Apps.SYSTEM keys). Shared with classic mode and the Map.
 export const TV_SCREENS = [
   ['settings', 'Tous les réglages'], ['wifi', 'Réseau et Wi-Fi'], ['bluetooth', 'Télécommande et Bluetooth'], ['picture', 'Image'],
@@ -138,7 +156,13 @@ const SET_FACES = ['1em "IM Fell English"', 'italic 1em "IM Fell English"', '1em
 const SAND_MS = 320;          // the sand falls through the hourglass before the list recomposes
 const TURN_MS = 110;          // the right page follows the left one when the keys stop for this long
 const ARRIVE = 'cubic-bezier(.32,.72,0,1)';   // --ease-arrive (base.css), for the Web Animations below
-const MASKS_PER_FRAME = 4;    // a mask's SVG document is parsed on the main thread: a few per frame, once a section shows
+// A logo met for the first time has its SVG document parsed on the main thread, in the style pass that follows its mask: about
+// 12 to 19 ms each on a 4x throttled CPU, whatever its size. So one per frame when its section shows, one per idle moment while
+// the sections are prepared (four per frame made 50 to 115 ms frames at 4x).
+const MASKS_PER_STEP = 1;
+// The parapet list is the one long section (some 25 rows, 240 elements: about 100 ms of first style and layout at 4x): prepared
+// in the background, it is built this many rows per idle moment, each piece laid out in the frame after.
+const ROWS_PER_STEP = 5;
 const SETTLE_MS = 320;        // --t-settle (base.css)
 const WARM_QUIET_MS = 450;    // no section is built this soon after a key
 
@@ -158,7 +182,7 @@ const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls)
 export default {
   root: null, ctx: null, rub: 0, level: 'left', row: 0, items: [], axis: 'v', timers: [], reduced: false,
   resetStep: 0, listOff: 0, scrollList: null, sealed: null, busy: false, lastPerch: null, homeAsk: false, onHomeEvent: null, built: false,
-  sheets: null,          // the sections built so far, laid out and put away: { id: { id, flow, mark, items, axis, start, H, flowH, measured, masks } }
+  sheets: null,          // the sections built so far, laid out and put away: { id: { id, flow, mark, items, axis, start, H, flowH, measured, masks, more } }
   cur: null,             // the sheet in view
   turnTimer: 0,          // the right page is about to follow the left one
   focusEl: null,         // the line that wears .is-focus
@@ -226,9 +250,13 @@ export default {
     await ctx.slice();
     if (this.root !== root) return;
     this.showRub();
+    // The section is measured two frames after it is laid out (useSheet); the preview's first style, layout and paint (its seven
+    // logos) come in the frame after that, not in the same one.
+    await ctx.slice();
     await ctx.slice();
     if (this.root !== root) return;
     this.renderPreview();
+    this.readPage();                 // the first section was measured before the preview took its room
     this.built = true;
     this.warmSheets();
   },
@@ -292,45 +320,60 @@ export default {
     this.root.querySelector('.set-rtitle').textContent = r.title;
     this.root.querySelector('.set-rsub').textContent = r.sub;
     const msg = this.root.querySelector('.set-msg'); if (msg) msg.textContent = '';
-    this.root.querySelector('.set-right').dataset.rub = r.id;     // long sections (TV screens, About) give the preview's room to their text
-    this.root.querySelector('.set-body').dataset.rub = r.id;
+    // Long sections (TV screens, About) take the preview's room. A class that only changes for them: an attribute set at every
+    // move restyled the whole preview each time.
+    this.root.querySelector('.set-right').classList.toggle('is-wide', Boolean(r.wide));
     this.listOff = 0;
     let sheet = this.sheets[r.id];
     if (!sheet || sheet.stale || (r.id === 'dock' && sheet.sig !== this.dockSig())) { if (sheet) sheet.flow.remove(); sheet = this.buildSheet(r); }
-    else sheet.items.forEach((it) => { if (it.paint) it.paint(); });   // a row's value may depend on another section's
+    else {
+      this.grow(sheet, Infinity);                                   // still being prepared: the rest of its rows now
+      sheet.items.forEach((it) => { if (it.paint) it.paint(); });   // a row's value may depend on another section's
+    }
     this.useSheet(sheet);
     this.root.querySelector('.set-sheet').classList.remove('is-turning');
+    this.readPage();
+  },
+  // The page's height for the section in view (its subtitle, the preview or not): read once laid out, never by a key. A sheet
+  // measured in the background was measured under another section's title.
+  readPage() {
+    const root = this.root, sheet = this.cur;
+    frames(2, 120).then(() => { if (this.root === root && this.cur === sheet && sheet.flow.isConnected) sheet.H = sheet.flow.parentElement.clientHeight; });
   },
 
-  // After the room has opened: the other sections are built and laid out, one per idle moment and none while the keys are
-  // going, then measured, given their logos and put away (settings.css .is-away: no style, no layout, no layer, and all of it kept for
-  // when they come back). The next key finds each of them whole, and a section's move has only one class to change.
+  // After the room has opened: the other sections are built, laid out and painted out of sight (settings.css .is-away: opacity 0
+  // on a layer of their own, everything else kept), one piece per idle moment and none while the keys are going; then measured and
+  // given their logos. The next key finds each of them whole and painted: a section's move only changes two opacities.
   warmSheets() {
     const root = this.root;
     const idle = (fn) => { if (typeof requestIdleCallback === 'function') requestIdleCallback(fn, { timeout: 1500 }); else setTimeout(fn, 60); };
-    // Waits for the keys to have stopped, then for an idle moment.
+    // Waits for the keys to have stopped, then for an idle moment, and again if a key came in between.
     const whenQuiet = (fn) => {
       if (this.root !== root) return;
-      if (performance.now() - this.lastKey < WARM_QUIET_MS) { this.later(() => whenQuiet(fn), WARM_QUIET_MS, true); return; }
-      idle(() => { if (this.root === root) fn(); });
+      const wait = WARM_QUIET_MS - (performance.now() - this.lastKey);
+      if (wait > 0) { this.later(() => whenQuiet(fn), wait, true); return; }
+      idle(() => { if (this.root === root) { if (performance.now() - this.lastKey < WARM_QUIET_MS) whenQuiet(fn); else fn(); } });
     };
+    // Each piece is styled and laid out in the frame after it, before the next one (a sheet rebuilt meanwhile is left behind).
+    const then = (sheet, fn) => frames(1, 60).then(() => whenQuiet(() => (this.sheets[sheet.id] === sheet ? fn() : next())));
     const next = () => {
       const r = RUBRIQUES.find((x) => x.id !== 'home' && !this.sheets[x.id]);
       if (!r) return;
-      const sheet = this.buildSheet(r);
-      sheet.flow.classList.add('is-warming');
-      // Its style and layout in the next frame, the layout read after that, clean by then; its logos a few per frame.
-      frames(2, 120).then(() => whenQuiet(() => {
-        this.measure(sheet);
-        const masks = () => {
-          sheet.masks.splice(0, MASKS_PER_FRAME).forEach(([m, src]) => this.setMask(m, src));
-          if (sheet.masks.length) { frames(1, 60).then(() => whenQuiet(masks)); return; }
-          sheet.flow.classList.remove('is-warming');
-          if (this.cur !== sheet) sheet.flow.classList.add('is-away');
-          whenQuiet(next);
-        };
-        masks();
-      }));
+      const sheet = this.buildSheet(r, true);
+      const rows = () => {
+        if (this.grow(sheet, ROWS_PER_STEP)) { then(sheet, rows); return; }
+        // The layout read a frame after the last piece, clean by then; then its logos, one per idle moment.
+        then(sheet, () => {
+          this.measure(sheet);
+          // Its SVG document is parsed here, in the idle moment (a style-only read), not in the frame after, where a key may be.
+          const masks = () => {
+            if (this.cur !== sheet) sheet.masks.splice(0, MASKS_PER_STEP).forEach(([m, src]) => { this.setMask(m, src); void getComputedStyle(m).webkitMaskImage; });   // in view: flushMasks
+            if (sheet.masks.length && this.cur !== sheet) then(sheet, masks); else whenQuiet(next);
+          };
+          masks();
+        });
+      };
+      then(sheet, rows);
     };
     this.after(1200, () => whenQuiet(next));
   },
@@ -341,24 +384,37 @@ export default {
   // `axis`: 'v' (up/down) or 'h' (left/right). The single focus is set by syncFocus().
   // A section is laid in a sliding sheet (.set-flow): when it is taller than the page, the sheet slides (transform) to
   // keep the focused line in view, never a scrollbar, never a line hidden under the preview.
-  buildSheet(r) {
-    const flow = el('div', 'set-flow');
+  // A section may leave part of its lines to later (`more`: functions that each add a piece, in order, to its own `items`): built
+  // in the background (`lazy`, warmSheets), they come a few per idle moment; otherwise all at once. Built out of sight (.is-away);
+  // useSheet shows it. `data-rub` is set before the sheet enters the page and never changes (settings.css).
+  buildSheet(r, lazy) {
+    const flow = el('div', 'set-flow is-away');
+    flow.dataset.rub = r.id;
     this.root.querySelector('.set-body').appendChild(flow);
-    const sheet = { id: r.id, flow, mark: null, items: [], axis: 'v', start: 0, H: 0, flowH: 0, measured: false, masks: [], sig: r.id === 'dock' ? this.dockSig() : '' };
+    const sheet = { id: r.id, flow, mark: null, items: [], axis: 'v', start: 0, H: 0, flowH: 0, measured: false, masks: [], more: [], sig: r.id === 'dock' ? this.dockSig() : '' };
     this.building = sheet;
     const spec = this['rub_' + r.id](flow);
     this.building = null;
     sheet.items = spec.items; sheet.axis = spec.axis || 'v'; sheet.start = typeof spec.start === 'number' ? spec.start : 0;
+    sheet.more = spec.more || [];
     sheet.mark = el('i', 'set-focus');
     flow.appendChild(sheet.mark);
     this.sheets[r.id] = sheet;
+    if (!lazy) this.grow(sheet, Infinity);
     return sheet;
+  },
+  // Adds up to `n` of a sheet's pending pieces; true if some are still to come.
+  grow(sheet, n) {
+    if (!sheet.more.length) return false;
+    this.building = sheet;
+    sheet.more.splice(0, n).forEach((add) => add());
+    this.building = null;
+    return sheet.more.length > 0;
   },
   dockSig() { const c = getConfig(); return JSON.stringify([c.dock, c.hidden]); },
   useSheet(sheet, keep) {
     this.cur = sheet;
     Object.values(this.sheets).forEach((x) => x.flow.classList.toggle('is-away', x !== sheet));
-    sheet.flow.classList.remove('is-warming');
     sheet.flow.style.transform = `translateY(${this.listOff}px)`;
     this.scrollList = sheet.flow;
     this.items = sheet.items; this.axis = sheet.axis;
@@ -507,36 +563,28 @@ export default {
   },
 
   setMask(m, src) { m.style.webkitMaskImage = `url("${src}")`; m.classList.add('is-set'); },
-  // A sheet's logos get their pictures once it shows, a few per frame.
+  // A sheet's logos get their pictures once it shows, one per frame (MASKS_PER_STEP).
   flushMasks(sheet) {
     const root = this.root;
     const step = () => {
       if (this.root !== root || this.cur !== sheet || !sheet.masks.length) return;
-      sheet.masks.splice(0, MASKS_PER_FRAME).forEach(([m, src]) => this.setMask(m, src));
+      sheet.masks.splice(0, MASKS_PER_STEP).forEach(([m, src]) => this.setMask(m, src));
       if (sheet.masks.length) requestAnimationFrame(step);
     };
     if (sheet.masks.length) requestAnimationFrame(step);
   },
 
   // ---- Section: Home key (Free My TV's "Home Screen" row) -----------------------------------------------------
-  // One row, two answers. Giving the key back asks a confirmation (focus on "Non"); taking it asks the system,
-  // which answers with a hint (the TV's own dialog, or "press Home"). In the mock-up the row is read-only.
+  // First line, one button: « Revenir à l’accueil de la télé » (openTvHome), the plain way out. Then one row, two
+  // answers. Giving the key back from the row asks a confirmation (focus on "Non"); taking it asks the system, which
+  // answers with a hint (the TV's own dialog, or "press Home"). In the mock-up the row is read-only.
   rub_home(body) {
     const mode = Platform.homeMode();
     const mock = !Platform.isTV() || mode === 'simulated';
     const dev = Platform.device();
-    if (dev.fireTv) {               // Fire TV never hands the Home key over: no row, one honest note
-      body.appendChild(el('p', 'set-text', HOME_HINT.fire));
-      return { items: [], axis: 'v', start: 0 };
-    }
     if (dev.phone) {
       body.appendChild(el('p', 'set-text', 'Pas une télé : la touche Home n’est pas demandée.'));
       return { items: [], axis: 'v', start: 0 };
-    }
-    if (mode === 'reverted') {      // the guard gave the key back after three crashes: say so, OK asks again
-      body.appendChild(el('p', 'set-text', 'Rendue après trois pannes : la touche Home est à l’accueil d’origine.'));
-      const btns = el('div', 'set-btns'); body.appendChild(btns);
-      return { items: [this.button(btns, 'Redemander la touche Home', () => { this.takeHome(); this.later(() => this.root && this.renderRight('Redemander la touche Home'), 600, true); })], axis: 'h', start: 0 };
     }
     if (this.homeAsk) {
       body.appendChild(el('p', 'set-text set-ask', 'Rendre l’accueil d’origine ?'));
@@ -547,6 +595,15 @@ export default {
         this.button(btns, 'Non', () => { this.homeAsk = false; this.renderRight('Touche Home'); }),
       ];
       return { items, axis: 'h', start: 1 };
+    }
+    const out = this.tvHomeButton(body, mode);
+    if (dev.fireTv) {               // Fire TV never hands the Home key over: no row, one honest note
+      body.appendChild(el('p', 'set-text', HOME_HINT.fire));
+      return { items: [out], axis: 'v', start: 0 };
+    }
+    if (mode === 'reverted') {      // the guard gave the key back after three crashes: say so, OK asks again
+      body.appendChild(el('p', 'set-text', 'Rendue après trois pannes : la touche Home est à l’accueil d’origine.'));
+      return { items: [out, this.button(body, 'Redemander la touche Home', () => { this.takeHome(); this.later(() => this.root && this.renderRight('Redemander la touche Home'), 600, true); })], axis: 'v', start: 0 };
     }
     // `homePending`: the key was asked for and the system has not answered yet (the row shows the wish, the
     // message band the hint); the 'poudlard:home' event then repaints the truth.
@@ -561,7 +618,21 @@ export default {
       row.key = (a) => (a === 'left' ? 'exit' : (a === 'right' || a === 'ok') ? nudge() : false);
     }
     body.appendChild(el('div', 'set-note set-note-dim', 'Rien n’est désactivé sur la télé : désinstaller Poudlard TV rend toujours la touche Home à l’accueil d’origine.'));
-    return { items: [row], axis: 'v', start: 0 };
+    return { items: [out, row], axis: 'v', start: 0 };
+  },
+  // The way-out button and its note, read with it (measure: `note`). One press, no confirmation: nothing is lost,
+  // Poudlard TV stays in the app list and the row below takes the key again.
+  tvHomeButton(body, mode) {
+    const out = this.button(body, TV_HOME, () => {
+      const r = openTvHome(mode);
+      if (mode === 'simulated' || !Platform.isTV()) { this.nudge(out.el); this.say(r.text); return; }
+      if (r.ok) this.ctx.fx.whoosh();
+      this.renderRight(TV_HOME);        // the row below now says who holds the key
+      this.say(r.text);
+    });
+    out.note = el('div', 'set-note set-note-dim', TV_HOME_NOTE(mode));
+    body.appendChild(out.note);
+    return out;
   },
   takeHome() {
     const r = Platform.setHome('poudlard');
@@ -625,12 +696,16 @@ export default {
       if (this.sealed.has(a.id)) row.appendChild(el('i', 'set-rowseal wax-seal is-sealed'));   // kept seals survive the re-render
       return row;
     };
-    onDock.forEach((a, n) => { const row = mk(a, n); list.appendChild(row); items.push({ id: a.id, el: row, key: (k) => this.dockKey(a.id, k, row) }); });
-    const head2 = el('div', 'set-list-head');
-    head2.appendChild(el('span', null, 'Dans la Carte du Maraudeur'));
-    list.appendChild(head2);
-    others.forEach((a) => { const row = mk(a, -1); list.appendChild(row); items.push({ id: a.id, el: row, key: (k) => this.dockKey(a.id, k, row) }); });
-    return { items, axis: 'v', start: 0 };
+    // The rows come as pieces (buildSheet `more`), in list order: ROWS_PER_STEP per idle moment when prepared in the background.
+    const add = (a, pos) => { const row = mk(a, pos); list.appendChild(row); items.push({ id: a.id, el: row, key: (k) => this.dockKey(a.id, k, row) }); };
+    const pieces = onDock.map((a, n) => () => add(a, n));
+    pieces.push(() => {
+      const head2 = el('div', 'set-list-head');
+      head2.appendChild(el('span', null, 'Dans la Carte du Maraudeur'));
+      list.appendChild(head2);
+    });
+    others.forEach((a) => pieces.push(() => add(a, -1)));
+    return { items, axis: 'v', start: 0, more: pieces };
   },
   dockKey(id, action, row) {
     const c = getConfig();
@@ -983,9 +1058,11 @@ export default {
     const id = RUBRIQUES[this.rub].id;
     put(a, 'Ligne');
     if (this.axis === 'h') show(spans[0], false);                 // nothing to say for up and down: left out, never "Nothing"
-    put(b, id === 'dock' ? 'Poser · Retirer' : id === 'house' ? 'Choisir' : id === 'tv' ? 'Ouvrir' : (id === 'classic' || id === 'about') ? 'Valider' : 'Changer');
-    // Third key: what Left / Right do here. A list of buttons (TV screens, About) only goes back with Left, as Back does.
-    show(spans[2], !(id === 'tv' || id === 'about'));
+    // The hint follows the focused line: a button (the way back to the TV's home, the TV screens) opens, and has no value.
+    const it = this.items && this.items[this.row], btn = Boolean(it && it.el && it.el.classList.contains('set-btn'));
+    put(b, id === 'dock' ? 'Poser · Retirer' : id === 'house' ? 'Choisir' : (id === 'tv' || (btn && id === 'home')) ? 'Ouvrir' : (id === 'classic' || id === 'about') ? 'Valider' : 'Changer');
+    // Third key: what Left / Right do here. A button (TV screens, About, the way home) only goes back with Left, as Back does.
+    show(spans[2], !(id === 'tv' || id === 'about' || btn));
     put(c, id === 'dock' ? 'Rang' : this.axis === 'h' ? 'Choisir' : 'Valeur');
     put(d, 'Rubriques');
   },

@@ -27,9 +27,6 @@
 .olv-captions, .olv-help { position: absolute; left: 0; right: 0; z-index: 6; pointer-events: none; }
 .olv-captions { top: 0; }
 .olv-help { bottom: 0; height: 4cqw; }
-/* "OK long : ...": the help line's place, only after a moment on a film (ollivanders.js dwell). */
-.keyhint.olv-long { opacity: 0; transition: opacity calc(var(--k) * 300ms) linear; }
-.keyhint.olv-long.is-on { opacity: .75; }
 
 /* The caption, a museum label over the shelves: the film first, the app under it, quietly. One title per film and one
    sub-line per distinct text, all typeset at mount, each its own small layer: a move changes nothing but opacities. The titles

@@ -90,9 +90,9 @@ function decodeParchment() {
   }
   return parchmentP;
 }
-const MASKS_PER_FRAME = 2;   // a logo's SVG document is parsed when its mask gets its style, on the main thread
+const MASKS_PER_FRAME = 1;   // a logo's SVG document is parsed when its mask gets its style, on the main thread: one per frame
+const FRAME_PROBES = ['map-cell', 'map-cell map-add-cell'];   // the two classes whose ::before carries a frame picture (map.css)
 const KEY_QUIET_MS = 300;    // no mask in the frames right after a key
-let liveTv = null;           // the TV has a tuner: asked once (a bridge call, a synchronous trip to another process), it does not change
 const facesLoaded = (faces) => { try { return Boolean(document.fonts) && faces.every((f) => document.fonts.check(f)); } catch (e) { return false; } };
 // Nothing of the Map is held before it opens (memory: the parchment is 6 MB decoded, every logo a parsed SVG document): the parchment
 // is decoded from the key, off the main thread, and has the time of the slide before it shows; the logos' masks come one row per
@@ -244,6 +244,15 @@ export default {
     await ctx.slice();
     if (this.root !== root) return;
     this.drawSky();
+    // The pieces' frames are two SVG pictures (map.css): each one is a small document, built on the main thread in the style pass
+    // that first asks for it (about 20 ms at CPU x4). Each gets a frame of its own, on a probe nothing draws, before any row
+    // needs it; the probes stay until the mount is over, so that the documents are not let go in between.
+    const probes = FRAME_PROBES.map((cls) => { const p = document.createElement('div'); p.className = `${cls} map-probe`; return p; });
+    for (const p of probes) {
+      await ctx.slice();
+      if (this.root !== root) return;
+      root.querySelector('.map-sheet').appendChild(p);
+    }
     await Promise.all([ctx.slice(), facesLoaded(MAP_FACES) ? null : fontsReady(MAP_FACES, 600)]);
     if (this.root !== root) return;
     // The lines in IM Fell are written once their fonts are there: one layout, not a fallback one and then another.
@@ -288,6 +297,7 @@ export default {
     await ctx.slice(); await ctx.slice();
     if (this.root !== root) return;
     rowsHost.classList.remove('is-warm');
+    probes.forEach((p) => p.remove());
     this.built = true;
     if (this.arriveWanted) arrive();
   },
@@ -374,8 +384,7 @@ export default {
       return { id, name: named ? named.name : p.label, cat: 'passage', input: p.id, port: p.port, connected: p.connected,
         onDock: cfg.dock.includes(id), hidden: cfg.hidden.includes(id) };
     });
-    if (liveTv === null) liveTv = Platform.hasLiveTv();
-    if (liveTv) list.push({ id: 'tv', name: 'Télé', cat: 'passage', live: true, connected: true, onDock: false, hidden: false });
+    if (Platform.hasLiveTv()) list.push({ id: 'tv', name: 'Télé', cat: 'passage', live: true, connected: true, onDock: false, hidden: false });
     return list;
   },
 
@@ -645,7 +654,7 @@ export default {
       if (!rw.el) return;
       const out = i < this.top || i >= this.top + ROWS_VISIBLE;
       rw.el.classList.toggle('is-out', out);
-      if (!out) { rw.el.classList.remove('is-far'); this.fillRow(i); }
+      if (!out) { rw.el.classList.remove('is-far'); if (this.built) this.fillRow(i); }   // while mounting, mount() fills them one per frame
     });
     this.root.querySelector('.map-more.up').classList.toggle('is-on', this.top > 0);
     this.root.querySelector('.map-more.down').classList.toggle('is-on', this.top + ROWS_VISIBLE < this.rows.length);

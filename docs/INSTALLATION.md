@@ -78,7 +78,7 @@ The actions return `{ ok, error }`: a failure shows a Howler (Beuglante) on scre
 
 **What the Java bridge exposes on top** (`android/src/fr/wavia/poudlardtv/Bridge.java`): `installedApps()` (packages with the labels the TV gives them), `appIcon(pkg)` (the app's banner or icon as a data URI, or `null`), `setHome('poudlard' | 'original')` (the home switch described below), `homeMode()`, `openSystem(key, arg)` (the TV's own settings screens, and an app's system page), `inputs()` (the HDMI ports with their CEC names), `hasLiveTv()` / `liveTv()`, `store()`, `fatal()`, `device()` and `version()`. The details of each return value are in `android/README.md`.
 
-> **The Settings screen.** The mock-up's first section, « Accueil de la télé », holds the « Touche Home » row (Poudlard TV / Accueil d'origine) wired to `setHome()`; the second, « Réglages de la télé », opens the TV's own screens. In a desktop browser both only write a note: there is no TV behind it.
+> **The Settings screen.** The mock-up's first section, « Accueil de la télé », holds the « Revenir à l'accueil de la télé » button (`setHome('original')`, one press) and the « Touche Home » row (Poudlard TV / Accueil d'origine), both wired to `setHome()`; the second, « Réglages de la télé », opens the TV's own screens. In a desktop browser both only write a note: there is no TV behind it.
 
 ### What the APK does not ask for
 
@@ -143,7 +143,7 @@ Try it first on a Google TV dongle or a secondary device before the main televis
 Five paths, from the gentlest to the most radical. None requires resetting the TV.
 
 1. **Classic mode**, without leaving Poudlard TV: hold Back for 2 s from any screen → « Nox ? » → Yes. A sober home screen, same apps, no scenery. The same gesture lights Poudlard up again.
-2. **« Accueil d'origine »**: Salle sur Demande → Accueil de la télé → Touche Home → « Accueil d'origine » (or plain mode's « Touche Home » tile, or the rescue screen). The launcher disables its own home entry (the `.Home` alias, allowed without permission on its own components) and gives the Home key back to the home it remembered, **including a third-party launcher** such as Free My TV, then opens it. Poudlard TV stays in the app list (`.Start` alias) to come back.
+2. **« Revenir à l'accueil de la télé »** (one press, the first line of Salle sur Demande → Accueil de la télé, and the first choice of plain mode's « Touche Home » tile), or **« Accueil d'origine »** (Touche Home row, with a confirmation; or the rescue screen). The launcher disables its own home entry (the `.Home` alias, allowed without permission on its own components) and gives the Home key back to the home it remembered, **including a third-party launcher** such as Free My TV, then opens it. Poudlard TV stays in the app list (`.Start` alias) to come back.
 3. **From the computer**, without the remote: name the home you want.
    ```bash
    # the candidates (Poudlard, the TV's own launcher, any third-party launcher):

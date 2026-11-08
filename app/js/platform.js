@@ -11,8 +11,12 @@
 //   - 'failed'    the TV answered {ok:false} or did not answer at all; `error` is the sentence for the Howler
 //   - 'simulated' no bridge (the mock-up): nothing happened, the screen plays its animation alone
 //   - 'opened'    the mock-up opened the link in a new tab
-// Lists read from the TV (installed apps, HDMI inputs, banners) are cached until Platform.refresh(), which the
-// router calls before every screen mount: one bridge call per screen, never one per cell.
+// Lists read from the TV (installed apps, HDMI inputs, the tuner) are a synchronous trip to another process: up to half a second of
+// the main thread on the TV for installedApps. Only Platform.readLists() makes it, and main.js calls it in an idle moment (after the
+// boot, and a moment after the page comes back from another app). Every other read (apps(), installed(), has(), inputs(),
+// hasLiveTv()) returns what the last read found, kept in localStorage from one run to the next: no mount and no key ever waits on
+// the bridge. Before the very first read on a new TV the lists are unknown (null), and nothing is refused on a guess.
+// The apps' banners (appIcon) are read one by one, on demand, and memoised.
 
 const bridge = () => (typeof window !== 'undefined' && window.Android && typeof window.Android.launch === 'function') ? window.Android : null;
 // Allowed hosts for content links (config.js). Any other link is refused, even if it comes from storage.
@@ -57,17 +61,42 @@ function readList(b, method) {
   try { const v = JSON.parse(b[method]()); return Array.isArray(v) ? v : null; } catch (e) { return null; }
 }
 
-let appsCache;        // undefined = not read since the last refresh; null = no list; array of { pkg, label, system }
-let installedCache;   // idem for the Set of installed packages built from it
-let inputsCache;      // idem for the HDMI inputs: array of { id, port, label, connected }
+// The apps: array of { pkg, label, system }; null = no list. The HDMI inputs: array of { id, port, label, connected }, sorted by port.
+const cleanApps = (list) => (Array.isArray(list) ? list.filter((a) => a && typeof a.pkg === 'string' && PKG_RE.test(a.pkg))
+  .map((a) => ({ pkg: a.pkg, label: typeof a.label === 'string' ? a.label.trim() : '', system: Boolean(a.system) })) : null);
+const cleanInputs = (list) => (Array.isArray(list) ? list.filter((p) => p && typeof p.id === 'string' && Number.isInteger(p.port) && p.port > 0 && p.port < 100)
+  .map((p) => ({ id: p.id, port: p.port, label: typeof p.label === 'string' && p.label.trim() ? p.label.trim().slice(0, 20) : `HDMI ${p.port}`, connected: p.connected !== false }))
+  .sort((a, b) => a.port - b.port) : null);
+// The last lists read from the TV ({ apps, inputs, liveTv }), or null before the first read; `installedSet` is built from them once.
+const LISTS_KEY = 'poudlard-tv.tv-lists';
+let lists = null, installedSet;
+function setLists(v) { lists = v; installedSet = undefined; }
+// The lists of the last run, at once: a parse of a few kB, never the bridge. Only on the TV (the mock-up has no lists).
+if (bridge()) {
+  try { const v = JSON.parse(localStorage.getItem(LISTS_KEY) || 'null'); if (v && typeof v === 'object') setLists({ apps: cleanApps(v.apps), inputs: cleanInputs(v.inputs), liveTv: v.liveTv === true }); } catch (e) { /* none kept: unknown until the first read */ }
+}
 const iconCache = new Map();
 
 export const Platform = {
   isTV: () => Boolean(bridge()),
   status: (r) => (r && typeof r.status === 'string' ? r.status : 'simulated'),
 
-  // Forgets the lists read from the TV (called by the router before each mount).
-  refresh() { appsCache = undefined; installedCache = undefined; inputsCache = undefined; },
+  // Reads the lists from the TV (installed apps, HDMI inputs, the tuner) and keeps them: the only bridge trip for them, made by
+  // main.js in an idle moment. True when they changed since the last read (or since the last run). The mock-up has none.
+  readLists() {
+    const b = bridge();
+    if (!b) return false;
+    let apps = readList(b, 'installedApps');
+    if (!apps) { const pkgs = readList(b, 'installedPackages'); apps = pkgs ? pkgs.map((p) => ({ pkg: p, label: '' })) : null; }
+    let liveTv = false;
+    try { liveTv = typeof b.hasLiveTv === 'function' && String(b.hasLiveTv()) === 'true'; } catch (e) { liveTv = false; }
+    const next = { apps: cleanApps(apps), inputs: cleanInputs(readList(b, 'inputs')), liveTv };
+    const was = JSON.stringify(lists), now = JSON.stringify(next);
+    setLists(next);
+    if (was === now) return false;
+    try { localStorage.setItem(LISTS_KEY, now); } catch (e) { /* storage full or unavailable: read again next run */ }
+    return true;
+  },
 
   // Launches an app (package) or switches to its HDMI input.
   launch(app) {
@@ -112,22 +141,13 @@ export const Platform = {
     return this.launch(app);
   },
 
-  // The apps actually installed, with the label the TV gives them: [{ pkg, label, system }], or null in the mock-up.
-  apps() {
-    if (appsCache !== undefined) return appsCache;
-    const b = bridge();
-    let list = readList(b, 'installedApps');
-    if (!list) { const pkgs = readList(b, 'installedPackages'); list = pkgs ? pkgs.map((p) => ({ pkg: p, label: '' })) : null; }
-    appsCache = list ? list.filter((a) => a && typeof a.pkg === 'string' && PKG_RE.test(a.pkg))
-      .map((a) => ({ pkg: a.pkg, label: typeof a.label === 'string' ? a.label.trim() : '', system: Boolean(a.system) })) : null;
-    return appsCache;
-  },
-  // Set of installed packages (the mock-up says "all": null). Cached until refresh(), like apps().
+  // The apps actually installed, with the label the TV gives them: [{ pkg, label, system }], as the last readLists() found them;
+  // null in the mock-up, or before the first read.
+  apps() { return lists ? lists.apps : null; },
+  // Set of installed packages (null: unknown, "all" in the mock-up), built once per read.
   installed() {
-    if (installedCache !== undefined) return installedCache;
-    const a = this.apps();
-    installedCache = a ? new Set(a.map((x) => x.pkg)) : null;
-    return installedCache;
+    if (installedSet === undefined) { const a = this.apps(); installedSet = a ? new Set(a.map((x) => x.pkg)) : null; }
+    return installedSet;
   },
   installedPackages() { return this.installed(); },
   // Is this app on this TV? true in the mock-up (no list), for an HDMI input or the live TV (no package), and when
@@ -139,16 +159,10 @@ export const Platform = {
     return !inst || inst.has(String(app.pkg));
   },
 
-  // The TV's HDMI ports: [{ id, port, label, connected }] sorted by port, or null in the mock-up.
-  inputs() {
-    if (inputsCache !== undefined) return inputsCache;
-    const list = readList(bridge(), 'inputs');
-    inputsCache = list ? list.filter((p) => p && typeof p.id === 'string' && Number.isInteger(p.port) && p.port > 0 && p.port < 100)
-      .map((p) => ({ id: p.id, port: p.port, label: typeof p.label === 'string' && p.label.trim() ? p.label.trim().slice(0, 20) : `HDMI ${p.port}`, connected: p.connected !== false }))
-      .sort((a, b) => a.port - b.port) : null;
-    return inputsCache;
-  },
-  hasLiveTv() { const b = bridge(); try { return Boolean(b && typeof b.hasLiveTv === 'function' && String(b.hasLiveTv()) === 'true'); } catch (e) { return false; } },
+  // The TV's HDMI ports: [{ id, port, label, connected }] sorted by port, as last read; null in the mock-up or before the first read.
+  inputs() { return lists ? lists.inputs : null; },
+  // The TV has a tuner (the Map's "Télé" passage), as last read.
+  hasLiveTv() { return Boolean(lists && lists.liveTv); },
   liveTv() { const b = bridge(); return b && typeof b.liveTv === 'function' ? call('liveTv', []) : simulated(); },
 
   // The app's banner as a data URI (TV only), memoised; null when the TV has none.

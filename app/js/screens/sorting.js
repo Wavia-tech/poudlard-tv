@@ -80,7 +80,7 @@ export default {
 
   async mount(root, ctx) {
     this.mounts += 1;
-    this.root = root; this.ctx = ctx; this.timers = []; this.done = false; this.turning = false; this.armed = false;
+    this.root = root; this.ctx = ctx; this.timers = []; this.done = false; this.turning = false; this.armed = false; this.seenOffer = false;
     this.only = Boolean(ctx.params && ctx.params.only);
     this.reduced = isReduced();
     root.classList.toggle('is-reduced', this.reduced);
@@ -90,12 +90,11 @@ export default {
     this.kept = c.firstRunDone ? c.dock.filter(isKept) : [];
     this.room = Math.max(1, DOCK_MAX - this.kept.length);
     this.buildOffer(c);
-    const offered = new Set(this.offer.map((a) => a.id));
     // Sounds are on for a new TV: the cues and the background music start with the first gesture (the owner's
     // wish); the "Sons" row of page III, or the Parapet's Sound button, turns them off.
     this.d = c.firstRunDone
-      ? { house: c.house, dock: c.dock.filter((id) => !isKept(id) && offered.has(id)), owl: c.owl, sounds: c.sounds }
-      : { house: null, dock: PRESET.filter((id) => offered.has(id)).slice(0, PRESET_COUNT), owl: 'vive', sounds: true };
+      ? { house: c.house, dock: this.draftDock(c), owl: c.owl, sounds: c.sounds }
+      : { house: null, dock: this.draftDock(c), owl: 'vive', sounds: true };
     root.innerHTML = `
       <div class="sort-room">
         <div class="sort-stars"></div>
@@ -119,6 +118,19 @@ export default {
 
   unmount() { this.mounts = Math.max(0, this.mounts - 1); if (this.mounts > 0) return; this.timers.forEach(clearTimeout); this.timers = []; this.grid = []; this.offer = []; this.extras = new Map(); this.root = null; },
 
+  // The ticks page II starts with: the parapet's spells that are offered (the Letter relaunched), or the preset (a new TV).
+  draftDock(c) {
+    const offered = new Set(this.offer.map((a) => a.id));
+    return c.firstRunDone ? c.dock.filter((id) => !isKept(id) && offered.has(id)) : PRESET.filter((id) => offered.has(id)).slice(0, PRESET_COUNT);
+  },
+  // The TV's lists were read (main.js, in an idle moment: on a new TV, the first read comes a moment after the Letter opens). Until
+  // page II has been shown, its offer and its ticks follow them; afterwards they stay as the person saw them.
+  listsRead() {
+    if (!this.root || this.only || this.page > 0 || this.seenOffer) return;
+    const c = getConfig();
+    this.buildOffer(c);
+    this.d.dock = this.draftDock(c);
+  },
   // Page II's list. TV: the installed catalog apps (catalog order), then the TV's other apps by label; mock-up: the catalog.
   buildOffer(c) {
     const catalog = allApps().filter((a) => a.cat !== 'passage' && !a.custom);
@@ -234,6 +246,7 @@ export default {
 
   // Page II: the spells (parapet apps).
   page1(sheet, line) {
+    this.seenOffer = true;
     line(el('h2', 'sort-title', 'Vos sortilèges'));
     line(el('p', 'sort-text', `Cochez jusqu’à ${DOCK_MAX} applis, dans l’ordre du parapet.`));
     if (this.kept.length) {

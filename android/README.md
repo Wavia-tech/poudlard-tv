@@ -149,8 +149,12 @@ Advice taken from the project README: try on a Google TV dongle first, before th
 Three paths, from the gentlest to the most radical. None of them touches other apps. The labels are those of the
 mock-up's Salle sur Demande → Accueil de la télé section.
 
-1. **From Poudlard TV**: Salle sur Demande → Accueil de la télé → Touche Home : **« Accueil d'origine »** (a confirmation,
-   focus on « Non »). The launcher disables its own HOME entry point (the `.Home` alias) and opens the home it recorded
+1. **From Poudlard TV**, in one press: Salle sur Demande → Accueil de la télé → **« Revenir à l'accueil de la télé »**,
+   the section's first line (plain mode: first choice of its « Touche Home » tile). It is `setHome("original")` with no
+   confirmation: if Poudlard holds the Home key, the HOME entry point is closed and the key goes back; then the TV's own
+   home opens (the recorded original, else the system TV launcher, `HomeMode.originalHome`). If Poudlard does not hold
+   the key, it only opens that home. Or, with a confirmation (focus on « Non »), the row below it: Touche Home :
+   **« Accueil d'origine »**. The launcher disables its own HOME entry point (the `.Home` alias) and opens the home it recorded
    when it took the key, a third-party launcher included; the Home key goes back there. Poudlard TV stays in the app
    list to come back later (same row, « Poudlard TV »). Plain mode has the same choice on its « Touche Home » tile, and
    the rescue screen (Back held 6 s) its « Accueil d'origine » button.
@@ -171,6 +175,18 @@ mock-up's Salle sur Demande → Accueil de la télé section.
 3. **Uninstall**: `adb uninstall fr.wavia.poudlardtv`. Home goes back to the homes the TV had before; there is nothing
    else to clean up.
 
+**Back from an app.** Back from Netflix, YouTube… lands on Poudlard only when Poudlard **is** the home (Touche Home :
+« Poudlard TV »). While the Home key belongs to the TV's launcher, Back from an app may land on that launcher. It is
+not the way apps are started: Android 11's own rule (AOSP `android11-release`, `ActivityRecord.finishIfPossible` →
+`Task.adjustFocusToNextFocusableTask`, `ActivityStack.resumeNextFocusableActivityWhenStackIsEmpty`) gives the focus to
+the next visible task below the one that closes, which is Poudlard's, and sends the system home in front of a task only
+when that task was started with `FLAG_ACTIVITY_TASK_ON_HOME` (`Task.returnsToHomeStack`), which Poudlard never sets.
+`excludeFromRecents` does not remove Poudlard's task while it sits above the system home either (`RecentTasks.isTrimmable`).
+What sends you to the TV's launcher is the app leaving by the HOME intent, or the TV doing it: then the only cure is
+being that home. Field reports from another non-default launcher say the same (Projectivy: Back from apps returns to
+the stock launcher until it is the real home). Apps are started from `HomeActivity` itself when on the main thread
+(`Apps.starter()`, as Launcher3 does), the application context otherwise; to be checked on the TV, app by app.
+
 And the safeguard: if the home crashes **three times in five minutes**, it hands over to the original home
 on its own and shows a plain screen with two buttons: « Ouvrir l'accueil d'origine » (open the original home) and « Réessayer Poudlard TV » (retry Poudlard TV)
 (which clears the counter and reopens the interface, without reopening the HOME entry point: you have to set « Touche Home :
@@ -186,13 +202,13 @@ why nothing opened on the first device test.
 
 | Method | Returns | Note |
 |---|---|---|
-| `launch(pkg)` | `{"ok":true}` or `{"ok":false,"error":"…"}` | Leanback, then phone fallback; `FLAG_ACTIVITY_RESET_TASK_IF_NEEDED`; the error says plainly when the app is not installed |
+| `launch(pkg)` | `{"ok":true}` or `{"ok":false,"error":"…"}` | Leanback, then phone fallback; `FLAG_ACTIVITY_NEW_TASK \| FLAG_ACTIVITY_RESET_TASK_IF_NEEDED`, started from `HomeActivity` (main thread); the error says plainly when the app is not installed |
 | `switchInput("HDMI 1")` | same | `TvContract.buildChannelUriForPassthroughInput`; readable error if the TV does not respond; **to test**: one switch per HDMI port on the target TV (the port number is read from the input id, otherwise the n-th port in the TV's order) |
 | `openUrl(url, pkg)` | same | https and allow-listed host only (`Apps.URL_HOSTS`, identical to `platform.js`, canalplus.com included); in the app `pkg`; otherwise on `pkg`'s home screen; never anywhere else |
 | `installedPackages()` | `["com.netflix.ninja", …]` | `LEANBACK_LAUNCHER` then `LAUNCHER` (without system apps), deduplicated |
 | `appIcon(pkg)` | `"data:image/png;base64,…"` or `null` | Leanback banner (384x216), otherwise icon centred on a night background; in-memory cache |
 | `setHome("poudlard")` | `{"ok":true,"hint":"…"}` | records the current default home, enables the HOME entry point and clears the safeguard; `hint` says which instruction to show: `held`, `role` (the TV's dialog is on screen), `settings` ("choose in the screen that opens"), `press-home` ("press Home and choose Poudlard TV, then Always"), `fire` |
-| `setHome("original")` | `{"ok":true}` or `{"ok":false,"error":"…"}` | see "Going back" |
+| `setHome("original")` | `{"ok":true,"hint":"launched"}` (`"press-home"` when no home could be opened) | closes the HOME entry point and opens the original home; also what « Revenir à l'accueil de la télé » calls; see "Going back" |
 | `homeMode()` | `"poudlard"`, `"original"` or `"reverted"` | to show the state in the settings |
 | `version()` | the `versionName`, e.g. `"0.3"` | |
 

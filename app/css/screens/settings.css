@@ -60,20 +60,22 @@ html[data-text="grand"] .set-rubs { top: 9.2cqw; --rub-pad: .34cqw; }
 .set-rtitle { flex: none; font-family: var(--display); font-weight: 600; font-size: var(--t-title); letter-spacing: .12em; text-transform: uppercase; color: var(--ink); line-height: 1.1; }
 .set-rsub { flex: none; margin-top: .5cqw; font-family: var(--fell); font-style: italic; font-size: var(--t-hint); line-height: 1.25; color: var(--ink); opacity: .75; }
 .set-body { position: relative; flex: 1; min-height: 0; margin-top: .8cqw; overflow: hidden; }
-/* A section's sheet: one in view; the others keep their layout, out of the way (settings.js). */
-.set-flow { position: absolute; left: 0; right: 0; top: 0; padding: .4cqw 0; will-change: transform; transition: transform calc(var(--k) * var(--t-settle)) var(--ease-arrive); }
-/* Hidden by opacity and content-visibility, not visibility: visibility is inherited, so changing it restyles every line of the sheet
-   (78 ms of the 187 ms of a section's move at CPU x6), and a sheet that stays a layer is not one more layer to make when it shows. */
-.set-flow.is-warming { opacity: 0; }
-.set-flow.is-away { opacity: 0; content-visibility: hidden; }
+/* A section's sheet: one in view; the others keep their layout and their paint, out of sight (settings.js). */
+.set-flow { position: absolute; left: 0; right: 0; top: 0; padding: .4cqw 0; will-change: transform, opacity; transition: transform calc(var(--k) * var(--t-settle)) var(--ease-arrive); }
+/* Hidden by opacity alone, on the sheet's own layer: showing it again changes one composited value and paints nothing. Not
+   visibility, which is inherited: changing it restyles every line of the sheet (78 ms of the 187 ms of a section's move at CPU x6).
+   Not content-visibility either: it throws the paint away, and the sheet was painted again at every visit (its logos' SVG pictures
+   too: 56 to 98 ms for the parapet list at 4x). `will-change: opacity` keeps its effect node, so the change is a composited value. */
+.set-flow.is-away { opacity: 0; }
 /* The refusal or confirmation message: outside the sliding sheet, at the bottom of the body, always visible and
    whole (as many lines as the sentence needs). A parchment veil separates it from the lines passing underneath. */
 .set-msg { position: absolute; left: 0; right: 0; bottom: 0; z-index: 2; padding: 1cqw .9cqw .3cqw;
   font-family: var(--fell); font-style: italic; font-size: var(--t-hint); line-height: 1.3; color: var(--wax);
   background: linear-gradient(to bottom, #e8d9b500 0%, #e8d9b5f0 30%, #e8d9b5 100%); }
 .set-msg:empty { display: none; }
-/* The TV's own screens and "À propos" are long lists with nothing to show on the parapet: the preview steps aside. */
-.set-right[data-rub="tv"] .set-preview, .set-right[data-rub="about"] .set-preview { display: none; }
+/* The TV's own screens and "À propos" are long lists with nothing to show on the parapet: the preview steps aside (settings.js
+   RUBRIQUES `wide`). */
+.set-right.is-wide .set-preview { display: none; }
 
 /* What the lifted row stands on: a slip of lighter paper with a soft shadow, one layer that goes from row to row (settings.js
    sets its transform and its height; a row of another height only scales it a little). */
@@ -100,7 +102,9 @@ html[data-text="grand"] .set-rubs { top: 9.2cqw; --rub-pad: .34cqw; }
 .set-row.is-off .set-row-value { opacity: .5; }
 .set-row.is-off .set-arrow { opacity: .12; }
 /* The TV's own screens: eleven quill buttons stacked; the sheet slides to the focused one. */
-.set-body[data-rub="tv"] .set-btn { display: flex; width: 36cqw; margin: 0 0 .5cqw .9cqw; padding: .45cqw 1.6cqw; font-size: var(--t-body); }
+.set-flow[data-rub="tv"] .set-btn { display: flex; width: 36cqw; margin: 0 0 .5cqw .9cqw; padding: .45cqw 1.6cqw; font-size: var(--t-body); }
+/* The buttons of "Accueil de la télé" line up with the row and the notes under them. */
+.set-flow[data-rub="home"] > .set-btn { margin-left: .9cqw; }
 .set-note { margin: .2cqw 0 .95cqw 1.1cqw; font-family: var(--fell); font-style: italic; font-size: var(--t-hint); line-height: 1.3; color: var(--ink); opacity: .78; }
 .set-note-dim { opacity: .6; }
 .set-text { margin: 0 0 1.1cqw 1.1cqw; font-family: var(--body); font-size: var(--t-body); line-height: 1.35; color: var(--ink); max-width: 50cqw; }

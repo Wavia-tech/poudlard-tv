@@ -73,7 +73,8 @@ factory menus. For `queryIntentActivities` to see anything on Android 11+, the m
 On our side: `Apps.installedApps()` returns a JSON array of `{pkg, label, system}` with the label each app gives the
 system (`ri.loadLabel(pm)`), minus our own package, Free My TV's `FACTORY` pattern (factory, hotel and burn-in
 menus that pass the LAUNCHER query on some sets) and its `HIDDEN` list (Google TV service entries). `platform.js`
-caches it once per screen (`Platform.apps()`, `Platform.installed()`); `installedPackages()` is kept for compatibility.
+reads it in an idle moment only (`Platform.readLists()`, after the boot and when the page comes back from another app)
+and keeps it between runs (`Platform.apps()`, `Platform.installed()`); `installedPackages()` is kept for compatibility.
 The Map's "Ajouter une appli" offers these labels, eight per page.
 
 ## 4. Banners and icons

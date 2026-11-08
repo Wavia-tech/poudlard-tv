@@ -1,5 +1,6 @@
 package fr.wavia.poudlardtv;
 
+import android.app.Activity;
 import android.content.ActivityNotFoundException;
 import android.content.Context;
 import android.content.Intent;
@@ -15,6 +16,7 @@ import android.media.tv.TvInputInfo;
 import android.media.tv.TvInputManager;
 import android.net.Uri;
 import android.os.Build;
+import android.os.Looper;
 import android.provider.Settings;
 import android.util.Base64;
 import android.util.DisplayMetrics;
@@ -24,6 +26,7 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.io.ByteArrayOutputStream;
+import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -149,10 +152,13 @@ final class Apps {
     }
 
     private final Context app;
+    /** The home screen, the source of app launches made on the main thread (starter()). Weak: never keeps a destroyed activity alive. */
+    private final WeakReference<Activity> home;
     private final Map<String, String> iconCache = new HashMap<>();
 
-    Apps(Context context) {
-        this.app = context.getApplicationContext();
+    Apps(Activity activity) {
+        this.app = activity.getApplicationContext();
+        this.home = new WeakReference<>(activity);
     }
 
     static boolean validPackage(String pkg) {
@@ -274,6 +280,18 @@ final class Apps {
     }
 
     /**
+     * What an app is started from: the home activity when it is alive and the call is on the main thread (Bridge.launch
+     * posts there), as a launcher does (Launcher3 starts apps from its activity); the system then records Poudlard's
+     * activity as the launch's source. Otherwise the application context: bridge calls run on a WebView thread, and
+     * Activity.startActivity touches the window's views. Either way the app gets its own task (FLAG_ACTIVITY_NEW_TASK).
+     */
+    private Context starter() {
+        Activity a = home.get();
+        if (a == null || a.isFinishing() || a.isDestroyed() || Looper.myLooper() != Looper.getMainLooper()) return app;
+        return a;
+    }
+
+    /**
      * The name to show for a package: the label the TV gives it if installed, else a known name, else the package
      * itself (« L'appli com.example.tv »). Never empty.
      */
@@ -352,7 +370,7 @@ final class Apps {
 
     private boolean tryStart(Intent intent, String what) {
         try {
-            app.startActivity(intent);
+            starter().startActivity(intent);
             return true;
         } catch (ActivityNotFoundException | SecurityException | IllegalStateException e) {
             Log.i("could not open " + what + ": " + e.getClass().getSimpleName());
@@ -376,7 +394,7 @@ final class Apps {
     /** Starts an intent; `what` is the name shown to the person (« Netflix », « la Télé »...). */
     private String start(Intent intent, String what) {
         try {
-            app.startActivity(intent);
+            starter().startActivity(intent);
             return null;
         } catch (ActivityNotFoundException e) {
             Log.w("could not open " + what + ": " + e.getMessage());
@@ -410,7 +428,7 @@ final class Apps {
         for (Intent candidate : candidates) {
             Intent intent = new Intent(candidate).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
             try {
-                app.startActivity(intent);
+                starter().startActivity(intent);
                 return null;
             } catch (ActivityNotFoundException | SecurityException | IllegalStateException e) {
                 Log.i("settings screen " + key + ": " + e.getClass().getSimpleName() + ", next candidate");

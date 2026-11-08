@@ -69,5 +69,5 @@ pour toi.
 Toujours possible, sans ordinateur, en moins d'une minute :
 
 - **Retour maintenu 2 secondes** : écran sobre, mêmes applis, sans décor.
-- **Salle sur Demande → Accueil de la télé → Touche Home : Accueil d'origine** : la télé retrouve son écran d'accueil.
+- **Salle sur Demande → Accueil de la télé → Revenir à l'accueil de la télé** : la télé retrouve son écran d'accueil.
 - **Paramètres → Applis → Poudlard TV → Désinstaller** : il ne reste rien.

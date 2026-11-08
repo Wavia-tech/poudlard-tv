@@ -30,8 +30,9 @@
 // main frame, a style pass and a commit at every frame of the move, for all the document's animations. So each one is cancelled
 // as it ends, which changes nothing on screen (settleTransitions).
 //
-// The lists read from the TV (Platform) are not read per mount: a bridge call is a synchronous trip to another process,
-// about 170-280 ms on the TV (installedApps). main.js has them read again when the page comes back from another app.
+// The lists read from the TV (Platform) are never read by a mount: a bridge call is a synchronous trip to another process,
+// up to half a second on the TV (installedApps). main.js has them read in an idle moment, after the boot and when the page
+// comes back from another app; the screens use the last ones read.
 // A navigation asked for while another move plays waits and goes right after it, the last one winning, except a pan over a
 // pan, which retargets at once from where the camera is. Once every pan is over, the camera and the layers go back to zero
 // together, which changes nothing on screen. Any other move first lets the neighbours go.

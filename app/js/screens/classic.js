@@ -21,7 +21,7 @@ import { Input } from '../input.js';
 import { LOGOS } from '../../assets/logos.js';
 import { monogram, logoBox } from '../monogram.js';
 import { beuglante } from '../beuglante.js';
-import { HOME_MODES, HOME_HINT, HOME_NOTE_MOCK, TV_SCREENS, TV_ONLY, ARROW, timeK, frames } from './settings.js';
+import { HOME_MODES, HOME_HINT, HOME_NOTE_MOCK, TV_HOME, openTvHome, TV_SCREENS, TV_ONLY, ARROW, timeK, frames } from './settings.js';
 
 const COLS = 6;                 // tiles per visual row (the CSS grid has the same column count)
 const BANNER_MS = 1200;          // "Ouverture de X" banner in the mockup
@@ -373,14 +373,21 @@ export default {
     else if (r.status === 'failed') this.msg = beuglante(this.root, { message: r.error });   // the TV's own sentence, whole
   },
 
-  // The "Touche Home" tile: who answers the Home key (Platform.setHome, hints from settings.js).
+  // The "Touche Home" tile: « Revenir à l'accueil de la télé » first (openTvHome, as in the Room of Requirement),
+  // then who answers the Home key (Platform.setHome, hints from settings.js).
   async homeMenu(it) {
     const rappeltout = await loadRappeltout();
     if (!rappeltout || this.busy) return;
     const mode = Platform.homeMode();
     if (mode === 'simulated') { this.say(HOME_NOTE_MOCK); return; }
-    const choice = await this.ask(rappeltout, it, 'Touche Home', HOME_MODES.map(([id, label]) => ({ id, label: mode === id ? `${label} · actuel` : label })));   // no ● glyph: the fonts lack it
+    const choice = await this.ask(rappeltout, it, 'Touche Home', [{ id: 'tv', label: TV_HOME },
+      ...HOME_MODES.map(([id, label]) => ({ id, label: mode === id ? `${label} · actuel` : label }))]);   // no ● glyph: the fonts lack it
     if (!choice) return;
+    if (choice === 'tv') {
+      const o = openTvHome(mode);
+      if (o.ok) this.say(o.text); else this.msg = beuglante(this.root, { message: o.text });
+      return;
+    }
     const r = Platform.setHome(choice);
     if (r.status === 'failed') { this.msg = beuglante(this.root, { message: r.error }); return; }
     this.say(choice === 'original' ? 'La touche Home revient à l’accueil d’origine.' : (HOME_HINT[r.hint] || HOME_HINT['press-home']));

@@ -108,23 +108,37 @@ document.addEventListener('visibilitychange', () => {
   if (document.hidden) { clearTimeout(idleTimer); releaseAll(null); }
   else { Input.flush(); armIdle(); readListsSoon(); Router.wake(); }
 });
-// The lists read from the TV (installed apps, HDMI inputs) are a synchronous trip to another process: about 170-280 ms of the main
-// thread on the TV (Bridge.installedApps), the anonymous long tasks of the profiler. So no mount and no key reads them. They can only
-// change while another app has the screen, so they are read again once, a moment after the page comes back; until then the old
-// lists stand. The Parapet stays mounted through the pans and behind the Map: it is told, in a task of its own.
-const LISTS_AFTER_MS = 1500;
-let listsTimer = 0;
-function readListsSoon() {
+// The lists read from the TV (installed apps, HDMI inputs, the tuner) are a synchronous trip to another process: up to half a second
+// of the main thread on the TV (Bridge.installedApps, 494 ms measured on the first call). So no mount and no key reads them: the
+// screens use the lists of the last read, kept from one run to the next (platform.js). They are read in an idle moment once the
+// boot is over (and the sound armed), and again a moment after the page comes back from another app, the only time they can change.
+// When they did change, the Parapet (mounted, parked behind the Map, or standing ready one pan away) and the screen in place are
+// told, each in a task of its own.
+const LISTS_AFTER_MS = 1500;     // after the Lumos boot, or after the page came back
+const LISTS_FIRST_MS = 2500;     // the other first screens (the Letter, classic mode)
+const LISTS_MAX_MS = 6000;       // a boot that never reports
+let listsTimer = 0, listsDone = false;
+function readListsSoon(ms = LISTS_AFTER_MS) {
   clearTimeout(listsTimer);
   listsTimer = setTimeout(() => {
     const read = () => {
       if (document.hidden) return;
-      Platform.refresh(); Platform.installed(); Platform.inputs();
-      setTimeout(() => { try { SCREENS.home.listsRead(); } catch (e) { console.error('lists', e); } }, 0);
+      listsDone = true;
+      if (!Platform.readLists()) return;
+      const told = new Set();
+      [SCREENS.home, Router.activeScreen()].forEach((s) => {
+        if (!s || told.has(s) || typeof s.listsRead !== 'function') return;
+        told.add(s);
+        setTimeout(() => { try { s.listsRead(); } catch (e) { console.error('lists', e); } }, 0);
+      });
     };
     if (typeof requestIdleCallback === 'function') requestIdleCallback(read, { timeout: 1500 }); else read();
-  }, LISTS_AFTER_MS);
+  }, ms);
 }
+if (config.firstRunDone && config.mode !== 'classique') {
+  window.addEventListener('poudlard:booted', () => { if (!listsDone) readListsSoon(); }, { once: true });
+  readListsSoon(LISTS_MAX_MS);
+} else readListsSoon(LISTS_FIRST_MS);
 
 // Memory pressure: the Android shell relays onTrimMemory as a 'poudlard:trim' window event (detail: { level }, the
 // ComponentCallbacks2 level when known). The effects drop their particles and canvas backing; the active screen

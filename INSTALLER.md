@@ -62,7 +62,7 @@ activer les options pour les développeurs et le débogage ADB ? ». « Débogag
 ## Revenir comme avant
 
 - **Retour maintenu 2 secondes** : écran sobre.
-- **Salle sur Demande → Accueil de la télé → Touche Home : Accueil d'origine** : ta télé retrouve son accueil.
+- **Salle sur Demande → Accueil de la télé → Revenir à l'accueil de la télé** : ta télé retrouve son accueil.
 - **Paramètres → Applis → Poudlard TV → Désinstaller** : il ne reste rien.
 
 Après l'installation, tu peux désactiver le débogage USB : Poudlard TV n'en a pas besoin.

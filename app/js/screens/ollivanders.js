@@ -34,7 +34,7 @@ const TITLES_PER_SLICE = 3;    // a title is one line to shape
 export default () => ({
   // The router shows this window at once if the camera outruns its mount: the picture is opaque, the rest comes on top.
   progressive: true,
-  root: null, ctx: null, items: [], i: 0, busy: false, timers: [], ready: null, sprites: [], titles: [], subs: new Map(), subOn: null, helpTimer: 0, dwellTimer: 0,
+  root: null, ctx: null, items: [], i: 0, busy: false, timers: [], ready: null, sprites: [], titles: [], subs: new Map(), subOn: null, helpTimer: 0,
 
   async mount(root, ctx) {
     this.root = root; this.ctx = ctx; this.timers = []; this.busy = false; this.subs = new Map(); this.subOn = null;
@@ -54,11 +54,11 @@ export default () => ({
     root.innerHTML = `
       <div class="olv-scene" style="--rest-s:${(1 / rise.scale).toFixed(6)};--rest-y:${(rise.lift / W * 100).toFixed(4)}cqw"><img class="olv-bg" alt="" decoding="sync"></div>
       <div class="olv-captions pan-fade"></div>
-      <div class="olv-help pan-fade"><div class="keyhint olv-nav"><span class="olv-hint-up"><b>▲</b>${prev ? '' : 'Parapet'}</span>${next ? '<span class="olv-hint-next"><b>▼</b></span>' : ''}</div><div class="keyhint olv-long"></div></div>
+      <div class="olv-help pan-fade"><div class="keyhint olv-nav"><span class="olv-hint-up"><b>▲</b>${prev ? '' : 'Parapet'}</span>${next ? '<span class="olv-hint-next"><b>▼</b></span>' : ''}</div></div>
       <div class="olv-dim"></div>`;
     this.scene = coll.scene; this.sceneEl = root.querySelector('.olv-scene'); this.captions = root.querySelector('.olv-captions');
     this.sprites = new Array(this.items.length).fill(null); this.titles = new Array(this.items.length).fill(null); this.decodes = [];
-    this.nav = root.querySelector('.olv-nav'); this.long = root.querySelector('.olv-long');
+    this.nav = root.querySelector('.olv-nav');
     if (next) root.querySelector('.olv-hint-next').append(next.title);
     if (prev) root.querySelector('.olv-hint-up').append(prev.title);
     const bg = root.querySelector('.olv-bg');
@@ -148,28 +148,21 @@ export default () => ({
     });
   },
 
-  // The camera is coming: the help line for a moment (ollivanders.css), then only what the viewer needs when he stays.
+  // The camera is coming: the help line for a moment (ollivanders.css), then the picture alone.
   onEnter() { this.showHelp(); },
   // The camera leaves.
-  onLeave() { clearTimeout(this.helpTimer); clearTimeout(this.dwellTimer); },
+  onLeave() { clearTimeout(this.helpTimer); },
 
   showHelp() {
-    clearTimeout(this.helpTimer); clearTimeout(this.dwellTimer);
-    this.long.classList.remove('is-on');
+    clearTimeout(this.helpTimer);
     this.nav.classList.remove('hidden');
-    this.helpTimer = setTimeout(() => { if (this.root) { this.nav.classList.add('hidden'); this.dwell(); } }, HELP_MS);
-  },
-  // After a moment on a film: the other apps that open it, in the help line, for a moment. Never while the viewer moves.
-  dwell() {
-    clearTimeout(this.dwellTimer);
-    if (this.long.classList.contains('is-on')) this.long.classList.remove('is-on');
-    if (!this.nav.classList.contains('hidden')) return;
+    this.helpTimer = setTimeout(() => { if (this.root) this.nav.classList.add('hidden'); }, HELP_MS);
   },
 
   // The layers are taken down and the shop's pictures let go (their decoded copies and GPU tiles are freed now, not
   // at the next garbage collection).
   unmount() {
-    this.timers.forEach(clearTimeout); this.timers = []; clearTimeout(this.helpTimer); clearTimeout(this.dwellTimer);
+    this.timers.forEach(clearTimeout); this.timers = []; clearTimeout(this.helpTimer);
     this.pick = null; this.pickEl = null; this.pickSig = ''; this.ready = null; this.sprites = []; this.titles = []; this.subs = new Map(); this.decodes = [];
     const r = this.root; this.root = null;
     if (r) { r.querySelectorAll('img').forEach((im) => im.removeAttribute('src')); r.textContent = ''; }
@@ -210,7 +203,6 @@ export default () => ({
     this.sprite(n).classList.add('is-focus'); this.title(n).classList.add('is-on');
     this.i = n;
     this.refreshCaption();
-    this.dwell();
   },
 
   // The film's sub-line says what is true now (the app chosen, lent or not, what the TV has installed): a text not seen
