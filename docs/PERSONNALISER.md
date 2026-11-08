@@ -22,7 +22,8 @@ Ce qu'il change sur Google TV, pour être clair : il devient l'écran d'accueil 
 
 - Une télé **Google TV, Android TV, LG (webOS 3 ou plus) ou Samsung (Tizen)**. Pas d'Apple TV. Le détail :
   [`docs/TELEVISEURS.md`](TELEVISEURS.md).
-- Un ordinateur sur le même Wi-Fi, avec l'application **Claude** et un abonnement payant (Claude Code). Sur Windows,
+- Un ordinateur sur le même Wi-Fi, avec l'application **Claude** et un abonnement payant, environ 20 € par mois (Claude Pro pour Claude Code, ou
+  ChatGPT Plus pour Codex). Sur Windows,
   installe aussi [Git](https://git-scm.com/download/win).
 - Le **mode développeur** activé sur la télé :
   - Google TV / Android TV : comme pour Poudlard TV ([`docs/TELEVISEURS.md`](TELEVISEURS.md)), débogage USB activé.

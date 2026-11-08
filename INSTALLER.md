@@ -9,8 +9,9 @@ Compte **20 minutes**. Tout est réversible : ta télé peut revenir comme avant
    Fire TV récents. Vérifie la tienne dans [`docs/TELEVISEURS.md`](docs/TELEVISEURS.md) avant tout.
    Pas compatible ? Un boîtier Google TV branché en HDMI fait l'affaire sur n'importe quelle télé.
 2. **Un ordinateur** (Windows ou Mac) **sur le même Wi-Fi** que la télé. Il ne sert que pendant l'installation.
-3. **Pour la méthode avec Claude** : un abonnement Claude payant (Pro ou plus), car Claude Code n'est pas dans
-   l'offre gratuite. Sans abonnement, suis la méthode « Sans Claude Code » plus bas.
+3. **Un abonnement payant à une IA qui code, environ 20 € par mois** : Claude Pro (pour Claude Code), ou ChatGPT
+   Plus (pour Codex, avec les mêmes messages). Les versions gratuites ne peuvent pas installer d'appli sur une télé.
+   Un mois suffit : Poudlard TV continue de marcher après. Sans abonnement, suis la méthode « Sans Claude Code » plus bas.
 
 ## Étape 1 : active le mode développeur sur la télé
 
