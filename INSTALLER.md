@@ -17,10 +17,10 @@ Compte **20 minutes**. Tout est réversible : ta télé peut revenir comme avant
 1. Paramètres → **Système → À propos** (ou **Préférences de l'appareil → À propos**).
 2. Appuie **7 fois** sur la ligne **Build** jusqu'au message « Vous êtes maintenant développeur ».
 3. Reviens en arrière → **Options pour les développeurs** → active **Débogage USB**.
-4. Paramètres → **Réseau et Internet** → ton Wi-Fi : note l'**adresse IP** (du genre `192.168.1.42`).
 
-Les menus exacts de chaque marque : [`docs/TELEVISEURS.md`](docs/TELEVISEURS.md). Ça ne casse rien, et ça se
-désactive en un clic.
+Ton menu est différent ? Demande à Claude (même la version gratuite) : « Sur ma télé [marque et modèle], comment
+activer les options pour les développeurs et le débogage ADB ? ». « Débogage USB » sert aussi par le Wi-Fi : pas de câble.
+Ça ne casse rien, et ça se désactive en un clic.
 
 ## Étape 2 : installe avec Claude (la méthode simple)
 
@@ -29,12 +29,12 @@ désactive en un clic.
    défaut) : Claude Code en a besoin pour lancer ses commandes.
 2. Crée un dossier vide, par exemple `Poudlard` sur ton bureau.
 3. Ouvre Claude, clique sur l'icône **`</>`** (Claude Code) en haut à gauche, et choisis ce dossier.
-4. Copie ce message, remplace ce qui est entre crochets, et envoie-le :
+4. Envoie ce message, avec le modèle de ta télé :
 
-   > Installe Poudlard TV sur ma télé en suivant le guide
-   > https://github.com/Wavia-tech/poudlard-tv/blob/main/docs/POUR-CLAUDE.md
-   > Ma télé : [marque et modèle]. Son adresse IP : [192.168.1.42].
-   > Je suis débutant : explique-moi chaque étape simplement.
+   > Installe Poudlard TV sur ma télé [marque et modèle] : github.com/Wavia-tech/poudlard-tv
+   > Je suis débutant, explique-moi simplement ce que je dois faire sur la télé.
+
+   Pas besoin de l'adresse IP : Claude trouve la télé sur ton réseau.
 
 5. Claude installe ce qu'il faut, télécharge l'appli et la met sur ta télé. Il te demande la permission avant chaque
    action : clique **Autoriser**.
@@ -87,4 +87,5 @@ est dans [`docs/POUR-CLAUDE.md`](docs/POUR-CLAUDE.md), section 5.
 
 ## Et ensuite : ta propre interface
 
-Star Wars, Seigneur des Anneaux, tes photos de famille : [`docs/PERSONNALISER.md`](docs/PERSONNALISER.md).
+Star Wars, Seigneur des Anneaux, tes photos de famille : pars de Free My TV et transforme-le en parlant à Claude,
+[`docs/PERSONNALISER.md`](docs/PERSONNALISER.md).

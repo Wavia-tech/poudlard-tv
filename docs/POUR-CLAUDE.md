@@ -31,10 +31,22 @@ ni Git) et qu'elle n'a jamais ouvert un terminal. Le guide pour humains est `INS
 
 ## 2. Mode développeur et adresse IP
 
-Guide-la avec le tableau « Activer le mode développeur » de `docs/TELEVISEURS.md`. Si son modèle a des menus
-différents, cherche sur le web « *marque modèle* options développeur débogage USB » et donne-lui le chemin exact.
-Il te faut à la fin : le **débogage USB activé** (et le débogage sans fil s'il existe) et l'**adresse IP** de la télé.
-L'ordinateur et la télé doivent être sur le **même réseau Wi-Fi** (ou la même box).
+Le guide pour humains lui a déjà fait faire « 7 fois sur Build » puis « Débogage USB activé ». Vérifie-le avec elle.
+Si son modèle a des menus différents, cherche sur le web « *marque modèle* options développeur débogage USB » et
+donne-lui le chemin exact. Sur Android TV, c'est bien **Débogage USB** qui ouvre adb, y compris par le réseau
+(port 5555) : pas de câble. Fire TV l'appelle « Débogage ADB », Nvidia Shield « Débogage réseau ».
+
+**Ne lui demande pas l'adresse IP : trouve-la toi-même.** L'ordinateur et la télé doivent être sur le même réseau
+(même box). Dans l'ordre :
+
+1. `adb mdns services` : liste les télés qui annoncent le débogage sans fil (Android 11 et plus).
+2. Sinon, cherche sur le réseau local les appareils qui répondent sur le port 5555 : trouve l'adresse et le
+   masque de l'ordinateur (`ipconfig` sous Windows, `ipconfig getifaddr en0` sous Mac), puis teste chaque adresse
+   du même sous-réseau avec un délai court (PowerShell : `System.Net.Sockets.TcpClient` avec `ConnectAsync` et
+   200 ms d'attente ; Mac et Linux : `nc -z -G 1` ou `nc -z -w 1`). Si plusieurs répondent, `adb connect` sur
+   chacune et `adb shell getprop ro.product.model` pour reconnaître la sienne.
+3. Si rien ne répond (télé en veille, réseau invité, Wi-Fi différent), alors seulement, demande-lui l'adresse :
+   Paramètres → Réseau et Internet → son Wi-Fi.
 
 ## 3. Installer adb sur l'ordinateur (sans droits administrateur)
 
@@ -118,7 +130,7 @@ Par la commande, si l'écran de choix ne vient pas : `adb shell pm enable fr.wav
 
 1. Montre-lui les issues de secours, et fais-les essayer une fois :
    - **Retour maintenu 2 secondes** → « Nox ? » → écran sobre, et retour au décor par le même geste ;
-   - **Salle sur Demande → Accueil de la télé → Touche Home : Accueil d'origine** → la télé retrouve son accueil.
+   - **Salle sur Demande → Accueil de la télé → Revenir à l'accueil de la télé** → la télé retrouve son accueil.
 2. `adb disconnect`.
 3. Dis-lui qu'elle peut **désactiver le débogage USB** maintenant : Poudlard TV n'en a pas besoin pour fonctionner.
 4. Pour les films d'Ollivander : ils s'ouvrent dans Canal+ (la version d'origine). Pour les changer, ou pour

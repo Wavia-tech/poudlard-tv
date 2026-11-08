@@ -37,9 +37,11 @@ Ce qu'il change sur Google TV, pour être clair : il devient l'écran d'accueil 
 2. Ouvre Claude → icône **`</>`** (Claude Code) → choisis ce dossier.
 3. Envoie ce message, en remplaçant ce qui est entre crochets :
 
-   > Installe Free My TV (github.com/simbasjungles/free-my-tv) sur ma télé [marque et modèle] à l'adresse
-   > [192.168.1.42]. J'habite à [Nantes]. Mets-le en français. Je suis débutant : explique-moi chaque étape
-   > simplement et demande-moi avant chaque action sur la télé.
+   > Installe Free My TV sur ma télé [marque et modèle] : github.com/simbasjungles/free-my-tv
+   > J'habite à [Nantes]. Mets-le en français. Je suis débutant, explique-moi simplement ce que je dois faire sur
+   > la télé.
+
+   Pas besoin de lui donner l'adresse IP : il trouve la télé sur ton réseau.
 
 4. Claude télécharge le code, installe les outils (Java, les outils Android), construit l'appli et la met sur ta
    télé. Clique **Autoriser** quand il te le demande.
@@ -80,17 +82,15 @@ Pour les images (un décor, un personnage), demande à Claude de te dire exactem
 1920 × 1080 pour un fond), puis génère-les ou prends des images dont tu as les droits. Pas d'images des films : elles
 appartiennent aux studios.
 
-## 4. Aller plus loin : un univers complet comme Poudlard
+## 4. Ton univers complet
 
-Poudlard TV est construit autrement : en pages web (HTML), avec un décor en plusieurs couches, une chouette animée,
-une vitrine de films. C'est plus facile à transformer en un tout autre univers. Dans un nouveau dossier, demande :
+Toujours dans Free My TV, décris l'univers que tu veux, et laisse Claude proposer puis construire étape par étape :
 
-> Clone github.com/Wavia-tech/poudlard-tv. Lis docs/GUIDE.md. Je veux la même chose dans l'univers [Star Wars] :
-> [le pont d'un vaisseau à la place du château, un droïde à la place de la chouette, la collection de films dans une
-> salle d'hologrammes]. Montre-moi d'abord le résultat sur l'ordinateur avant de toucher à la télé.
+> Transforme Free My TV en interface [Star Wars] : propose-moi un décor de fond, des couleurs, une police et une
+> petite animation quand je change d'appli. Une chose à la fois, et montre-moi chaque étape sur la télé.
 
-Claude te montre l'interface dans le navigateur de ton ordinateur, tu corriges avec lui, et seulement ensuite il
-construit l'appli et l'installe (`INSTALLER.md` pour l'installation).
+Garde Free My TV comme base : c'est un projet suivi, testé sur beaucoup de télés, et qui sait revenir à l'accueil
+d'origine. Poudlard TV n'est qu'un exemple de ce qu'on peut obtenir.
 
 ## Revenir comme avant
 
