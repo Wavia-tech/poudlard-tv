@@ -502,8 +502,8 @@ export default {
     const el = this.root.querySelector('.home-crest'); if (!el) return;
     this.houseShown = c.house || null;
     el.innerHTML = '';
-    if (h) mountCrest(el, c.house, 'home-crest-svg');
-    el.classList.toggle('show', Boolean(h));
+    void h;   // no crest is shown any more (8 Nov 2026): the house only tints the wax, when an old setting holds one
+    el.classList.toggle('show', false);
   },
 
   unmount() {

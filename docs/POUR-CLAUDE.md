@@ -115,7 +115,7 @@ Lance l'appli :
 adb shell am start -n fr.wavia.poudlardtv/.Start
 ```
 
-La **Lettre d'admission** s'ouvre sur la télé (maison, applis, chouette, moins d'une minute, tout à la
+La **Lettre d'admission** s'ouvre sur la télé (applis, chouette, moins d'une minute, tout à la
 télécommande). À la dernière page, « Les issues de secours » :
 
 - **Faire de Poudlard l'accueil** : la télé affiche sa propre fenêtre de confirmation, il faut choisir Poudlard TV.

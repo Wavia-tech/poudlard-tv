@@ -23,7 +23,6 @@ const RUBRIQUES = [
   { id: 'home', label: 'Accueil de la télé', title: 'La touche Home', sub: 'Revenir à l’accueil de la télé, ou choisir qui répond à la touche Home.' },
   { id: 'tv', label: 'Réglages de la télé', title: 'La télé elle-même', sub: 'Ses propres menus : image, son, réseau, télécommandes. Poudlard n’y change rien.', wide: true },
   { id: 'dock', label: 'Parapet et applis', title: 'Le Parapet', sub: 'OK pose ou retire une appli ; Gauche et Droite changent son rang ; OK maintenu la cache dans la Carte.' },
-  { id: 'house', label: 'Maison', title: 'Votre maison', sub: 'La cire, la bougie et le liseré prennent sa couleur.' },
   { id: 'owl', label: 'Chouette et sons', title: 'Hedwige', sub: 'Elle est le curseur du parapet. Les sons sont des clochettes ; la musique joue en fond.' },
   { id: 'motion', label: 'Mouvement et énergie', title: 'Mouvement', sub: 'Pour une télé qui rame, ou pour les yeux fatigués.' },
   { id: 'idle', label: 'Veille', title: 'Nox', sub: 'Sans touche, le château s’endort et seule l’heure veille.' },
@@ -936,7 +935,7 @@ export default {
       // Double confirmation: the label changes twice before wiping. Back, Left or Menu cancel at any time.
       this.resetStep += 1;
       const label = b.querySelector('span');
-      if (this.resetStep === 1) { label.textContent = 'Tout effacer ? OK pour confirmer'; this.writeIn(label); note.textContent = 'Maison, parapet, chouette, veille : tout revient à l’état neuf.'; this.writeIn(note); return; }
+      if (this.resetStep === 1) { label.textContent = 'Tout effacer ? OK pour confirmer'; this.writeIn(label); note.textContent = 'Parapet, chouette, veille : tout revient à l’état neuf.'; this.writeIn(note); return; }
       if (this.resetStep === 2) { label.textContent = 'Dernière fois : OK efface tout'; this.writeIn(label); b.classList.add('set-btn-nox'); return; }
       resetConfig();
       this.resetStep = 0; this.sealed.clear();

@@ -25,7 +25,9 @@ const CUSTOM_MAX = 12;                      // same cap as sanitize() in config.
 const OFFER_MAX = 24;                       // page II: four rows of six at most
 const OWL = [['vive', 'Vive'], ['calme', 'Calme'], ['absente', 'Absente']];
 const YESNO = [[true, 'Oui'], [false, 'Non']];
-const STEPS = ['I · La maison', 'II · Les sortilèges', 'III · Hedwige', 'IV · Les issues de secours'];
+// Page 0 (the house) is no longer shown (8 Nov 2026: no house choice, no crest): the Letter opens on page 1.
+const FIRST = 1;
+const STEPS = ['', 'I · Les sortilèges', 'II · Hedwige', 'III · Les issues de secours'];
 const LAST = STEPS.length - 1;
 // The four ways out, [key, effect]: a two-column table, each effect on one line at TV size.
 const EXITS = [
@@ -109,7 +111,7 @@ export default {
         <div class="keyhint"><span><b>${ARROWS_ALL}</b><em>Choisir</em></span><span><b>OK</b><em></em></span><span><b>Retour</b><em>Page précédente</em></span></div>
       </div>`;
     this.paintSeal();
-    this.page = this.only ? clamp(Number(ctx.params.page) || 0, 0, LAST) : 0;
+    this.page = this.only ? clamp(Number(ctx.params.page) || FIRST, FIRST, LAST) : FIRST;
     if (this.only) root.querySelector('.sort-foot').style.display = 'none';   // one page alone: Back returns, nothing is saved
     this.render();
     requestAnimationFrame(() => { if (this.root === root) root.classList.add('is-open'); });
@@ -126,7 +128,7 @@ export default {
   // The TV's lists were read (main.js, in an idle moment: on a new TV, the first read comes a moment after the Letter opens). Until
   // page II has been shown, its offer and its ticks follow them; afterwards they stay as the person saw them.
   listsRead() {
-    if (!this.root || this.only || this.page > 0 || this.seenOffer) return;
+    if (!this.root || this.only || this.page > FIRST || this.seenOffer) return;
     const c = getConfig();
     this.buildOffer(c);
     this.d.dock = this.draftDock(c);
@@ -391,7 +393,7 @@ export default {
   turn(p) {
     if (this.turning || this.done) return;
     this.turning = true;
-    this.page = clamp(p, 0, LAST);
+    this.page = clamp(p, FIRST, LAST);
     const sheet = this.root.querySelector('.sort-sheet');
     sheet.classList.add('is-leave');
     this.ctx.fx.whoosh();
@@ -474,7 +476,7 @@ export default {
     const cls = it ? it.el.className : '';
     okEm.textContent = cls.includes('sort-shield') ? 'Choisir' : cls.includes('sort-cell') ? 'Cocher' : cls.includes('sort-enum') ? 'Changer' : cls.includes('sort-lumos') ? (this.only ? 'Fermer' : 'Allumer') : 'Valider';
     const back = h.querySelectorAll('span')[2];
-    back.style.opacity = (this.page > 0 || this.only) ? '' : '0';
+    back.style.opacity = (this.page > FIRST || this.only) ? '' : '0';
     back.querySelector('em').textContent = this.only ? 'Salle sur Demande' : 'Page précédente';
   },
 
@@ -486,7 +488,7 @@ export default {
     if (this.done) return true;
     if (this.turning || this.armed) return true;
     if (this.only && (action === 'back' || action === 'home' || action === 'longback' || action === 'menu')) { this.done = true; this.ctx.router.back('fade'); return true; }
-    if (action === 'back') { if (this.page > 0) this.turn(this.page - 1); else this.nudge(this.root.querySelector('.sort-letter')); return true; }
+    if (action === 'back') { if (this.page > FIRST) this.turn(this.page - 1); else this.nudge(this.root.querySelector('.sort-letter')); return true; }
     // Long Back: the escape route leads to the "Rester en mode classique" link (never a forced exit).
     if (action === 'longback') { this.cm = 0; this.setFocus(this.grid.length - 1, 0); return true; }
     if (action === 'up') { this.moveV(-1); return true; }
