@@ -68,12 +68,12 @@ DEST="$(pwd)/$OUT/assets/web"
 echo "web        : $(find "$OUT/assets/web" -type f | wc -l | tr -d ' ') files copied ($(du -sh "$OUT/assets/web" | cut -f1))"
 LEAK="$(cd "$OUT/assets/web" && find . -type f \( -name '*.md' -o -name 'artifact.html' -o -path './tools/*' -o -name '*.py' -o -name '*.ps1' \) | head -5)"
 [ -z "$LEAK" ] || { echo "Working files in assets/web, the copy filter is broken: $LEAK" >&2; exit 1; }
-# The tracked logos, house crests and background music go into the APK on purpose (maintainer's decision, see
-# DISCLAIMER): we just list them, so the size of the APK is never a surprise.
+# The tracked logos go into the APK on purpose (maintainer's decision, see DISCLAIMER); a user's own crest pictures or
+# music file, never versioned, go in too: we just list them, so the size of the APK is never a surprise.
 NOTE=""
 [ -f "$OUT/assets/web/assets/logos.js" ] && NOTE="$NOTE logos.js"
 ls "$OUT"/assets/web/assets/crest-*.webp >/dev/null 2>&1 && NOTE="$NOTE crest-*.webp"
-MUSIC="$(find "$OUT/assets/web/assets/music" -type f 2>/dev/null | head -1)"
+MUSIC="$(find "$OUT/assets/web/assets/music" -type f 2>/dev/null | head -1 || true)"   # no music folder: none ships since 8 Nov 2026
 [ -n "$MUSIC" ] && NOTE="$NOTE music/ ($(du -sh "$OUT/assets/web/assets/music" | cut -f1))"
 [ -n "$NOTE" ] && echo "embedded   :$NOTE"
 # Fonts: app/assets/fonts/ is shipped with the rest. Without it the page asks fonts.googleapis.com, which the WebView
