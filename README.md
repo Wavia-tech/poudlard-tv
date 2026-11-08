@@ -1,5 +1,7 @@
 # Poudlard TV
 
+> **En français, pour débutants :** [installer Poudlard TV sur ta télé](INSTALLER.md) · [quelles télés sont compatibles](docs/TELEVISEURS.md) · [créer ta propre interface](docs/PERSONNALISER.md) · [guide pour l'assistant IA](docs/POUR-CLAUDE.md). L'appli prête à installer est sur la [page des versions](https://github.com/Wavia-tech/poudlard-tv/releases/latest).
+
 A TV home screen inspired by the Harry Potter universe: a castle at night, an owl that takes flight when you switch apps, a parapet where the apps sit, and a remote control that does everything.
 
 A fan-made, **unofficial** project, published by [Wavia](https://wav-ia.fr) under the MIT license, for Android TV / Google TV. It is not affiliated with Warner Bros. Discovery, Wizarding World or J.K. Rowling. See `DISCLAIMER.md`.
